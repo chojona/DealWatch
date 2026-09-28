@@ -576,22 +576,36 @@ function unwrapPayloadSchema(schema: PayloadNode): PayloadNode {
   return current;
 }
 
-/** True when the strict schema treats the key as optional rather than nullable. */
-function isOptionalPayloadField(schema: PayloadNode): boolean {
+/**
+ * True when a model-facing null is a placeholder for an omitted optional key.
+ * Required nullable fields, and optional fields that are themselves nullable,
+ * must keep null. Only optional non-nullable fields may be dropped.
+ */
+function isOptionalNonNullableField(schema: PayloadNode): boolean {
   let current = schema;
+  let optional = false;
+  let nullable = false;
   const seen = new Set<PayloadNode>();
   while (!seen.has(current)) {
     seen.add(current);
     const name = payloadTypeName(current);
-    if (name === "ZodOptional" || name === "ZodDefault") return true;
+    if (name === "ZodOptional" || name === "ZodDefault") {
+      optional = true;
+      current = current._def.innerType;
+      continue;
+    }
+    if (name === "ZodNullable") {
+      nullable = true;
+      current = current._def.innerType;
+      continue;
+    }
     if (name === "ZodLazy") current = current._def.getter();
     else if (name === "ZodEffects") current = current._def.schema;
     else if (name === "ZodBranded") current = current._def.type;
-    else if (name === "ZodNullable" || name === "ZodReadonly") {
-      current = current._def.innerType;
-    } else return false;
+    else if (name === "ZodReadonly") current = current._def.innerType;
+    else break;
   }
-  return false;
+  return optional && !nullable;
 }
 
 function payloadOptions(schema: PayloadNode): PayloadNode[] {
@@ -648,13 +662,85 @@ function stripOptionalNulls(schema: PayloadNode, value: unknown): unknown {
     const out: Record<string, unknown> = {};
     for (const [key, child] of Object.entries(value)) {
       const field = shape[key];
-      if (field && child === null && isOptionalPayloadField(field)) continue;
+      if (field && child === null && isOptionalNonNullableField(field)) continue;
       out[key] = field ? stripOptionalNulls(field, child) : child;
     }
     return out;
   }
 
   return value;
+}
+
+/**
+ * Applies the Structured Outputs boundary, then the strict schema.
+ * Model-facing nulls on optional non-nullable keys are removed first.
+ * Required nullable nulls are left in place. The strict schema is unchanged.
+ */
+export function parseModelStructuredPayload(
+  raw: unknown,
+  canonicalType?: CanonicalTermType
+): CREStructuredPayload | null {
+  if (raw == null) return null;
+  return parseStructuredPayload(coerceModelStructuredPayload(raw), canonicalType);
+}
+
+function issueLines(issues: z.ZodIssue[]): string[] {
+  const lines: string[] = [];
+  for (const issue of issues) {
+    if (issue.code === "invalid_union") {
+      const nested = [
+        ...new Set(issue.unionErrors.flatMap((error) => issueLines(error.issues))),
+      ];
+      if (nested.length > 0) {
+        lines.push(...nested);
+        continue;
+      }
+    }
+    const path = issue.path
+      .map((segment) => (typeof segment === "number" ? String(segment) : segment))
+      .join(".");
+    lines.push(path ? path + ": " + issue.message : issue.message);
+  }
+  return lines;
+}
+
+function payloadTermType(raw: unknown, canonicalType?: CanonicalTermType): string | undefined {
+  if (isPlainRecord(raw) && typeof raw.termType === "string") return raw.termType;
+  return canonicalType;
+}
+
+/**
+ * Strict-schema rejection detail for logs and eval reports.
+ * Returns null when the payload is valid. Does not include document text.
+ */
+export function describeStructuredPayloadRejection(
+  raw: unknown,
+  canonicalType?: CanonicalTermType
+): string | null {
+  if (raw == null) return "structured payload is absent";
+  const result = CREStructuredPayloadSchema.safeParse(raw);
+  const termType = payloadTermType(raw, canonicalType);
+  if (!result.success) {
+    const lines = [...new Set(issueLines(result.error.issues))].map((line) =>
+      termType && !line.startsWith(termType + ".") && !line.startsWith(termType + ":")
+        ? termType + "." + line
+        : line
+    );
+    return lines.join("; ");
+  }
+  if (
+    canonicalType !== undefined &&
+    !canonicalTypeMatchesPayload(canonicalType, result.data)
+  ) {
+    return (
+      canonicalType +
+      ".termType: expected " +
+      canonicalType +
+      ", received " +
+      result.data.termType
+    );
+  }
+  return null;
 }
 
 export function parseStructuredPayload(

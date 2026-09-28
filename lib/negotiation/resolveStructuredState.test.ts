@@ -1261,3 +1261,99 @@ test("NOT_MENTIONED when no observations exist for the canonicalType", () => {
   assert.equal(result.landlord, undefined);
   assert.deepEqual(result.sourceObservationIds, []);
 });
+
+test("one-sided PROPOSED stays PROPOSED", () => {
+  const term = makeTerm("TI_ALLOWANCE", "LANDLORD", 1, tiAllowance(120), {
+    id: "ti-proposed",
+    status: "PROPOSED",
+  });
+  const result = resolveStructuredState({
+    rounds: [makeRound("LANDLORD", 1, 1, [term])],
+    canonicalType: "TI_ALLOWANCE",
+  });
+  assert.equal(result.status, "PROPOSED");
+  assert.ok(result.landlord && !isSideConflict(result.landlord));
+});
+
+test("one-sided UNRESOLVED stays UNRESOLVED", () => {
+  const term = makeTerm("TI_ALLOWANCE", "LANDLORD", 1, tiAllowance(120), {
+    id: "ti-unresolved",
+    status: "UNRESOLVED",
+  });
+  const result = resolveStructuredState({
+    rounds: [makeRound("LANDLORD", 1, 1, [term])],
+    canonicalType: "TI_ALLOWANCE",
+  });
+  assert.equal(result.status, "UNRESOLVED");
+  const position = assertPosition(result.landlord, "Landlord");
+  assert.deepEqual(position.observationIds, ["ti-unresolved"]);
+});
+
+test("two-sided unresolved negotiation stays UNRESOLVED", () => {
+  const tenant = makeTerm("TI_ALLOWANCE", "TENANT", 1, tiAllowance(140), {
+    id: "ti-tenant",
+    status: "UNRESOLVED",
+  });
+  const landlord = makeTerm("TI_ALLOWANCE", "LANDLORD", 1, tiAllowance(100), {
+    id: "ti-landlord",
+    status: "UNRESOLVED",
+  });
+  const result = resolveStructuredState({
+    rounds: [
+      makeRound("TENANT", 1, 1, [tenant]),
+      makeRound("LANDLORD", 1, 8, [landlord]),
+    ],
+    canonicalType: "TI_ALLOWANCE",
+  });
+  assert.equal(result.status, "UNRESOLVED");
+  assert.equal(result.agreed, undefined);
+  assert.ok(result.tenant && !isSideConflict(result.tenant));
+  assert.ok(result.landlord && !isSideConflict(result.landlord));
+});
+
+test("later proposal supersedes an unresolved position", () => {
+  const unresolved = makeTerm("TI_ALLOWANCE", "LANDLORD", 1, tiAllowance(120), {
+    id: "ti-open",
+    status: "UNRESOLVED",
+  });
+  const proposed = makeTerm("TI_ALLOWANCE", "LANDLORD", 2, tiAllowance(95), {
+    id: "ti-later",
+    status: "PROPOSED",
+  });
+  const result = resolveStructuredState({
+    rounds: [
+      makeRound("LANDLORD", 1, 1, [unresolved]),
+      makeRound("LANDLORD", 2, 8, [proposed]),
+    ],
+    canonicalType: "TI_ALLOWANCE",
+  });
+  assert.equal(result.status, "PROPOSED");
+  const position = assertPosition(result.landlord, "Landlord");
+  assert.deepEqual(position.observationIds, ["ti-later"]);
+  if (position.payload.termType === "TI_ALLOWANCE") {
+    assert.equal(position.payload.amount.amount, 95);
+  }
+});
+
+test("unresolved state carries forward when a later round omits the term", () => {
+  const unresolved = makeTerm("TI_ALLOWANCE", "LANDLORD", 1, tiAllowance(120), {
+    id: "ti-carry",
+    status: "UNRESOLVED",
+  });
+  const rentOnly = makeTerm("BASE_RENT", "LANDLORD", 2, simpleRent(70), {
+    id: "rent-later",
+  });
+  const result = resolveStructuredState({
+    rounds: [
+      makeRound("LANDLORD", 1, 1, [unresolved]),
+      makeRound("LANDLORD", 2, 8, [rentOnly]),
+    ],
+    canonicalType: "TI_ALLOWANCE",
+  });
+  assert.equal(result.status, "UNRESOLVED");
+  const position = assertPosition(result.landlord, "Landlord");
+  assert.deepEqual(position.observationIds, ["ti-carry"]);
+  if (position.payload.termType === "TI_ALLOWANCE") {
+    assert.equal(position.payload.amount.amount, 120);
+  }
+});

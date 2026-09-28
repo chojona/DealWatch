@@ -9,6 +9,9 @@
  */
 
 import {
+  coerceModelStructuredPayload,
+  describeStructuredPayloadRejection,
+  parseModelStructuredPayload,
   parseStructuredPayload,
   supportsStructuredPayload,
   type CRETermType,
@@ -87,7 +90,7 @@ function roundsFromV1Scenario(
         const payload =
           supportsStructuredPayload(term.canonicalType) &&
           term.structuredPayload != null
-            ? parseStructuredPayload(
+            ? parseModelStructuredPayload(
                 term.structuredPayload,
                 term.canonicalType
               )
@@ -210,20 +213,28 @@ function scoreLiveExtraction(
         );
         continue;
       }
+      const boundaryRaw =
+        rawPayload == null ? rawPayload : coerceModelStructuredPayload(rawPayload);
       if (rawPayload != null) {
         validityTotal += 1;
-        const parsedRaw = parseStructuredPayload(
+        const parsedRaw = parseModelStructuredPayload(
           rawPayload,
           canonicalType as CanonicalTermType
         );
         if (!parsedRaw) {
           extractionPerfect = false;
+          const detail = describeStructuredPayloadRejection(
+            boundaryRaw,
+            canonicalType as CanonicalTermType
+          );
           failures.push(
             fail(
               "VALIDATION",
-              "structuredPayload failed Zod validation",
+              detail
+                ? "structuredPayload failed Zod validation: " + detail
+                : "structuredPayload failed Zod validation",
               expectedPayload.payload,
-              rawPayload
+              boundaryRaw
             )
           );
           continue;
@@ -236,18 +247,25 @@ function scoreLiveExtraction(
               validatedPayload,
               canonicalType as CanonicalTermType
             )
-          : parseStructuredPayload(
+          : parseModelStructuredPayload(
               rawPayload,
               canonicalType as CanonicalTermType
             );
       if (!parsed) {
         extractionPerfect = false;
+        const rejected = validatedPayload ?? boundaryRaw;
+        const detail = describeStructuredPayloadRejection(
+          rejected,
+          canonicalType as CanonicalTermType
+        );
         failures.push(
           fail(
             "VALIDATION",
-            "structuredPayload failed Zod validation",
+            detail
+              ? "structuredPayload failed Zod validation: " + detail
+              : "structuredPayload failed Zod validation",
             expectedPayload.payload,
-            validatedPayload ?? rawPayload
+            rejected
           )
         );
         continue;

@@ -109,7 +109,7 @@ function assertOraclePassed(id: string) {
     const details = result.typeResults
       .flatMap((t) => t.failures.map((f) => f.phase + ": " + f.description))
       .join("\n  ");
-    assert.fail(id + " oracle failed (resolver bug, not fixed in Phase 4):\n  " + details);
+    assert.fail(id + " oracle failed:\n  " + details);
   }
 }
 
@@ -235,17 +235,10 @@ test("oracle provenance never leaks pending ids", () => {
 });
 
 /**
- * DOCUMENTED RESOLVER LIMITATION (not fixed in Phase 4).
- *
- * V1 and CRE semantics: a one-sided UNRESOLVED observation (conditional TI /
- * n08) should remain UNRESOLVED.
- *
- * resolveStructuredState.deriveStatus maps any one-sided active position to
- * PROPOSED, ignoring the observation's own UNRESOLVED status. Live V2 n08
- * expectations keep status: UNRESOLVED so this surfaces as a RESOLUTION
- * failure rather than being hidden. Do not change the resolver in Phase 4.
+ * A one-sided position keeps the contributing observation's UNRESOLVED
+ * status. n08 conditional TI is the live case this guards.
  */
-test("documented resolver limitation: one-sided UNRESOLVED observation becomes PROPOSED", () => {
+test("one-sided UNRESOLVED observation stays UNRESOLVED", () => {
   const fixture: OracleFixtureInput = {
     id: "n08-unresolved-status",
     description: "n08-style one-sided UNRESOLVED TI",
@@ -283,15 +276,7 @@ test("documented resolver limitation: one-sided UNRESOLVED observation becomes P
     rounds: roundsFromOracle(fixture),
     canonicalType: "TI_ALLOWANCE",
   });
-  assert.equal(
-    actual.status,
-    "PROPOSED",
-    "resolver currently collapses one-sided UNRESOLVED to PROPOSED"
-  );
+  assert.equal(actual.status, "UNRESOLVED");
   const scored = runOracleScenario(fixture);
-  assert.equal(scored.allPassed, false, "V2 gold UNRESOLVED must not be silently rewritten");
-  assert.ok(
-    scored.typeResults[0]!.failures.some((f) => f.phase === "RESOLUTION"),
-    "failure must be attributed to RESOLUTION"
-  );
+  assert.equal(scored.allPassed, true);
 });

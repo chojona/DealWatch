@@ -35,6 +35,9 @@ import {
   TerminationRightsPayloadSchema,
   TIAllowancePayloadSchema,
   canonicalTypeMatchesPayload,
+  coerceModelStructuredPayload,
+  describeStructuredPayloadRejection,
+  parseModelStructuredPayload,
   parseStructuredPayload,
   parseStructuredPayloadOrThrow,
   supportsStructuredPayload,
@@ -1020,4 +1023,55 @@ test("seeded-deal scenario — Renewal options comparison (n10 scenario)", () =>
     assert.equal(tParsed.options[0]?.pricingMethod, "FAIR_MARKET_RENT");
     assert.equal(lParsed.options[0]?.pricingMethod, "PERCENT_OF_THEN_CURRENT");
   }
+});
+
+test("coercion drops optional null placeholders and keeps required nulls", () => {
+  const raw = {
+    termType: "FREE_RENT" as const,
+    abatement: {
+      kind: "contiguous" as const,
+      months: 3,
+      abatementType: "FULL" as const,
+      partialPct: null,
+    },
+    scope: null,
+  };
+  assert.equal(parseStructuredPayload(raw), null);
+  const coerced = coerceModelStructuredPayload(raw);
+  assert.deepEqual(coerced, {
+    termType: "FREE_RENT",
+    abatement: { kind: "contiguous", months: 3, abatementType: "FULL" },
+    scope: null,
+  });
+  const parsed = parseModelStructuredPayload(raw, "FREE_RENT");
+  assert.ok(parsed && parsed.termType === "FREE_RENT");
+  if (parsed?.termType === "FREE_RENT") assert.equal(parsed.scope, null);
+});
+
+test("strict rejection diagnostics include the payload path", () => {
+  const detail = describeStructuredPayloadRejection({
+    termType: "BASE_RENT",
+    rent: { kind: "simple", amountPerRSFYear: 50, rentStructure: null },
+  });
+  assert.match(
+    detail ?? "",
+    /BASE_RENT\.rent\.rentStructure: Expected 'NNN' \| 'GROSS' \| 'MODIFIED_GROSS' \| 'BASE_YEAR' \| 'OTHER', received null/
+  );
+  assert.equal(
+    describeStructuredPayloadRejection({
+      termType: "BASE_RENT",
+      rent: { kind: "simple", amountPerRSFYear: 50 },
+    }),
+    null
+  );
+  const escalation = describeStructuredPayloadRejection({
+    termType: "BASE_RENT",
+    rent: { kind: "simple", amountPerRSFYear: 42 },
+    inlineEscalation: null,
+  });
+  assert.match(
+    escalation ?? "",
+    /BASE_RENT\.inlineEscalation: Expected object, received null/
+  );
+  assert.doesNotMatch(escalation ?? "", /Invalid input/);
 });

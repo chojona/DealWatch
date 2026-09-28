@@ -848,8 +848,25 @@ function deriveStatus(params: {
   // Both sides have active positions but have not agreed → still open
   if (tenantResult && landlordResult) return "UNRESOLVED";
 
-  // One side has a position (other has not yet responded)
-  if (tenantResult || landlordResult) return "PROPOSED";
+  // One side has a position. Preserve UNRESOLVED only when every observation
+  // that contributed to that position is itself UNRESOLVED. A one-sided
+  // PROPOSED observation stays PROPOSED.
+  const onlySide = tenantResult ?? landlordResult;
+  if (onlySide) {
+    if (!isSideConflict(onlySide)) {
+      const ids = new Set(onlySide.observationIds);
+      const statuses = allObs
+        .filter(({ term }) => ids.has(term.id))
+        .map(({ term }) => term.status);
+      if (
+        statuses.length > 0 &&
+        statuses.every((status) => status === "UNRESOLVED")
+      ) {
+        return "UNRESOLVED";
+      }
+    }
+    return "PROPOSED";
+  }
 
   return "NOT_MENTIONED";
 }

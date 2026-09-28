@@ -63,3 +63,21 @@ Expected terms and final states live in fixtures.ts, separate from scoring. The
 matcher uses canonical type for detection and only uses value, status, and
 evidence to choose the best pairing among duplicate types. It contains no
 fixture IDs, document phrases, or special-case corrections.
+
+## V2 CRE Ontology evaluation
+
+V2 is an additive second layer. It does not change V1 gold, V1 metrics, or
+extraction/resolution behavior. Design notes:
+`evals/negotiation/v2/DESIGN.md` (also copied to
+`artifacts/cre-ontology-eval-design.md`).
+
+Offline resolver oracle (no model, no API cost):
+
+    npm run eval:negotiation:v2
+    npm run eval:negotiation:v2 -- --oracle --fixture n07-stepped-rent
+
+Live GPT-5.4 Mini V2 (also runs frozen V1; scores are printed separately):
+
+    DEALWATCH_AI_PROVIDER=openai DEALWATCH_NEGOTIATION_MODEL=gpt-5.4-mini \
+      npm run eval:negotiation:v2 -- --live
+

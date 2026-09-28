@@ -7,8 +7,9 @@
   },
   "scripts": {
     "dev": "next dev",
-    "test": "tsx --test lib/ai/*.test.ts lib/ai/negotiation/*.test.ts lib/negotiation/*.test.ts evals/negotiation/*.test.ts",
+    "test": "tsx --test lib/ai/*.test.ts lib/ai/negotiation/*.test.ts lib/negotiation/*.test.ts evals/negotiation/*.test.ts evals/negotiation/v2/*.test.ts",
     "eval:negotiation": "node --import tsx evals/negotiation/cli.ts",
+    "eval:negotiation:v2": "node --import tsx evals/negotiation/v2/cli.ts",
     "build": "next build --webpack",
     "start": "next start",
     "lint": "eslint app/ lib/ components/ types/ evals/",

@@ -1,3 +1,4 @@
+import type { CREStructuredPayload } from "@/lib/ai/negotiation/payloads";
 import type {
   CanonicalTermType,
   NegotiationExtraction,
@@ -94,6 +95,11 @@ export interface TermSnapshot {
   confidence: number;
   evidenceQuote: string;
   sourceLocation?: string;
+  /**
+   * Optional CRE structured payload. Additive for V2 live scoring.
+   * V1 metrics never read this field.
+   */
+  structuredPayload?: CREStructuredPayload | null;
 }
 
 export interface DocumentEvaluation {

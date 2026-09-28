@@ -1,5 +1,7 @@
 import Link from "next/link";
+import { ActivityTimeline } from "@/components/activity/activity-timeline";
 import { EvidencePanel } from "@/components/knowledge/evidence-panel";
+import type { ActivityPage } from "@/lib/activity/types";
 import type {
   CompanyIntelligence,
   IntelligenceAssertion,
@@ -113,7 +115,7 @@ function Header({ type, name, subtitle, details, connectionsHref }: { type: stri
   );
 }
 
-export function PersonIntelligencePage({ data }: { data: PersonIntelligence }) {
+export function PersonIntelligencePage({ data, activity }: { data: PersonIntelligence; activity: ActivityPage }) {
   const identifiers = [...data.person.identifiers.map((row) => `${row.kind}: ${row.value}`), ...data.person.externalIdentifiers.map((row) => `${row.scheme}: ${row.value}`)];
   return (
     <>
@@ -124,6 +126,7 @@ export function PersonIntelligencePage({ data }: { data: PersonIntelligence }) {
           <Section title="Deals" rows={data.deals} empty="No confirmed deal participation yet." />
           <Section title="Properties" rows={data.properties} empty="No direct confirmed property relationships exist in the canonical model." />
           <Section title="Relationships" rows={data.relationships} empty="No confirmed canonical relationships yet." />
+          <ActivityTimeline initialPage={activity} rootType="PERSON" />
         </div>
         <aside className="space-y-6"><Pending count={data.pending.count} hrefs={data.pending.reviewHrefs} /><EvidenceSection rows={data.relationships} /></aside>
       </main>
@@ -131,7 +134,7 @@ export function PersonIntelligencePage({ data }: { data: PersonIntelligence }) {
   );
 }
 
-export function CompanyIntelligencePage({ data }: { data: CompanyIntelligence }) {
+export function CompanyIntelligencePage({ data, activity }: { data: CompanyIntelligence; activity: ActivityPage }) {
   const details = [data.company.legalName && data.company.legalName !== data.company.name ? data.company.legalName : null, data.company.primaryDomain, ...data.company.identifiers.map((row) => `${row.kind}: ${row.value}`), ...data.company.externalIdentifiers.map((row) => `${row.scheme}: ${row.value}`)].filter((value): value is string => Boolean(value));
   return (
     <>
@@ -143,6 +146,7 @@ export function CompanyIntelligencePage({ data }: { data: CompanyIntelligence })
           <Section title="Properties" rows={data.properties} empty="No confirmed property relationships yet." />
           <Section title="Representation" rows={data.representation} empty="No confirmed representation relationships yet." />
           <Section title="Relationships" rows={data.relationships} empty="No confirmed canonical relationships yet." />
+          <ActivityTimeline initialPage={activity} rootType="COMPANY" />
         </div>
         <aside className="space-y-6"><Pending count={data.pending.count} hrefs={data.pending.reviewHrefs} /><EvidenceSection rows={data.relationships} /></aside>
       </main>
@@ -150,7 +154,7 @@ export function CompanyIntelligencePage({ data }: { data: CompanyIntelligence })
   );
 }
 
-export function PropertyIntelligencePage({ data }: { data: PropertyIntelligence }) {
+export function PropertyIntelligencePage({ data, activity }: { data: PropertyIntelligence; activity: ActivityPage }) {
   const details = [data.property.assetType !== "UNKNOWN" ? data.property.assetType.replaceAll("_", " ") : null, ...data.property.externalIdentifiers.map((row) => `${row.scheme}: ${row.value}`)].filter((value): value is string => Boolean(value));
   return (
     <>
@@ -161,6 +165,7 @@ export function PropertyIntelligencePage({ data }: { data: PropertyIntelligence 
           <Section title="Deals" rows={data.deals} empty="No confirmed deals point to this property yet." />
           <Section title="Deal participants" rows={data.participants} empty="No confirmed participants on this property's deals yet." note="Shown through a confirmed deal; this is not a direct property relationship." />
           <Section title="Relationships" rows={data.relationships} empty="No confirmed canonical relationships yet." />
+          <ActivityTimeline initialPage={activity} rootType="PROPERTY" />
         </div>
         <aside className="space-y-6"><Pending count={data.pending.count} hrefs={data.pending.reviewHrefs} /><EvidenceSection rows={data.relationships} /></aside>
       </main>

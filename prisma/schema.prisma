@@ -1,0 +1,80 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Deal {
+  id             String    @id @default(cuid())
+  name           String
+  company        String
+  property       String
+  estimatedValue Float?
+  stage          String
+  status         String    @default("ACTIVE")
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  threads     Thread[]
+  obligations Obligation[]
+  events      DealEvent[]
+}
+
+model Thread {
+  id           String   @id @default(cuid())
+  dealId       String
+  subject      String
+  participants String   // JSON array stored as string
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  deal     Deal      @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  messages Message[]
+}
+
+model Message {
+  id         String   @id @default(cuid())
+  threadId   String
+  sender     String
+  recipients String   // JSON array stored as string
+  sentAt     DateTime
+  body       String
+
+  thread      Thread       @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  obligations Obligation[]
+  events      DealEvent[]
+}
+
+model Obligation {
+  id           String   @id @default(cuid())
+  dealId       String
+  messageId    String?
+  owner        String
+  counterparty String?
+  description  String
+  dueAt        DateTime?
+  status       String    @default("OPEN")
+  confidence   Float
+  evidenceQuote String
+  createdAt    DateTime  @default(now())
+
+  deal    Deal     @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  message Message? @relation(fields: [messageId], references: [id])
+}
+
+model DealEvent {
+  id           String   @id @default(cuid())
+  dealId       String
+  messageId    String?
+  type         String
+  description  String
+  occurredAt   DateTime
+  confidence   Float
+  evidenceQuote String
+
+  deal    Deal     @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  message Message? @relation(fields: [messageId], references: [id])
+}

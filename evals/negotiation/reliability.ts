@@ -1,8 +1,10 @@
 import { createHash, randomUUID } from "node:crypto";
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
-import { zodResponseFormat } from "openai/helpers/zod";
-import type { NegotiationExtractorResult } from "@/lib/ai/negotiation/extractTerms";
+import {
+  negotiationTermsResponseFormat,
+  type NegotiationExtractorResult,
+} from "@/lib/ai/negotiation/extractTerms";
 import { NEGOTIATION_EXTRACTION_PROMPT } from "@/lib/ai/negotiation/prompt";
 import { NegotiationExtractionSchema } from "@/lib/ai/negotiation/schemas";
 import type { EvaluationDocument } from "./types";
@@ -32,10 +34,7 @@ function sha256(value: string) {
 }
 
 export function getExtractionContractHash() {
-  const responseFormat = zodResponseFormat(
-    NegotiationExtractionSchema,
-    "dealwatch_negotiation_terms"
-  );
+  const responseFormat = negotiationTermsResponseFormat();
   return sha256(
     JSON.stringify({
       prompt: NEGOTIATION_EXTRACTION_PROMPT,

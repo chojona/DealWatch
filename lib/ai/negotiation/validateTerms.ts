@@ -5,6 +5,7 @@ import type {
   ValidatedNegotiationTerm,
 } from "./schemas";
 import {
+  coerceModelStructuredPayload,
   parseStructuredPayload,
   supportsStructuredPayload,
 } from "./payloads";
@@ -218,7 +219,10 @@ export function validateExtractedTerms({
     const structuredPayload =
       supportsStructuredPayload(normalized.canonicalType) &&
       candidate.structuredPayload != null
-        ? parseStructuredPayload(candidate.structuredPayload, normalized.canonicalType)
+        ? parseStructuredPayload(
+            coerceModelStructuredPayload(candidate.structuredPayload),
+            normalized.canonicalType
+          )
         : null;
 
     terms.push({

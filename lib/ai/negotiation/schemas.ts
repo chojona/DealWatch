@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { ModelFacingStructuredPayloadSchema } from "./modelFacingSchema";
 import { CREStructuredPayloadSchema } from "./payloads";
 
 export const NegotiationSideSchema = z.enum(["TENANT", "LANDLORD"]);
@@ -45,9 +46,9 @@ export const NormalizedUnitSchema = z.enum([
 
 /**
  * Model-facing candidates. Nullable fields are required for Structured Outputs.
- * structuredPayload is untyped here so the JSON schema stays shallow and
- * Gemini/OpenAI structured-output enforcement stays reliable; the payload is
- * validated against the full CREStructuredPayloadSchema inside validateTerms.
+ * structuredPayload uses an OpenAI-compatible projection of the CRE payload
+ * union. validateTerms still accepts a candidate only after
+ * CREStructuredPayloadSchema succeeds.
  */
 export const NegotiationExtractionSchema = z.object({
   terms: z.array(
@@ -67,7 +68,7 @@ export const NegotiationExtractionSchema = z.object({
        * The raw value here is validated against CREStructuredPayloadSchema in
        * validateTerms before being promoted to a ValidatedNegotiationTerm.
        */
-      structuredPayload: z.unknown().nullable(),
+      structuredPayload: ModelFacingStructuredPayloadSchema.optional(),
     })
   ),
   overallConfidence: z.number(),

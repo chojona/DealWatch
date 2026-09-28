@@ -549,6 +549,114 @@ export function canonicalTypeMatchesPayload(
  *
  * Never throws. Use parseStructuredPayloadOrThrow() for strict error handling.
  */
+type PayloadNode = z.ZodTypeAny;
+
+function payloadTypeName(schema: PayloadNode): string {
+  return schema._def?.typeName ?? "";
+}
+
+function unwrapPayloadSchema(schema: PayloadNode): PayloadNode {
+  let current = schema;
+  const seen = new Set<PayloadNode>();
+  while (!seen.has(current)) {
+    seen.add(current);
+    const name = payloadTypeName(current);
+    if (name === "ZodLazy") current = current._def.getter();
+    else if (name === "ZodEffects") current = current._def.schema;
+    else if (name === "ZodBranded") current = current._def.type;
+    else if (
+      name === "ZodOptional" ||
+      name === "ZodNullable" ||
+      name === "ZodDefault" ||
+      name === "ZodReadonly"
+    ) {
+      current = current._def.innerType;
+    } else break;
+  }
+  return current;
+}
+
+/** True when the strict schema treats the key as optional rather than nullable. */
+function isOptionalPayloadField(schema: PayloadNode): boolean {
+  let current = schema;
+  const seen = new Set<PayloadNode>();
+  while (!seen.has(current)) {
+    seen.add(current);
+    const name = payloadTypeName(current);
+    if (name === "ZodOptional" || name === "ZodDefault") return true;
+    if (name === "ZodLazy") current = current._def.getter();
+    else if (name === "ZodEffects") current = current._def.schema;
+    else if (name === "ZodBranded") current = current._def.type;
+    else if (name === "ZodNullable" || name === "ZodReadonly") {
+      current = current._def.innerType;
+    } else return false;
+  }
+  return false;
+}
+
+function payloadOptions(schema: PayloadNode): PayloadNode[] {
+  const options = schema._def.options;
+  return options instanceof Map ? [...options.values()] : [...options];
+}
+
+function matchesLiteralShape(schema: PayloadNode, value: unknown): boolean {
+  const objectSchema = unwrapPayloadSchema(schema);
+  if (payloadTypeName(objectSchema) !== "ZodObject" || !isPlainRecord(value)) {
+    return false;
+  }
+  const shape = objectSchema._def.shape() as Record<string, PayloadNode>;
+  return Object.entries(shape).every(([key, field]) => {
+    const literal = unwrapPayloadSchema(field);
+    if (payloadTypeName(literal) !== "ZodLiteral") return true;
+    return value[key] === literal._def.value;
+  });
+}
+
+function isPlainRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+/**
+ * Drops nulls that Structured Outputs emits for strict-schema optional keys.
+ * Required nullable fields, including structuredPayload itself and fields such
+ * as scope, are preserved. Does not accept a payload the strict schema rejects
+ * for any other reason.
+ */
+export function coerceModelStructuredPayload(raw: unknown): unknown {
+  if (raw == null) return raw;
+  return stripOptionalNulls(CREStructuredPayloadSchema, raw);
+}
+
+function stripOptionalNulls(schema: PayloadNode, value: unknown): unknown {
+  if (value == null) return value;
+  const current = unwrapPayloadSchema(schema);
+  const name = payloadTypeName(current);
+
+  if (name === "ZodArray" && Array.isArray(value)) {
+    return value.map((item) => stripOptionalNulls(current._def.type, item));
+  }
+
+  if (name === "ZodDiscriminatedUnion" || name === "ZodUnion") {
+    const match = payloadOptions(current).find((option) =>
+      matchesLiteralShape(option, value)
+    );
+    return match ? stripOptionalNulls(match, value) : value;
+  }
+
+  if (name === "ZodObject" && isPlainRecord(value)) {
+    const shape = current._def.shape() as Record<string, PayloadNode>;
+    const out: Record<string, unknown> = {};
+    for (const [key, child] of Object.entries(value)) {
+      const field = shape[key];
+      if (field && child === null && isOptionalPayloadField(field)) continue;
+      out[key] = field ? stripOptionalNulls(field, child) : child;
+    }
+    return out;
+  }
+
+  return value;
+}
+
 export function parseStructuredPayload(
   raw: unknown,
   canonicalType?: CanonicalTermType

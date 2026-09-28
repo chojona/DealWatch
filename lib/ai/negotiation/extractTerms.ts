@@ -24,6 +24,14 @@ const GEMINI_OPENAI_BASE_URL =
 
 export type ExtractTermsInput = z.infer<typeof InputSchema>;
 
+/** Production Structured Outputs response format for negotiation extraction. */
+export function negotiationTermsResponseFormat() {
+  return zodResponseFormat(
+    NegotiationExtractionSchema,
+    "dealwatch_negotiation_terms"
+  );
+}
+
 export interface NegotiationExtractorResult {
   extraction: NegotiationExtraction;
   model: string;
@@ -84,10 +92,7 @@ async function extractNegotiationWithGeminiRequest(
         ].join("\n"),
       },
     ],
-    response_format: zodResponseFormat(
-      NegotiationExtractionSchema,
-      "dealwatch_negotiation_terms"
-    ),
+    response_format: negotiationTermsResponseFormat(),
     max_tokens: 12_000,
   });
   const extraction = completion.choices[0]?.message.parsed;
@@ -139,10 +144,7 @@ export const extractNegotiationWithOpenAIOnce: NegotiationExtractor = async (
         ].join("\n"),
       },
     ],
-    response_format: zodResponseFormat(
-      NegotiationExtractionSchema,
-      "dealwatch_negotiation_terms"
-    ),
+    response_format: negotiationTermsResponseFormat(),
     max_completion_tokens: 12_000,
   });
   const extraction = completion.choices[0]?.message.parsed;

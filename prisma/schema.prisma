@@ -113,6 +113,12 @@ model NegotiationTerm {
   evidenceQuote     String
   sourceLocation    String?
   createdAt         DateTime @default(now())
+  /// Typed CRE structured payload (JSON). Validated at the application layer
+  /// via Zod (see lib/ai/negotiation/payloads.ts). Null for legacy rows and
+  /// for term types that carry no structured representation
+  /// (PREMISES_RSF, LEASE_TERM, SECURITY_DEPOSIT, RENT_STRUCTURE,
+  /// DELIVERY_CONDITION, ASSIGNMENT_SUBLETTING). Never mutated after creation.
+  structuredPayload Json?
 
   round NegotiationRound @relation(fields: [roundId], references: [id], onDelete: Cascade)
 

@@ -34,6 +34,7 @@ model Deal {
   entityObservations EntityObservation[]
   relationshipObservations RelationshipObservation[] @relation("RelationshipObservationDeal")
   relationshipObservationContexts RelationshipObservation[] @relation("RelationshipObservationContextDeal")
+  relationshipPromotions RelationshipPromotion[]
 
   @@index([workspaceId])
   @@index([propertyId])
@@ -61,6 +62,13 @@ enum DocumentIngestionStatus {
   FAILED
 }
 
+/// Graph observation extraction is independent of negotiation analysis.
+enum GraphExtractionStatus {
+  NOT_RUN
+  SUCCEEDED
+  FAILED
+}
+
 enum EvidenceProvenanceStatus {
   EXACT
   AMBIGUOUS
@@ -84,6 +92,9 @@ model Document {
   /// Relative storage key. Never an absolute filesystem path.
   storageKey       String
   pageCount        Int?
+  graphExtractionStatus GraphExtractionStatus @default(NOT_RUN)
+  graphFailureCode      String?
+  graphFailureReason    String?
   createdAt        DateTime                @default(now())
   updatedAt        DateTime                @updatedAt
 
@@ -92,6 +103,7 @@ model Document {
   negotiationRounds NegotiationRound[]
   entityObservations EntityObservation[]
   relationshipObservations RelationshipObservation[]
+  graphExtractionRuns GraphExtractionRun[]
 
   @@unique([dealId, sha256])
   @@index([dealId, createdAt])
@@ -358,6 +370,26 @@ enum ResolutionLinkStatus {
   SUPERSEDED
 }
 
+/// Review state for a proposed identity. Acceptance is never automatic.
+enum ResolutionCandidateDecision {
+  PENDING
+  ACCEPTED
+  REJECTED
+}
+
+/// Human review of one relationship observation. Absence of a row means the
+/// observation is still pending or blocked. Blocked is computed from endpoint
+/// resolution and is not stored, so it cannot go stale.
+enum RelationshipPromotionDecision {
+  APPROVED
+  REJECTED
+}
+
+/// No authenticated user exists. This is a manual review source, not an account.
+enum PromotionActor {
+  MANUAL_REVIEW
+}
+
 enum MergeEntityType {
   PERSON
   COMPANY
@@ -389,6 +421,9 @@ model Workspace {
   employments                  Employment[]
   propertyStakes               PropertyStake[]
   dealParticipations           DealParticipation[]
+  graphExtractionRuns          GraphExtractionRun[]
+  resolutionCandidates         EntityResolutionCandidate[]
+  relationshipPromotions       RelationshipPromotion[]
 
   @@index([firmCompanyId])
 }
@@ -415,6 +450,7 @@ model Person {
   participations DealParticipation[]
   externalIdentifiers ExternalIdentifier[]
   resolutionLinks EntityResolutionLink[]
+  resolutionCandidates EntityResolutionCandidate[]
 
   @@index([workspaceId, status])
   @@index([mergedIntoPersonId])
@@ -473,6 +509,7 @@ model Company {
   representedIn     DealParticipation[]   @relation("ParticipationPrincipal")
   externalIdentifiers ExternalIdentifier[]
   resolutionLinks   EntityResolutionLink[]
+  resolutionCandidates EntityResolutionCandidate[]
 
   @@index([workspaceId, status])
   @@index([workspaceId, primaryDomain])
@@ -532,6 +569,7 @@ model Property {
   deals       Deal[]
   externalIdentifiers ExternalIdentifier[]
   resolutionLinks EntityResolutionLink[]
+  resolutionCandidates EntityResolutionCandidate[]
 
   @@index([workspaceId, status])
   @@index([workspaceId, city, region])
@@ -604,9 +642,11 @@ model EntityObservation {
   extractionConfidence Float?
   extractor           String
   extractorVersion    String
+  graphExtractionRunId String?
   createdAt           DateTime                  @default(now())
 
   workspace    Workspace     @relation(fields: [workspaceId], references: [id])
+  graphExtractionRun GraphExtractionRun? @relation(fields: [graphExtractionRunId], references: [id], onDelete: Restrict)
   deal         Deal?         @relation(fields: [dealId], references: [id], onDelete: Restrict)
   document     Document?     @relation(fields: [documentId], references: [id], onDelete: Restrict)
   documentPage DocumentPage? @relation(fields: [documentPageId], references: [id], onDelete: Restrict)
@@ -618,6 +658,7 @@ model EntityObservation {
   relationshipSubjects RelationshipObservation[] @relation("RelationshipSubject")
   relationshipObjects RelationshipObservation[] @relation("RelationshipObject")
   relationshipPrincipals RelationshipObservation[] @relation("RelationshipPrincipal")
+  resolutionCandidates EntityResolutionCandidate[]
 
   @@index([workspaceId, observedType, normalizedName])
   @@index([workspaceId, email])
@@ -626,6 +667,7 @@ model EntityObservation {
   @@index([dealId])
   @@index([documentId])
   @@index([messageId])
+  @@index([graphExtractionRunId])
 }
 
 /// Immutable relationship claim. Endpoints are observations, not canonical ids.
@@ -656,9 +698,11 @@ model RelationshipObservation {
   extractionConfidence   Float?
   extractor              String
   extractorVersion       String
+  graphExtractionRunId   String?
   createdAt              DateTime               @default(now())
 
   workspace            Workspace            @relation(fields: [workspaceId], references: [id])
+  graphExtractionRun   GraphExtractionRun?  @relation(fields: [graphExtractionRunId], references: [id], onDelete: Restrict)
   subjectObservation   EntityObservation    @relation("RelationshipSubject", fields: [subjectObservationId], references: [id], onDelete: Restrict)
   objectObservation    EntityObservation?   @relation("RelationshipObject", fields: [objectObservationId], references: [id], onDelete: Restrict)
   principalObservation EntityObservation?   @relation("RelationshipPrincipal", fields: [principalObservationId], references: [id], onDelete: Restrict)
@@ -673,6 +717,7 @@ model RelationshipObservation {
   employmentSupports   EmploymentSupport[]
   propertyStakeSupports PropertyStakeSupport[]
   dealParticipationSupports DealParticipationSupport[]
+  promotion RelationshipPromotion?
 
   @@index([workspaceId, predicate])
   @@index([subjectObservationId])
@@ -681,6 +726,36 @@ model RelationshipObservation {
   @@index([documentPageId])
   @@index([documentId])
   @@index([dealId])
+  @@index([graphExtractionRunId])
+}
+
+/// One immutable observation set for a document, extractor contract, and model.
+/// A later extractor version inserts a new run. It does not overwrite an earlier one.
+model GraphExtractionRun {
+  id                 String                @id @default(cuid())
+  workspaceId        String
+  documentId         String
+  extractor          String
+  extractorVersion   String
+  model              String
+  status             GraphExtractionStatus
+  failureCode        String?
+  failureReason      String?
+  entityCount        Int                   @default(0)
+  relationshipCount  Int                   @default(0)
+  rejectedCount      Int                   @default(0)
+  diagnostics        Json?
+  createdAt          DateTime              @default(now())
+  completedAt        DateTime?
+
+  workspace                Workspace                 @relation(fields: [workspaceId], references: [id])
+  document                 Document                  @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  entityObservations       EntityObservation[]
+  relationshipObservations RelationshipObservation[]
+
+  @@unique([documentId, extractor, extractorVersion, model])
+  @@index([workspaceId])
+  @@index([documentId])
 }
 
 model ObservationDisposition {
@@ -735,12 +810,48 @@ model EntityResolutionLink {
   person      Person?           @relation(fields: [personId], references: [id])
   company     Company?          @relation(fields: [companyId], references: [id])
   property    Property?         @relation(fields: [propertyId], references: [id])
+  resolutionCandidate EntityResolutionCandidate?
 
   @@index([entityObservationId, status])
   @@index([personId])
   @@index([companyId])
   @@index([propertyId])
   @@index([workspaceId])
+}
+
+/// Proposed identity for one observation. Phase 7B stores the proposal and the
+/// human decision. It does not create canonical entities, aliases, or edges.
+/// Exactly one of the candidate foreign keys is set. Create-new is not a row.
+model EntityResolutionCandidate {
+  id                  String                      @id @default(cuid())
+  workspaceId         String
+  entityObservationId String
+  candidatePersonId   String?
+  candidateCompanyId  String?
+  candidatePropertyId String?
+  score               Float
+  features            Json
+  positiveReasons     Json
+  negativeReasons     Json
+  temporalNotes       Json
+  decision            ResolutionCandidateDecision @default(PENDING)
+  decisionReason      String?
+  createdAt           DateTime                    @default(now())
+  decidedAt           DateTime?
+  resolutionLinkId    String?                     @unique
+
+  workspace      Workspace              @relation(fields: [workspaceId], references: [id])
+  observation    EntityObservation      @relation(fields: [entityObservationId], references: [id])
+  person         Person?                @relation(fields: [candidatePersonId], references: [id])
+  company        Company?               @relation(fields: [candidateCompanyId], references: [id])
+  property       Property?              @relation(fields: [candidatePropertyId], references: [id])
+  resolutionLink EntityResolutionLink?  @relation(fields: [resolutionLinkId], references: [id])
+
+  @@index([workspaceId, entityObservationId, decision])
+  @@index([entityObservationId])
+  @@index([candidatePersonId])
+  @@index([candidateCompanyId])
+  @@index([candidatePropertyId])
 }
 
 model CanonicalMerge {
@@ -779,6 +890,7 @@ model Employment {
   person    Person              @relation(fields: [personId], references: [id])
   company   Company             @relation(fields: [companyId], references: [id])
   supports  EmploymentSupport[]
+  promotions RelationshipPromotion[]
 
   @@index([workspaceId, companyId, status])
   @@index([workspaceId, personId, status])
@@ -816,6 +928,7 @@ model PropertyStake {
   company   Company                @relation(fields: [companyId], references: [id])
   property  Property               @relation(fields: [propertyId], references: [id])
   supports  PropertyStakeSupport[]
+  promotions RelationshipPromotion[]
 
   @@index([workspaceId, propertyId, predicate, status])
   @@index([workspaceId, companyId, predicate, status])
@@ -858,6 +971,7 @@ model DealParticipation {
   company    Company?                    @relation("ParticipationCompany", fields: [companyId], references: [id])
   represents Company?                    @relation("ParticipationPrincipal", fields: [representsCompanyId], references: [id])
   supports   DealParticipationSupport[]
+  promotions RelationshipPromotion[]
 
   @@index([workspaceId, dealId, role])
   @@index([personId, role])
@@ -876,4 +990,35 @@ model DealParticipationSupport {
 
   @@unique([dealParticipationId, relationshipObservationId])
   @@index([relationshipObservationId])
+}
+
+/// Current human decision for one immutable relationship observation.
+/// Canonical assertion ids are set only when the decision is APPROVED.
+model RelationshipPromotion {
+  id                        String                        @id @default(cuid())
+  workspaceId               String
+  relationshipObservationId String                        @unique
+  decision                  RelationshipPromotionDecision
+  reviewReason              String?
+  reviewedAt                DateTime
+  actor                     PromotionActor                @default(MANUAL_REVIEW)
+  employmentId              String?
+  propertyStakeId           String?
+  dealParticipationId       String?
+  /// Set when CONCERNS_PROPERTY promotion linked this deal to a property.
+  linkedDealId              String?
+  createdAt                 DateTime                      @default(now())
+
+  workspace               Workspace                @relation(fields: [workspaceId], references: [id])
+  relationshipObservation RelationshipObservation @relation(fields: [relationshipObservationId], references: [id])
+  employment              Employment?              @relation(fields: [employmentId], references: [id])
+  propertyStake           PropertyStake?          @relation(fields: [propertyStakeId], references: [id])
+  dealParticipation       DealParticipation?      @relation(fields: [dealParticipationId], references: [id])
+  linkedDeal              Deal?                    @relation(fields: [linkedDealId], references: [id])
+
+  @@index([workspaceId, decision])
+  @@index([employmentId])
+  @@index([propertyStakeId])
+  @@index([dealParticipationId])
+  @@index([linkedDealId])
 }

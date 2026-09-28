@@ -150,3 +150,7 @@ WHERE "status" = 'ASSERTED' AND "personId" IS NOT NULL;
 CREATE UNIQUE INDEX IF NOT EXISTS "DealParticipation_open_company"
 ON "DealParticipation" ("dealId", "role", "companyId")
 WHERE "status" = 'ASSERTED' AND "companyId" IS NOT NULL;
+
+CREATE UNIQUE INDEX IF NOT EXISTS "EntityResolutionLink_one_accepted"
+ON "EntityResolutionLink" ("entityObservationId")
+WHERE "status" = 'ACCEPTED';

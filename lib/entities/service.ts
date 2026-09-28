@@ -470,7 +470,26 @@ type ObservationWrite = {
   extractionConfidence?: number | null;
   extractor: string;
   extractorVersion: string;
+  graphExtractionRunId?: string | null;
 };
+
+async function linkedGraphRunId(
+  db: GraphDb,
+  input: ObservationWrite
+): Promise<string | null> {
+  if (!input.graphExtractionRunId) return null;
+  const run = await db.graphExtractionRun.findUnique({
+    where: { id: input.graphExtractionRunId },
+  });
+  if (!run) throw new GraphInvariantError("Graph extraction run does not exist");
+  assertWorkspaceMatch(input.workspaceId, run.workspaceId, "Graph extraction run");
+  if (input.documentId && run.documentId !== input.documentId) {
+    throw new GraphInvariantError(
+      "Graph extraction run belongs to a different document"
+    );
+  }
+  return run.id;
+}
 
 async function resolveObservationSource(
   db: GraphDb,
@@ -617,6 +636,7 @@ export async function recordEntityObservation(
   assertObservationAttributes(input);
   const source = await resolveObservationSource(db, input);
   assertProvenanceShape({ ...source, sourceKind: input.sourceKind });
+  const graphExtractionRunId = await linkedGraphRunId(db, input);
   return db.entityObservation.create({
     data: {
       workspaceId: input.workspaceId,
@@ -638,6 +658,7 @@ export async function recordEntityObservation(
       extractionConfidence: input.extractionConfidence ?? null,
       extractor: input.extractor.trim(),
       extractorVersion: input.extractorVersion.trim(),
+      graphExtractionRunId,
     },
   });
 }
@@ -708,6 +729,7 @@ export async function recordRelationshipObservation(
   });
   const source = await resolveObservationSource(db, input);
   assertProvenanceShape({ ...source, sourceKind: input.sourceKind });
+  const graphExtractionRunId = await linkedGraphRunId(db, input);
   return db.relationshipObservation.create({
     data: {
       workspaceId: input.workspaceId,
@@ -727,6 +749,7 @@ export async function recordRelationshipObservation(
       extractionConfidence: input.extractionConfidence ?? null,
       extractor: input.extractor.trim(),
       extractorVersion: input.extractorVersion.trim(),
+      graphExtractionRunId,
     },
   });
 }

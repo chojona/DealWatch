@@ -24,6 +24,9 @@ export interface DocumentDto {
   ingestionStatus: Document["ingestionStatus"];
   failureCode: string | null;
   failureReason: string | null;
+  graphExtractionStatus: Document["graphExtractionStatus"];
+  graphFailureCode: string | null;
+  graphFailureReason: string | null;
   pageCount: number | null;
   createdAt: string;
   updatedAt: string;
@@ -53,6 +56,9 @@ export function toDocumentDto(document: DocumentRecord): DocumentDto {
     ingestionStatus: document.ingestionStatus,
     failureCode: document.failureCode,
     failureReason: document.failureReason,
+    graphExtractionStatus: document.graphExtractionStatus,
+    graphFailureCode: document.graphFailureCode,
+    graphFailureReason: document.graphFailureReason,
     pageCount: document.pageCount,
     createdAt: document.createdAt.toISOString(),
     updatedAt: document.updatedAt.toISOString(),

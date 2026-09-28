@@ -213,6 +213,10 @@ export default async function NegotiationPage({
                   <a className="underline text-zinc-600" href={`/api/documents/${document.id}/file`} target="_blank" rel="noreferrer">
                     View source PDF
                   </a>
+                  {" · "}
+                  <a className="underline text-zinc-600" href={`/documents/${document.id}/resolution`}>
+                    Review entities
+                  </a>
                   {document.ingestionStatus === "COMPLETE" && (
                     <>
                       {" · "}

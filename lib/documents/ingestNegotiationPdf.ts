@@ -23,6 +23,8 @@ import {
   type DocumentStorage,
 } from "@/lib/documents/storage";
 import { validatePdfUpload } from "@/lib/documents/validateUpload";
+import type { GraphModelExtractor } from "@/lib/ai/graph/extractModel";
+import { runDocumentGraphExtraction } from "@/lib/documents/runGraphExtraction";
 import { writeNegotiationRound } from "@/lib/negotiation/persistRound";
 
 export type NegotiationTermExtractor = (
@@ -62,6 +64,8 @@ export interface IngestNegotiationPdfInput {
   prisma: PrismaClient;
   extractPdf?: (bytes: Buffer) => Promise<ExtractedPdf>;
   extractTerms?: NegotiationTermExtractor;
+  /** null skips graph extraction. Omit to use the configured entity model. */
+  extractGraph?: GraphModelExtractor | null;
   maxBytes?: number;
   /** extract stops after page text is stored. full also runs negotiation analysis. */
   mode?: "extract" | "full";
@@ -534,10 +538,35 @@ export async function ingestNegotiationPdf(
 ): Promise<IngestResult> {
   const received = await receiveNegotiationPdf(input);
   if (input.mode === "extract") return received;
-  if (received.document.ingestionStatus !== "READY") return received;
-  return analyzeNegotiationDocument({
-    documentId: received.document.id,
-    prisma: input.prisma,
-    extractTerms: input.extractTerms,
-  });
+
+  let negotiationConfigError: unknown = null;
+  let analyzed = received;
+  if (received.document.ingestionStatus === "READY") {
+    try {
+      analyzed = await analyzeNegotiationDocument({
+        documentId: received.document.id,
+        prisma: input.prisma,
+        extractTerms: input.extractTerms,
+      });
+    } catch (error) {
+      if (error instanceof NegotiationExtractionConfigurationError) {
+        negotiationConfigError = error;
+      } else {
+        throw error;
+      }
+    }
+  }
+
+  if (input.extractGraph !== null) {
+    await runDocumentGraphExtraction({
+      prisma: input.prisma,
+      documentId: received.document.id,
+      extractor: input.extractGraph,
+    });
+    const document = await loadDocument(input.prisma, received.document.id);
+    analyzed = result(document, analyzed.idempotent);
+  }
+
+  if (negotiationConfigError) throw negotiationConfigError;
+  return analyzed;
 }

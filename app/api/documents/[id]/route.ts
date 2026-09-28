@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { toDocumentDto } from "@/lib/documents/dto";
 import { analyzeNegotiationDocument } from "@/lib/documents/ingestNegotiationPdf";
+import { runDocumentGraphExtraction } from "@/lib/documents/runGraphExtraction";
 import { NegotiationExtractionConfigurationError } from "@/lib/ai/negotiation/extractTerms";
 import { GraphInvariantError } from "@/lib/entities/errors";
 import { deleteDocumentPreservingEvidence } from "@/lib/entities/service";
@@ -44,10 +45,39 @@ export async function POST(
       return NextResponse.json({ error: "Document not found" }, { status: 404 });
     }
 
-    const result = await analyzeNegotiationDocument({
-      documentId: id,
-      prisma,
+    let negotiationConfigError: unknown = null;
+    let result: Awaited<ReturnType<typeof analyzeNegotiationDocument>> | null =
+      null;
+    try {
+      result = await analyzeNegotiationDocument({
+        documentId: id,
+        prisma,
+      });
+    } catch (error) {
+      if (error instanceof NegotiationExtractionConfigurationError) {
+        negotiationConfigError = error;
+      } else {
+        throw error;
+      }
+    }
+
+    await runDocumentGraphExtraction({ prisma, documentId: id });
+    if (negotiationConfigError) throw negotiationConfigError;
+    if (!result) {
+      return NextResponse.json({ error: "Document analysis failed" }, { status: 500 });
+    }
+
+    const reloaded = await prisma.document.findUnique({
+      where: { id },
+      include: {
+        negotiationRounds: {
+          orderBy: { createdAt: "asc" },
+          include: { _count: { select: { terms: true } } },
+        },
+      },
     });
+    if (reloaded) result = { ...result, document: toDocumentDto(reloaded) };
+
     const status =
       result.idempotent
         ? 200

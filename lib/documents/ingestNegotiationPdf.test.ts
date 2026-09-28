@@ -89,6 +89,7 @@ test("successful PDF ingestion creates one round, payload, and page provenance",
       documentType: "COUNTERPROPOSAL",
       storage,
       prisma: db.prisma,
+      extractGraph: null,
       extractTerms: extractor(calls),
     });
     assert.equal(first.document.ingestionStatus, "COMPLETE");
@@ -140,6 +141,7 @@ test("successful PDF ingestion creates one round, payload, and page provenance",
       documentType: "COUNTERPROPOSAL",
       storage,
       prisma: db.prisma,
+      extractGraph: null,
       extractTerms: extractor(calls),
     });
     assert.equal(second.idempotent, true);
@@ -165,6 +167,7 @@ test("duplicate quotes across pages persist as ambiguous provenance", async () =
       documentType: "LOI",
       storage,
       prisma: db.prisma,
+      extractGraph: null,
       extractTerms: extractor([], { quote: sharedQuote }),
     });
     assert.equal(result.document.ingestionStatus, "COMPLETE");
@@ -194,6 +197,7 @@ test("a scanned PDF is rejected and a retry does not create a round", async () =
       documentType: "OTHER",
       storage,
       prisma: db.prisma,
+      extractGraph: null,
       extractTerms: extractor(calls),
     });
     assert.equal(first.document.ingestionStatus, "FAILED");
@@ -209,6 +213,7 @@ test("a scanned PDF is rejected and a retry does not create a round", async () =
       documentType: "OTHER",
       storage,
       prisma: db.prisma,
+      extractGraph: null,
       extractTerms: extractor(calls),
     });
     assert.equal(second.idempotent, true);
@@ -234,6 +239,7 @@ test("failed extraction leaves a retryable document and no round", async () => {
       documentType: "PROPOSAL",
       storage,
       prisma: db.prisma,
+      extractGraph: null,
       extractPdf: async () => {
         throw new Error("unreadable");
       },
@@ -255,6 +261,7 @@ test("failed extraction leaves a retryable document and no round", async () => {
       documentType: "PROPOSAL",
       storage,
       prisma: db.prisma,
+      extractGraph: null,
       extractTerms: extractor([]),
     });
     assert.equal(recovered.document.id, failed.document.id);
@@ -290,6 +297,7 @@ test("failed analysis leaves extracted pages and a retry creates one round", asy
       documentType: "LOI",
       storage,
       prisma: db.prisma,
+      extractGraph: null,
       extractTerms,
     });
     assert.equal(failed.document.ingestionStatus, "FAILED");
@@ -308,6 +316,7 @@ test("failed analysis leaves extracted pages and a retry creates one round", asy
       documentType: "LOI",
       storage,
       prisma: db.prisma,
+      extractGraph: null,
       extractTerms,
     });
     assert.equal(
@@ -338,6 +347,7 @@ test("non-PDF and oversized uploads do not create documents", async () => {
           documentType: "OTHER",
           storage,
           prisma: db.prisma,
+      extractGraph: null,
           extractTerms: extractor([]),
         }),
       (error: unknown) =>
@@ -355,6 +365,7 @@ test("non-PDF and oversized uploads do not create documents", async () => {
           documentType: "OTHER",
           storage,
           prisma: db.prisma,
+      extractGraph: null,
           maxBytes: 32,
           extractTerms: extractor([]),
         }),

@@ -7,7 +7,7 @@
   },
   "scripts": {
     "dev": "next dev",
-    "test": "tsx --test lib/ai/*.test.ts",
+    "test": "tsx --test lib/ai/*.test.ts lib/ai/negotiation/*.test.ts lib/negotiation/*.test.ts",
     "build": "next build --webpack",
     "start": "next start",
     "lint": "eslint app/ lib/ components/ types/",

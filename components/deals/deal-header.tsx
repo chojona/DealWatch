@@ -3,6 +3,8 @@ import { Badge } from "@/components/ui/badge";
 import { formatCurrency, formatDate } from "@/lib/formatters";
 
 interface DealHeaderProps {
+  dealId?: string;
+  activeSection?: "overview" | "negotiation";
   name: string;
   company: string;
   property: string;
@@ -23,6 +25,8 @@ const stageColors: Record<string, string> = {
 };
 
 export function DealHeader({
+  dealId,
+  activeSection = "overview",
   name,
   company,
   property,
@@ -72,6 +76,22 @@ export function DealHeader({
             </span>
           </div>
         </div>
+        {dealId && (
+          <nav className="mt-4 -mb-4 flex gap-5 border-t border-zinc-100 pt-3">
+            <Link
+              href={`/deals/${dealId}`}
+              className={`border-b-2 pb-2.5 text-xs font-medium ${activeSection === "overview" ? "border-zinc-900 text-zinc-900" : "border-transparent text-zinc-400 hover:text-zinc-700"}`}
+            >
+              Deal overview
+            </Link>
+            <Link
+              href={`/deals/${dealId}/negotiation`}
+              className={`border-b-2 pb-2.5 text-xs font-medium ${activeSection === "negotiation" ? "border-zinc-900 text-zinc-900" : "border-transparent text-zinc-400 hover:text-zinc-700"}`}
+            >
+              Negotiation intelligence
+            </Link>
+          </nav>
+        )}
       </div>
     </div>
   );

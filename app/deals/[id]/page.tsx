@@ -76,6 +76,8 @@ export default async function DealPage({
     <div className="min-h-screen">
       <Nav />
       <DealHeader
+        dealId={deal.id}
+        activeSection="overview"
         name={deal.name}
         company={deal.company}
         property={deal.property}

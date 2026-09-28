@@ -12,6 +12,8 @@ function daysFromNow(n: number) {
 }
 
 async function main() {
+  await prisma.negotiationTerm.deleteMany();
+  await prisma.negotiationRound.deleteMany();
   await prisma.dealEvent.deleteMany();
   await prisma.obligation.deleteMany();
   await prisma.message.deleteMany();
@@ -164,6 +166,145 @@ Director of Leasing | Boston Properties`,
           "We need a lease execution by November 15, 2026 to fit our Q4 schedule.",
       },
     ],
+  });
+
+  // Four-round negotiation history for the transaction-intelligence demo.
+  const tenantR1Text = `TENANT LETTER OF INTENT — SEPTEMBER 1, 2026
+Premises: Approximately 22,400 rentable square feet on floors 18 and 19.
+Lease Term: Ten (10) years.
+Base Rent: $61.00 per rentable square foot per year, triple net, with 2.5% annual increases.
+Tenant Improvement Allowance: $125.00 per rentable square foot.
+Rent Abatement: Eight (8) months of base rent abatement.
+Security Deposit: One (1) month of then-current base rent.
+Renewal: Two (2) additional five-year renewal options at fair market rent.
+Termination: Tenant may terminate after the fifth lease year upon nine months' notice and payment of unamortized transaction costs.
+Commencement: March 1, 2027.
+Delivery: Premises delivered broom-clean with building systems in good working order.`;
+
+  await prisma.negotiationRound.create({
+    data: {
+      dealId: deal1.id,
+      side: "TENANT",
+      roundNumber: 1,
+      documentName: "Tenant LOI — Initial Proposal",
+      documentText: tenantR1Text,
+      documentDate: daysAgo(28),
+      terms: {
+        create: [
+          { canonicalType: "PREMISES_RSF", normalizedValue: "22,400 RSF", normalizedNumeric: 22400, normalizedUnit: "RSF", rawValue: "Approximately 22,400 rentable square feet", status: "PROPOSED", side: "TENANT", roundNumber: 1, confidence: 0.99, evidenceQuote: "Premises: Approximately 22,400 rentable square feet on floors 18 and 19.", sourceLocation: "Premises" },
+          { canonicalType: "LEASE_TERM", normalizedValue: "120 months", normalizedNumeric: 120, normalizedUnit: "MONTHS", rawValue: "Ten (10) years", status: "PROPOSED", side: "TENANT", roundNumber: 1, confidence: 0.99, evidenceQuote: "Lease Term: Ten (10) years.", sourceLocation: "Lease Term" },
+          { canonicalType: "BASE_RENT", normalizedValue: "$61.00/RSF/year", normalizedNumeric: 61, normalizedUnit: "USD_PER_RSF_YEAR", rawValue: "$61.00 per rentable square foot per year", status: "PROPOSED", side: "TENANT", roundNumber: 1, confidence: 0.99, evidenceQuote: "Base Rent: $61.00 per rentable square foot per year, triple net, with 2.5% annual increases.", sourceLocation: "Base Rent" },
+          { canonicalType: "RENT_STRUCTURE", normalizedValue: "Triple net", rawValue: "triple net", status: "PROPOSED", side: "TENANT", roundNumber: 1, confidence: 0.98, evidenceQuote: "Base Rent: $61.00 per rentable square foot per year, triple net, with 2.5% annual increases.", sourceLocation: "Base Rent" },
+          { canonicalType: "ANNUAL_ESCALATION", normalizedValue: "2.5% annually", normalizedNumeric: 2.5, normalizedUnit: "PERCENT_ANNUAL", rawValue: "2.5% annual increases", status: "PROPOSED", side: "TENANT", roundNumber: 1, confidence: 0.99, evidenceQuote: "Base Rent: $61.00 per rentable square foot per year, triple net, with 2.5% annual increases.", sourceLocation: "Base Rent" },
+          { canonicalType: "TI_ALLOWANCE", normalizedValue: "$125.00/RSF", normalizedNumeric: 125, normalizedUnit: "USD_PER_RSF_YEAR", rawValue: "$125.00 per rentable square foot", status: "PROPOSED", side: "TENANT", roundNumber: 1, confidence: 0.99, evidenceQuote: "Tenant Improvement Allowance: $125.00 per rentable square foot.", sourceLocation: "Tenant Improvement Allowance" },
+          { canonicalType: "FREE_RENT", normalizedValue: "8 months", normalizedNumeric: 8, normalizedUnit: "MONTHS", rawValue: "Eight (8) months", status: "PROPOSED", side: "TENANT", roundNumber: 1, confidence: 0.99, evidenceQuote: "Rent Abatement: Eight (8) months of base rent abatement.", sourceLocation: "Rent Abatement" },
+          { canonicalType: "SECURITY_DEPOSIT", normalizedValue: "1 month rent", normalizedNumeric: 1, normalizedUnit: "MONTHS_RENT", rawValue: "One (1) month of then-current base rent", status: "PROPOSED", side: "TENANT", roundNumber: 1, confidence: 0.98, evidenceQuote: "Security Deposit: One (1) month of then-current base rent.", sourceLocation: "Security Deposit" },
+          { canonicalType: "RENEWAL_OPTIONS", normalizedValue: "Two 5-year options at FMR", rawValue: "Two (2) additional five-year renewal options at fair market rent", status: "PROPOSED", side: "TENANT", roundNumber: 1, confidence: 0.98, evidenceQuote: "Renewal: Two (2) additional five-year renewal options at fair market rent.", sourceLocation: "Renewal" },
+          { canonicalType: "TERMINATION_RIGHTS", normalizedValue: "Tenant option after year 5", rawValue: "terminate after the fifth lease year", status: "PROPOSED", side: "TENANT", roundNumber: 1, confidence: 0.98, evidenceQuote: "Termination: Tenant may terminate after the fifth lease year upon nine months' notice and payment of unamortized transaction costs.", sourceLocation: "Termination" },
+          { canonicalType: "COMMENCEMENT_DATE", normalizedValue: "2027-03-01", normalizedUnit: "DATE", rawValue: "March 1, 2027", status: "PROPOSED", side: "TENANT", roundNumber: 1, confidence: 0.99, evidenceQuote: "Commencement: March 1, 2027.", sourceLocation: "Commencement" },
+          { canonicalType: "DELIVERY_CONDITION", normalizedValue: "Broom-clean; systems operational", rawValue: "broom-clean with building systems in good working order", status: "PROPOSED", side: "TENANT", roundNumber: 1, confidence: 0.97, evidenceQuote: "Delivery: Premises delivered broom-clean with building systems in good working order.", sourceLocation: "Delivery" },
+        ],
+      },
+    },
+  });
+
+  const landlordR1Text = `LANDLORD COUNTERPROPOSAL — SEPTEMBER 8, 2026
+Landlord accepts the proposed 22,400 RSF premises.
+Lease Term: Seven (7) years.
+Base Rent: $72.00 per RSF per year, NNN, increasing 3.0% each year.
+TI Allowance: $80.00 per RSF.
+Free Rent: Four (4) months.
+Security: Three (3) months of base rent.
+Renewal: One five-year option at 100% of fair market rent.
+Termination: Tenant's requested early termination right is rejected.
+Commencement: April 1, 2027, subject to existing tenant surrender.
+Delivery: As-is, where-is, with Landlord maintaining base building systems.`;
+
+  await prisma.negotiationRound.create({
+    data: {
+      dealId: deal1.id,
+      side: "LANDLORD",
+      roundNumber: 1,
+      documentName: "Landlord Counter — Round 1",
+      documentText: landlordR1Text,
+      documentDate: daysAgo(21),
+      terms: { create: [
+        { canonicalType: "PREMISES_RSF", normalizedValue: "22,400 RSF", normalizedNumeric: 22400, normalizedUnit: "RSF", rawValue: "22,400 RSF", status: "AGREED", side: "LANDLORD", roundNumber: 1, confidence: 0.99, evidenceQuote: "Landlord accepts the proposed 22,400 RSF premises.", sourceLocation: "Opening" },
+        { canonicalType: "LEASE_TERM", normalizedValue: "84 months", normalizedNumeric: 84, normalizedUnit: "MONTHS", rawValue: "Seven (7) years", status: "PROPOSED", side: "LANDLORD", roundNumber: 1, confidence: 0.99, evidenceQuote: "Lease Term: Seven (7) years.", sourceLocation: "Lease Term" },
+        { canonicalType: "BASE_RENT", normalizedValue: "$72.00/RSF/year", normalizedNumeric: 72, normalizedUnit: "USD_PER_RSF_YEAR", rawValue: "$72.00 per RSF per year", status: "PROPOSED", side: "LANDLORD", roundNumber: 1, confidence: 0.99, evidenceQuote: "Base Rent: $72.00 per RSF per year, NNN, increasing 3.0% each year.", sourceLocation: "Base Rent" },
+        { canonicalType: "RENT_STRUCTURE", normalizedValue: "Triple net", rawValue: "NNN", status: "PROPOSED", side: "LANDLORD", roundNumber: 1, confidence: 0.99, evidenceQuote: "Base Rent: $72.00 per RSF per year, NNN, increasing 3.0% each year.", sourceLocation: "Base Rent" },
+        { canonicalType: "ANNUAL_ESCALATION", normalizedValue: "3.0% annually", normalizedNumeric: 3, normalizedUnit: "PERCENT_ANNUAL", rawValue: "increasing 3.0% each year", status: "PROPOSED", side: "LANDLORD", roundNumber: 1, confidence: 0.99, evidenceQuote: "Base Rent: $72.00 per RSF per year, NNN, increasing 3.0% each year.", sourceLocation: "Base Rent" },
+        { canonicalType: "TI_ALLOWANCE", normalizedValue: "$80.00/RSF", normalizedNumeric: 80, normalizedUnit: "USD_PER_RSF_YEAR", rawValue: "$80.00 per RSF", status: "PROPOSED", side: "LANDLORD", roundNumber: 1, confidence: 0.99, evidenceQuote: "TI Allowance: $80.00 per RSF.", sourceLocation: "TI Allowance" },
+        { canonicalType: "FREE_RENT", normalizedValue: "4 months", normalizedNumeric: 4, normalizedUnit: "MONTHS", rawValue: "Four (4) months", status: "PROPOSED", side: "LANDLORD", roundNumber: 1, confidence: 0.99, evidenceQuote: "Free Rent: Four (4) months.", sourceLocation: "Free Rent" },
+        { canonicalType: "SECURITY_DEPOSIT", normalizedValue: "3 months rent", normalizedNumeric: 3, normalizedUnit: "MONTHS_RENT", rawValue: "Three (3) months of base rent", status: "PROPOSED", side: "LANDLORD", roundNumber: 1, confidence: 0.99, evidenceQuote: "Security: Three (3) months of base rent.", sourceLocation: "Security" },
+        { canonicalType: "RENEWAL_OPTIONS", normalizedValue: "One 5-year option at FMR", rawValue: "One five-year option at 100% of fair market rent", status: "PROPOSED", side: "LANDLORD", roundNumber: 1, confidence: 0.98, evidenceQuote: "Renewal: One five-year option at 100% of fair market rent.", sourceLocation: "Renewal" },
+        { canonicalType: "TERMINATION_RIGHTS", normalizedValue: "No tenant termination right", rawValue: "early termination right is rejected", status: "REJECTED", side: "LANDLORD", roundNumber: 1, confidence: 0.99, evidenceQuote: "Termination: Tenant's requested early termination right is rejected.", sourceLocation: "Termination" },
+        { canonicalType: "COMMENCEMENT_DATE", normalizedValue: "2027-04-01", normalizedUnit: "DATE", rawValue: "April 1, 2027", status: "UNRESOLVED", side: "LANDLORD", roundNumber: 1, confidence: 0.95, evidenceQuote: "Commencement: April 1, 2027, subject to existing tenant surrender.", sourceLocation: "Commencement" },
+        { canonicalType: "DELIVERY_CONDITION", normalizedValue: "As-is; base systems operational", rawValue: "As-is, where-is", status: "PROPOSED", side: "LANDLORD", roundNumber: 1, confidence: 0.98, evidenceQuote: "Delivery: As-is, where-is, with Landlord maintaining base building systems.", sourceLocation: "Delivery" },
+      ] },
+    },
+  });
+
+  const tenantR2Text = `TENANT COUNTERPROPOSAL — SEPTEMBER 15, 2026
+Tenant agrees to the 22,400 RSF premises and the seven-year lease term.
+Base Rent: $64.00 per RSF per year with 2.75% annual increases.
+TI Allowance: $115.00 per RSF.
+Free Rent: Six (6) months.
+Security Deposit: Two (2) months of base rent.
+Renewal: Tenant accepts one five-year renewal option at fair market rent.
+Termination: Tenant revises its request to a one-time termination option after lease year six with twelve months' notice.
+Commencement: Tenant can accept April 1, 2027 if Landlord guarantees delivery.
+Operating Expenses: Tenant requests a controllable expense cap of 5% annually.`;
+
+  await prisma.negotiationRound.create({
+    data: {
+      dealId: deal1.id, side: "TENANT", roundNumber: 2,
+      documentName: "Tenant Counter — Round 2", documentText: tenantR2Text, documentDate: daysAgo(14),
+      terms: { create: [
+        { canonicalType: "PREMISES_RSF", normalizedValue: "22,400 RSF", normalizedNumeric: 22400, normalizedUnit: "RSF", rawValue: "22,400 RSF premises", status: "AGREED", side: "TENANT", roundNumber: 2, confidence: 0.99, evidenceQuote: "Tenant agrees to the 22,400 RSF premises and the seven-year lease term.", sourceLocation: "Opening" },
+        { canonicalType: "LEASE_TERM", normalizedValue: "84 months", normalizedNumeric: 84, normalizedUnit: "MONTHS", rawValue: "seven-year lease term", status: "AGREED", side: "TENANT", roundNumber: 2, confidence: 0.99, evidenceQuote: "Tenant agrees to the 22,400 RSF premises and the seven-year lease term.", sourceLocation: "Opening" },
+        { canonicalType: "BASE_RENT", normalizedValue: "$64.00/RSF/year", normalizedNumeric: 64, normalizedUnit: "USD_PER_RSF_YEAR", rawValue: "$64.00 per RSF per year", status: "PROPOSED", side: "TENANT", roundNumber: 2, confidence: 0.99, evidenceQuote: "Base Rent: $64.00 per RSF per year with 2.75% annual increases.", sourceLocation: "Base Rent" },
+        { canonicalType: "ANNUAL_ESCALATION", normalizedValue: "2.75% annually", normalizedNumeric: 2.75, normalizedUnit: "PERCENT_ANNUAL", rawValue: "2.75% annual increases", status: "PROPOSED", side: "TENANT", roundNumber: 2, confidence: 0.99, evidenceQuote: "Base Rent: $64.00 per RSF per year with 2.75% annual increases.", sourceLocation: "Base Rent" },
+        { canonicalType: "TI_ALLOWANCE", normalizedValue: "$115.00/RSF", normalizedNumeric: 115, normalizedUnit: "USD_PER_RSF_YEAR", rawValue: "$115.00 per RSF", status: "PROPOSED", side: "TENANT", roundNumber: 2, confidence: 0.99, evidenceQuote: "TI Allowance: $115.00 per RSF.", sourceLocation: "TI Allowance" },
+        { canonicalType: "FREE_RENT", normalizedValue: "6 months", normalizedNumeric: 6, normalizedUnit: "MONTHS", rawValue: "Six (6) months", status: "PROPOSED", side: "TENANT", roundNumber: 2, confidence: 0.99, evidenceQuote: "Free Rent: Six (6) months.", sourceLocation: "Free Rent" },
+        { canonicalType: "SECURITY_DEPOSIT", normalizedValue: "2 months rent", normalizedNumeric: 2, normalizedUnit: "MONTHS_RENT", rawValue: "Two (2) months of base rent", status: "PROPOSED", side: "TENANT", roundNumber: 2, confidence: 0.99, evidenceQuote: "Security Deposit: Two (2) months of base rent.", sourceLocation: "Security Deposit" },
+        { canonicalType: "RENEWAL_OPTIONS", normalizedValue: "One 5-year option at FMR", rawValue: "one five-year renewal option at fair market rent", status: "AGREED", side: "TENANT", roundNumber: 2, confidence: 0.99, evidenceQuote: "Renewal: Tenant accepts one five-year renewal option at fair market rent.", sourceLocation: "Renewal" },
+        { canonicalType: "TERMINATION_RIGHTS", normalizedValue: "Tenant option after year 6", rawValue: "one-time termination option after lease year six with twelve months' notice", status: "PROPOSED", side: "TENANT", roundNumber: 2, confidence: 0.98, evidenceQuote: "Termination: Tenant revises its request to a one-time termination option after lease year six with twelve months' notice.", sourceLocation: "Termination" },
+        { canonicalType: "COMMENCEMENT_DATE", normalizedValue: "2027-04-01", normalizedUnit: "DATE", rawValue: "April 1, 2027", status: "UNRESOLVED", side: "TENANT", roundNumber: 2, confidence: 0.96, evidenceQuote: "Commencement: Tenant can accept April 1, 2027 if Landlord guarantees delivery.", sourceLocation: "Commencement" },
+        { canonicalType: "OPERATING_EXPENSES", normalizedValue: "5% controllable expense cap", normalizedNumeric: 5, normalizedUnit: "PERCENT_ANNUAL", rawValue: "controllable expense cap of 5% annually", status: "PROPOSED", side: "TENANT", roundNumber: 2, confidence: 0.98, evidenceQuote: "Operating Expenses: Tenant requests a controllable expense cap of 5% annually.", sourceLocation: "Operating Expenses" },
+      ] },
+    },
+  });
+
+  const landlordR2Text = `LANDLORD COUNTERPROPOSAL — SEPTEMBER 22, 2026
+Agreed: 22,400 RSF, seven-year term, two months' security deposit, and one five-year renewal option at fair market rent.
+Base Rent: $67.00 per RSF per year with 2.75% annual increases.
+TI Allowance: $105.00 per RSF.
+Free Rent: Five (5) months.
+Commencement: April 1, 2027 remains subject to timely surrender by the existing tenant; delivery guaranty remains unresolved.
+Termination: Landlord rejects any early termination option.
+Operating Expenses: Landlord proposes no cap on taxes or insurance and a 7% cap on controllable expenses.
+Agreed Delivery: Landlord will deliver broom-clean with base building systems in good working order.`;
+
+  await prisma.negotiationRound.create({
+    data: {
+      dealId: deal1.id, side: "LANDLORD", roundNumber: 2,
+      documentName: "Landlord Counter — Round 2", documentText: landlordR2Text, documentDate: daysAgo(7),
+      terms: { create: [
+        { canonicalType: "PREMISES_RSF", normalizedValue: "22,400 RSF", normalizedNumeric: 22400, normalizedUnit: "RSF", rawValue: "22,400 RSF", status: "AGREED", side: "LANDLORD", roundNumber: 2, confidence: 0.99, evidenceQuote: "Agreed: 22,400 RSF, seven-year term, two months' security deposit, and one five-year renewal option at fair market rent.", sourceLocation: "Agreed Terms" },
+        { canonicalType: "LEASE_TERM", normalizedValue: "84 months", normalizedNumeric: 84, normalizedUnit: "MONTHS", rawValue: "seven-year term", status: "AGREED", side: "LANDLORD", roundNumber: 2, confidence: 0.99, evidenceQuote: "Agreed: 22,400 RSF, seven-year term, two months' security deposit, and one five-year renewal option at fair market rent.", sourceLocation: "Agreed Terms" },
+        { canonicalType: "SECURITY_DEPOSIT", normalizedValue: "2 months rent", normalizedNumeric: 2, normalizedUnit: "MONTHS_RENT", rawValue: "two months' security deposit", status: "AGREED", side: "LANDLORD", roundNumber: 2, confidence: 0.99, evidenceQuote: "Agreed: 22,400 RSF, seven-year term, two months' security deposit, and one five-year renewal option at fair market rent.", sourceLocation: "Agreed Terms" },
+        { canonicalType: "RENEWAL_OPTIONS", normalizedValue: "One 5-year option at FMR", rawValue: "one five-year renewal option at fair market rent", status: "AGREED", side: "LANDLORD", roundNumber: 2, confidence: 0.99, evidenceQuote: "Agreed: 22,400 RSF, seven-year term, two months' security deposit, and one five-year renewal option at fair market rent.", sourceLocation: "Agreed Terms" },
+        { canonicalType: "BASE_RENT", normalizedValue: "$67.00/RSF/year", normalizedNumeric: 67, normalizedUnit: "USD_PER_RSF_YEAR", rawValue: "$67.00 per RSF per year", status: "PROPOSED", side: "LANDLORD", roundNumber: 2, confidence: 0.99, evidenceQuote: "Base Rent: $67.00 per RSF per year with 2.75% annual increases.", sourceLocation: "Base Rent" },
+        { canonicalType: "ANNUAL_ESCALATION", normalizedValue: "2.75% annually", normalizedNumeric: 2.75, normalizedUnit: "PERCENT_ANNUAL", rawValue: "2.75% annual increases", status: "PROPOSED", side: "LANDLORD", roundNumber: 2, confidence: 0.99, evidenceQuote: "Base Rent: $67.00 per RSF per year with 2.75% annual increases.", sourceLocation: "Base Rent" },
+        { canonicalType: "TI_ALLOWANCE", normalizedValue: "$105.00/RSF", normalizedNumeric: 105, normalizedUnit: "USD_PER_RSF_YEAR", rawValue: "$105.00 per RSF", status: "PROPOSED", side: "LANDLORD", roundNumber: 2, confidence: 0.99, evidenceQuote: "TI Allowance: $105.00 per RSF.", sourceLocation: "TI Allowance" },
+        { canonicalType: "FREE_RENT", normalizedValue: "5 months", normalizedNumeric: 5, normalizedUnit: "MONTHS", rawValue: "Five (5) months", status: "PROPOSED", side: "LANDLORD", roundNumber: 2, confidence: 0.99, evidenceQuote: "Free Rent: Five (5) months.", sourceLocation: "Free Rent" },
+        { canonicalType: "COMMENCEMENT_DATE", normalizedValue: "2027-04-01", normalizedUnit: "DATE", rawValue: "April 1, 2027", status: "UNRESOLVED", side: "LANDLORD", roundNumber: 2, confidence: 0.98, evidenceQuote: "Commencement: April 1, 2027 remains subject to timely surrender by the existing tenant; delivery guaranty remains unresolved.", sourceLocation: "Commencement" },
+        { canonicalType: "TERMINATION_RIGHTS", normalizedValue: "No tenant termination right", rawValue: "rejects any early termination option", status: "REJECTED", side: "LANDLORD", roundNumber: 2, confidence: 0.99, evidenceQuote: "Termination: Landlord rejects any early termination option.", sourceLocation: "Termination" },
+        { canonicalType: "OPERATING_EXPENSES", normalizedValue: "7% controllable expense cap; tax/insurance uncapped", normalizedNumeric: 7, normalizedUnit: "PERCENT_ANNUAL", rawValue: "no cap on taxes or insurance and a 7% cap on controllable expenses", status: "PROPOSED", side: "LANDLORD", roundNumber: 2, confidence: 0.98, evidenceQuote: "Operating Expenses: Landlord proposes no cap on taxes or insurance and a 7% cap on controllable expenses.", sourceLocation: "Operating Expenses" },
+        { canonicalType: "DELIVERY_CONDITION", normalizedValue: "Broom-clean; base systems operational", rawValue: "broom-clean with base building systems in good working order", status: "AGREED", side: "LANDLORD", roundNumber: 2, confidence: 0.99, evidenceQuote: "Agreed Delivery: Landlord will deliver broom-clean with base building systems in good working order.", sourceLocation: "Delivery" },
+      ] },
+    },
   });
 
   // ─────────────────────────────────────────────────────────────
@@ -642,7 +783,7 @@ Ryan`,
     ],
   });
 
-  console.log("✅ Seeded 5 deals with threads, messages, obligations, and events.");
+  console.log("✅ Seeded 5 deals plus a four-round negotiation history.");
 }
 
 main()

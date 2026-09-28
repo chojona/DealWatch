@@ -8,26 +8,27 @@ datasource db {
 }
 
 model Deal {
-  id             String    @id @default(cuid())
+  id             String   @id @default(cuid())
   name           String
   company        String
   property       String
   estimatedValue Float?
   stage          String
-  status         String    @default("ACTIVE")
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
+  status         String   @default("ACTIVE")
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
-  threads     Thread[]
-  obligations Obligation[]
-  events      DealEvent[]
+  threads           Thread[]
+  obligations       Obligation[]
+  events            DealEvent[]
+  negotiationRounds NegotiationRound[]
 }
 
 model Thread {
   id           String   @id @default(cuid())
   dealId       String
   subject      String
-  participants String   // JSON array stored as string
+  participants String // JSON array stored as string
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
@@ -39,7 +40,7 @@ model Message {
   id         String   @id @default(cuid())
   threadId   String
   sender     String
-  recipients String   // JSON array stored as string
+  recipients String // JSON array stored as string
   sentAt     DateTime
   body       String
 
@@ -49,32 +50,72 @@ model Message {
 }
 
 model Obligation {
-  id           String   @id @default(cuid())
-  dealId       String
-  messageId    String?
-  owner        String
-  counterparty String?
-  description  String
-  dueAt        DateTime?
-  status       String    @default("OPEN")
-  confidence   Float
+  id            String    @id @default(cuid())
+  dealId        String
+  messageId     String?
+  owner         String
+  counterparty  String?
+  description   String
+  dueAt         DateTime?
+  status        String    @default("OPEN")
+  confidence    Float
   evidenceQuote String
-  createdAt    DateTime  @default(now())
+  createdAt     DateTime  @default(now())
 
   deal    Deal     @relation(fields: [dealId], references: [id], onDelete: Cascade)
   message Message? @relation(fields: [messageId], references: [id])
 }
 
 model DealEvent {
-  id           String   @id @default(cuid())
-  dealId       String
-  messageId    String?
-  type         String
-  description  String
-  occurredAt   DateTime
-  confidence   Float
+  id            String   @id @default(cuid())
+  dealId        String
+  messageId     String?
+  type          String
+  description   String
+  occurredAt    DateTime
+  confidence    Float
   evidenceQuote String
 
   deal    Deal     @relation(fields: [dealId], references: [id], onDelete: Cascade)
   message Message? @relation(fields: [messageId], references: [id])
+}
+
+model NegotiationRound {
+  id           String   @id @default(cuid())
+  dealId       String
+  side         String
+  roundNumber  Int
+  documentName String
+  documentText String
+  documentDate DateTime
+  sourceType   String   @default("PASTED_TEXT")
+  createdAt    DateTime @default(now())
+
+  deal  Deal              @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  terms NegotiationTerm[]
+
+  @@unique([dealId, side, roundNumber])
+  @@index([dealId, documentDate])
+}
+
+model NegotiationTerm {
+  id                String   @id @default(cuid())
+  roundId           String
+  canonicalType     String
+  normalizedValue   String?
+  normalizedNumeric Float?
+  normalizedUnit    String?
+  rawValue          String
+  status            String
+  side              String
+  roundNumber       Int
+  confidence        Float
+  evidenceQuote     String
+  sourceLocation    String?
+  createdAt         DateTime @default(now())
+
+  round NegotiationRound @relation(fields: [roundId], references: [id], onDelete: Cascade)
+
+  @@index([roundId, canonicalType])
+  @@index([canonicalType, side])
 }

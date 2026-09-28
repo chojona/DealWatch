@@ -18,7 +18,7 @@ function usage() {
     "",
     "Options:",
     "  --output <path>          JSON report path (default: artifacts/negotiation-eval.json)",
-    "  --concurrency <number>   Parallel model calls (default: 3)",
+    "  --concurrency <number>   Parallel model calls (default: 1)",
     "  --fixture <id>           Run one fixture; repeat to select multiple",
     "  --json-stdout            Write only JSON to stdout; summary goes to stderr",
     "  --fail-under-f1 <0..1>   Exit nonzero when extraction F1 is below threshold",
@@ -29,7 +29,7 @@ function usage() {
 function parseArgs(args: string[]): CliOptions {
   const options: CliOptions = {
     output: "artifacts/negotiation-eval.json",
-    concurrency: 3,
+    concurrency: 1,
     fixtureIds: [],
     jsonStdout: false,
   };
@@ -81,9 +81,9 @@ function loadLocalEnvironment() {
 async function main() {
   const options = parseArgs(process.argv.slice(2));
   loadLocalEnvironment();
-  if (!process.env.OPENAI_API_KEY?.trim()) {
+  if (!process.env.GEMINI_API_KEY?.trim()) {
     throw new Error(
-      "OPENAI_API_KEY is required. Set it in the environment or .env.local."
+      "GEMINI_API_KEY is required. Set it in the environment or .env.local."
     );
   }
   const requested = new Set(options.fixtureIds);

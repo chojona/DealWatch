@@ -9,7 +9,7 @@ Run the full live-model suite:
 
     npm run eval:negotiation
 
-The command reads OPENAI_API_KEY from the environment, .env.local, or .env;
+The command reads GEMINI_API_KEY from the environment, .env.local, or .env;
 writes a machine-readable report to artifacts/negotiation-eval.json; and
 prints a human-readable summary. Useful options:
 

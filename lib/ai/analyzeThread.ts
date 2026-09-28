@@ -3,9 +3,9 @@ import type { AnalyzeThreadInput, AnalyzeThreadOutput } from "@/types";
 import { ANALYZE_SYSTEM_PROMPT } from "./analysisPrompt";
 import { AnalyzeThreadOutputSchema } from "./analysisSchemas";
 import {
-  extractThreadWithOpenAI,
+  extractThreadWithGemini,
   type ThreadExtractor,
-} from "./openAIThreadExtractor";
+} from "./geminiThreadExtractor";
 import { reconcileAnalysis } from "./reconcileAnalysis";
 
 const MAX_THREAD_CHARACTERS = 120_000;
@@ -37,7 +37,7 @@ export interface ThreadAnalyzerDependencies {
 
 /**
  * Creates an analyzer with an injectable extraction boundary. Production uses
- * OpenAI; tests supply deterministic candidate extractions.
+ * Gemini; tests supply deterministic candidate extractions.
  */
 export function createThreadAnalyzer({
   extractor,
@@ -62,7 +62,7 @@ export function createThreadAnalyzer({
 }
 
 const productionAnalyzer = createThreadAnalyzer({
-  extractor: extractThreadWithOpenAI,
+  extractor: extractThreadWithGemini,
 });
 
 /** Analyze a complete email thread as of the supplied timestamp. */
@@ -73,8 +73,8 @@ export async function analyzeThread(
 }
 
 export { ANALYZE_SYSTEM_PROMPT, AnalyzeThreadOutputSchema };
-export type { ThreadExtractor } from "./openAIThreadExtractor";
+export type { ThreadExtractor } from "./geminiThreadExtractor";
 export {
   AnalysisConfigurationError,
   ThreadExtractionError,
-} from "./openAIThreadExtractor";
+} from "./geminiThreadExtractor";

@@ -3,7 +3,7 @@ import test from "node:test";
 import { analyzeThread } from "./analyzeThread";
 
 const shouldRun =
-  Boolean(process.env.OPENAI_API_KEY) &&
+  Boolean(process.env.GEMINI_API_KEY) &&
   process.env.RUN_DEALWATCH_INTEGRATION_TESTS === "1";
 
 test(
@@ -31,4 +31,3 @@ Sarah`;
     assert.equal(result.obligations[0]?.dueAt, "2026-09-23T03:59:59.000Z");
   }
 );
-

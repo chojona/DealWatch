@@ -1,5 +1,5 @@
 import {
-  extractNegotiationWithOpenAI,
+  extractNegotiationWithGemini,
   type NegotiationExtractor,
 } from "@/lib/ai/negotiation/extractTerms";
 import { validateExtractedTerms } from "@/lib/ai/negotiation/validateTerms";
@@ -310,8 +310,8 @@ export async function runNegotiationEvaluation(
   options: RunEvaluationOptions = {}
 ): Promise<EvaluationReport> {
   const fixtures = [...(options.fixtures ?? NEGOTIATION_FIXTURES)];
-  const extractor = options.extractor ?? extractNegotiationWithOpenAI;
-  const concurrency = Math.max(1, Math.floor(options.concurrency ?? 3));
+  const extractor = options.extractor ?? extractNegotiationWithGemini;
+  const concurrency = Math.max(1, Math.floor(options.concurrency ?? 1));
   const now = options.now ?? (() => new Date());
   const started = now();
   const documents = fixtures.flatMap((fixture) =>

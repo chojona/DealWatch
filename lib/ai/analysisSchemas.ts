@@ -38,8 +38,9 @@ export const AccountablePartySchema = z.enum([
 ]);
 
 /**
- * This is the model-facing schema. Every property is required because OpenAI
- * Structured Outputs supports nullable values more reliably than optional ones.
+ * This is the model-facing schema. Every property is required because
+ * structured-output providers handle nullable values more reliably than
+ * optional ones.
  * It intentionally describes candidate facts, not final application state.
  */
 export const ThreadExtractionSchema = z.object({

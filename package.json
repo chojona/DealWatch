@@ -7,10 +7,11 @@
   },
   "scripts": {
     "dev": "next dev",
-    "test": "tsx --test lib/ai/*.test.ts lib/ai/negotiation/*.test.ts lib/negotiation/*.test.ts",
+    "test": "tsx --test lib/ai/*.test.ts lib/ai/negotiation/*.test.ts lib/negotiation/*.test.ts evals/negotiation/*.test.ts",
+    "eval:negotiation": "node --import tsx evals/negotiation/cli.ts",
     "build": "next build --webpack",
     "start": "next start",
-    "lint": "eslint app/ lib/ components/ types/",
+    "lint": "eslint app/ lib/ components/ types/ evals/",
     "typecheck": "tsc --noEmit",
     "db:generate": "prisma generate",
     "db:push": "prisma db push",

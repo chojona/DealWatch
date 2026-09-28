@@ -9,6 +9,7 @@ out/
 
 # Production
 build/
+artifacts/
 
 # Misc
 .DS_Store

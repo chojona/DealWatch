@@ -11,6 +11,7 @@ out/
 build/
 artifacts/*
 !artifacts/document-ingestion-design.md
+!artifacts/cre-entity-relationship-ontology.md
 
 # Local uploaded documents (never commit PDF bytes)
 data/

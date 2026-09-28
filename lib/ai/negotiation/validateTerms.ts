@@ -4,6 +4,10 @@ import type {
   NegotiationExtraction,
   ValidatedNegotiationTerm,
 } from "./schemas";
+import {
+  parseStructuredPayload,
+  supportsStructuredPayload,
+} from "./payloads";
 
 const MIN_TERM_CONFIDENCE = 0.6;
 
@@ -199,6 +203,24 @@ export function validateExtractedTerms({
       continue;
     }
 
+    /**
+     * Structured payload validation boundary.
+     *
+     * Rules:
+     * - Only attempt parsing for canonicalTypes that have a payload shape.
+     * - parseStructuredPayload returns null on malformed JSON, schema
+     *   violations, or canonicalType mismatch — it never throws.
+     * - A null or malformed payload must NOT cause an otherwise-valid
+     *   legacy observation to be dropped; only the payload becomes null.
+     * - canonicalType mismatch (payload.termType ≠ canonicalType) produces
+     *   null here; the mismatch is silently handled conservatively.
+     */
+    const structuredPayload =
+      supportsStructuredPayload(normalized.canonicalType) &&
+      candidate.structuredPayload != null
+        ? parseStructuredPayload(candidate.structuredPayload, normalized.canonicalType)
+        : null;
+
     terms.push({
       canonicalType: normalized.canonicalType,
       ...(normalized.normalizedValue?.trim()
@@ -217,6 +239,7 @@ export function validateExtractedTerms({
       ...(candidate.sourceLocation?.trim()
         ? { sourceLocation: candidate.sourceLocation.trim() }
         : {}),
+      ...(structuredPayload !== null ? { structuredPayload } : {}),
     });
   }
 

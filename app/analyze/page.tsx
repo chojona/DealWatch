@@ -24,15 +24,12 @@ export default function AnalyzePage() {
               <p className="text-xs font-medium text-zinc-700">
                 Analysis Engine:{" "}
                 <span className="text-zinc-400 font-normal">
-                  Rule-based stub (LLM integration pending)
+                  Conservative CRE thread analysis
                 </span>
               </p>
               <p className="text-[11px] text-zinc-400 mt-0.5">
-                Connect an LLM provider in{" "}
-                <code className="bg-zinc-100 px-1 py-0.5 rounded text-[10px]">
-                  lib/ai/analyzeThread.ts
-                </code>{" "}
-                to enable full AI analysis.
+                Structured extraction with source-evidence validation and
+                deterministic deadline tracking.
               </p>
             </div>
           </div>

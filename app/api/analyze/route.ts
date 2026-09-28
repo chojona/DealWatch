@@ -1,61 +1,42 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { analyzeThread } from "@/lib/ai/analyzeThread";
+import {
+  AnalysisConfigurationError,
+  AnalysisInputError,
+  AnalyzeThreadOutputSchema,
+  analyzeThread,
+} from "@/lib/ai/analyzeThread";
 import { prisma } from "@/lib/db";
 
 const PostBody = z.object({
-  threadText: z.string().min(10),
+  threadText: z
+    .string()
+    .max(120_000)
+    .refine((value) => value.trim().length > 0, "Thread text cannot be empty"),
 });
 
 const PutBody = z.object({
-  threadText: z.string().min(10),
-  result: z.object({
-    deal: z.object({
-      company: z.string().optional(),
-      property: z.string().optional(),
-      stage: z.string().optional(),
-    }),
-    events: z.array(
-      z.object({
-        type: z.string(),
-        description: z.string(),
-        occurredAt: z.string().optional(),
-        confidence: z.number(),
-        evidenceQuote: z.string(),
-      })
-    ),
-    obligations: z.array(
-      z.object({
-        owner: z.string(),
-        counterparty: z.string().optional(),
-        description: z.string(),
-        dueAt: z.string().optional(),
-        status: z.enum(["OPEN", "COMPLETED", "OVERDUE", "WAITING"]),
-        confidence: z.number(),
-        evidenceQuote: z.string(),
-      })
-    ),
-    nextAction: z
-      .object({
-        description: z.string(),
-        owner: z.string(),
-        urgency: z.enum(["LOW", "MEDIUM", "HIGH"]),
-      })
-      .optional(),
-  }),
+  threadText: z.string().min(1).max(120_000),
+  result: AnalyzeThreadOutputSchema,
 });
 
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
     const { threadText } = PostBody.parse(body);
-    const result = await analyzeThread(threadText);
+    const result = await analyzeThread({ threadText, analyzedAt: new Date() });
     return NextResponse.json(result);
   } catch (e) {
-    if (e instanceof z.ZodError) {
+    if (e instanceof z.ZodError || e instanceof AnalysisInputError) {
       return NextResponse.json(
-        { error: "Invalid request", details: e.errors },
+        { error: "Invalid request", details: e.issues },
         { status: 400 }
+      );
+    }
+    if (e instanceof AnalysisConfigurationError) {
+      return NextResponse.json(
+        { error: "Analysis service is not configured" },
+        { status: 503 }
       );
     }
     console.error("[analyze POST]", e);

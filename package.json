@@ -7,7 +7,8 @@
   },
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "test": "tsx --test lib/ai/*.test.ts",
+    "build": "next build --webpack",
     "start": "next start",
     "lint": "eslint app/ lib/ components/ types/",
     "typecheck": "tsc --noEmit",
@@ -36,6 +37,7 @@
     "date-fns": "^4.4.0",
     "lucide-react": "^0.513.0",
     "next": "^16.3.6",
+    "openai": "^7.23.0",
     "prisma": "^6.19.3",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",

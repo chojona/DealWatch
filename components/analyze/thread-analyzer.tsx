@@ -170,7 +170,7 @@ export function ThreadAnalyzer() {
 
           <div className="rounded-sm border border-amber-200 bg-amber-50 px-3 py-2.5 text-xs text-amber-700">
             <strong>Review before saving.</strong> These results were generated
-            by an automated analysis stub. Verify each extracted obligation
+            by an automated analysis engine. Verify each extracted obligation
             against the source thread before committing to your records.
           </div>
 

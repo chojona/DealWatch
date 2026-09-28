@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { cn } from "@/lib/utils";
+import { GlobalSearch } from "@/components/global-search";
 
 const navLinks = [
   { href: "/dashboard", label: "Dashboard" },
@@ -42,6 +43,7 @@ export function Nav({ active }: NavProps) {
             </nav>
           </div>
           <div className="flex items-center gap-2">
+            <GlobalSearch />
             <div className="h-6 w-6 rounded-full bg-zinc-200 text-[10px] font-semibold flex items-center justify-center text-zinc-600">
               JC
             </div>

@@ -27,6 +27,7 @@ export default async function DealKnowledgePage({
         name={deal.name}
         company={deal.company}
         property={deal.property}
+        propertyHref={deal.propertyId ? `/properties/${deal.propertyId}` : null}
         stage={deal.stage}
         status={deal.status}
         estimatedValue={deal.estimatedValue}

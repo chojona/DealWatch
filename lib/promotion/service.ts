@@ -1030,8 +1030,9 @@ function supportView(input: {
   sourceKind: string;
   sourceLocation: string | null;
   messageId: string | null;
-  document: { id: string; originalFilename: string } | null;
+  document: { id: string; originalFilename: string; documentDate: Date | null } | null;
   documentPage: { pageNumber: number } | null;
+  message: { sentAt: Date } | null;
 }): EvidenceSupport {
   const pageNumber = input.provenanceStatus === "EXACT" ? input.documentPage?.pageNumber ?? null : null;
   const href =
@@ -1050,13 +1051,15 @@ function supportView(input: {
     messageId: input.messageId,
     sourceKind: input.sourceKind,
     sourceLocation: input.sourceLocation,
+    sourceDate: (input.document?.documentDate ?? input.message?.sentAt)?.toISOString() ?? null,
     href,
   };
 }
 
 const evidenceInclude = {
-  document: { select: { id: true, originalFilename: true } },
+  document: { select: { id: true, originalFilename: true, documentDate: true } },
   documentPage: { select: { pageNumber: true } },
+  message: { select: { sentAt: true } },
 } as const;
 
 export async function getRelationshipEvidence(
@@ -1248,6 +1251,7 @@ export async function getDealKnowledge(prisma: PrismaClient, dealId: string): Pr
     };
     current.employers.push({
       employmentId: employment.id,
+      companyId: employment.companyId,
       companyName: employment.company.canonicalName,
       affiliationKind: employment.affiliationKind,
       titleAtTime: employment.titleAtTime,
@@ -1273,6 +1277,7 @@ export async function getDealKnowledge(prisma: PrismaClient, dealId: string): Pr
         stakes.map(async (stake) => ({
           id: stake.id,
           predicate: stake.predicate,
+          companyId: stake.companyId,
           companyName: stake.company.canonicalName,
           evidence: (await getRelationshipEvidence(prisma, { propertyStakeId: stake.id }))!,
         }))
@@ -1282,7 +1287,10 @@ export async function getDealKnowledge(prisma: PrismaClient, dealId: string): Pr
           id: participation.id,
           role: participation.role,
           roleLabel: participation.roleLabel,
+          actorId: participation.personId ?? participation.companyId,
+          actorType: participation.personId ? "PERSON" as const : participation.companyId ? "COMPANY" as const : null,
           actorName: participation.person?.canonicalName ?? participation.company?.canonicalName ?? "Unknown",
+          representsCompanyId: participation.representsCompanyId,
           representsCompanyName: participation.represents?.canonicalName ?? null,
           evidence: (await getRelationshipEvidence(prisma, { dealParticipationId: participation.id }))!,
         }))
@@ -1290,7 +1298,9 @@ export async function getDealKnowledge(prisma: PrismaClient, dealId: string): Pr
       employments: await Promise.all(
         employments.map(async (employment) => ({
           id: employment.id,
+          personId: employment.personId,
           personName: employment.person.canonicalName,
+          companyId: employment.companyId,
           companyName: employment.company.canonicalName,
           affiliationKind: employment.affiliationKind,
           titleAtTime: employment.titleAtTime,

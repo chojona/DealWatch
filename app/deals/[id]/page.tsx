@@ -30,6 +30,7 @@ async function getDeal(id: string) {
         },
         orderBy: { createdAt: "asc" },
       },
+      canonicalProperty: true,
     },
   });
 
@@ -81,6 +82,7 @@ export default async function DealPage({
         name={deal.name}
         company={deal.company}
         property={deal.property}
+        propertyHref={deal.propertyId ? `/properties/${deal.propertyId}` : null}
         stage={deal.stage}
         status={deal.status}
         estimatedValue={deal.estimatedValue}
@@ -246,7 +248,7 @@ export default async function DealPage({
                   <p className="text-[10px] text-zinc-400 uppercase tracking-wider">
                     Property
                   </p>
-                  <p className="text-sm text-zinc-800">{deal.property}</p>
+                  <p className="text-sm text-zinc-800">{deal.canonicalProperty ? <a className="underline decoration-zinc-300 underline-offset-2" href={`/properties/${deal.canonicalProperty.id}`}>{deal.property}</a> : deal.property}</p>
                 </div>
                 <div>
                   <p className="text-[10px] text-zinc-400 uppercase tracking-wider">

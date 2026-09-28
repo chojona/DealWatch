@@ -17,8 +17,58 @@ function provenanceLabel(support: EvidenceSupport): string {
   return "Manual source";
 }
 
-export function EvidencePanel({ evidence }: { evidence: EvidenceView }) {
+function EvidenceList({ evidence }: { evidence: EvidenceView }) {
+  return (
+    <div className="rounded-sm border border-zinc-200 bg-zinc-50 px-3 py-2">
+      <p className="text-[11px] font-medium text-zinc-800">
+        Supported by {evidence.supportCount} {evidence.supportCount === 1 ? "observation" : "observations"}
+      </p>
+      <p className="mt-0.5 text-[11px] text-zinc-500">{evidence.title}</p>
+      <ul className="mt-2 space-y-2">
+        {evidence.supports.map((support) => (
+          <li key={support.observationId} className="text-[11px] text-zinc-700">
+            <p className="font-medium text-zinc-800">
+              {support.documentName ?? (support.messageId ? "Message" : "Manual source")}
+              <span className="ml-2 font-normal text-zinc-500">{provenanceLabel(support)}</span>
+              {support.sourceDate && (
+                <span className="ml-2 font-normal text-zinc-400">
+                  {new Intl.DateTimeFormat("en-US", { dateStyle: "medium" }).format(new Date(support.sourceDate))}
+                </span>
+              )}
+            </p>
+            {support.provenanceStatus === "EXACT" && support.href && support.pageNumber && (
+              <a className="text-zinc-700 underline" href={support.href}>
+                Open page {support.pageNumber}
+              </a>
+            )}
+            {support.provenanceStatus === "AMBIGUOUS" && (
+              <p className="text-zinc-500">The quote appears on more than one page, so no single page is linked.</p>
+            )}
+            {support.provenanceStatus === "UNLOCATED" && (
+              <p className="text-zinc-500">The quote was not found on a stored page.</p>
+            )}
+            <blockquote className="mt-1 border-l-2 border-zinc-200 pl-2 text-zinc-600">
+              {support.quote}
+            </blockquote>
+          </li>
+        ))}
+        {evidence.supports.length === 0 && (
+          <li className="text-[11px] text-zinc-500">No documentary support is currently linked to this canonical assertion.</li>
+        )}
+      </ul>
+    </div>
+  );
+}
+
+export function EvidencePanel({
+  evidence,
+  embedded = false,
+}: {
+  evidence: EvidenceView;
+  embedded?: boolean;
+}) {
   const [open, setOpen] = useState(false);
+  if (embedded) return <EvidenceList evidence={evidence} />;
   return (
     <div className="mt-2">
       <button
@@ -29,38 +79,8 @@ export function EvidencePanel({ evidence }: { evidence: EvidenceView }) {
         {open ? "Hide evidence" : "Why do we believe this?"}
       </button>
       {open && (
-        <div className="mt-2 rounded-sm border border-zinc-200 bg-zinc-50 px-3 py-2">
-          <p className="text-[11px] font-medium text-zinc-800">
-            Supported by {evidence.supportCount} {evidence.supportCount === 1 ? "observation" : "observations"}
-          </p>
-          <p className="mt-0.5 text-[11px] text-zinc-500">{evidence.title}</p>
-          <ul className="mt-2 space-y-2">
-            {evidence.supports.map((support) => (
-              <li key={support.observationId} className="text-[11px] text-zinc-700">
-                <p className="font-medium text-zinc-800">
-                  {support.documentName ?? (support.messageId ? "Message" : "Manual entry")}
-                  <span className="ml-2 font-normal text-zinc-500">{provenanceLabel(support)}</span>
-                </p>
-                {support.provenanceStatus === "EXACT" && support.href && support.pageNumber && (
-                  <a className="text-zinc-700 underline" href={support.href}>
-                    Open page {support.pageNumber}
-                  </a>
-                )}
-                {support.provenanceStatus === "AMBIGUOUS" && (
-                  <p className="text-zinc-500">The quote appears on more than one page, so no single page is linked.</p>
-                )}
-                {support.provenanceStatus === "UNLOCATED" && (
-                  <p className="text-zinc-500">The quote was not found on a stored page.</p>
-                )}
-                <blockquote className="mt-1 border-l-2 border-zinc-200 pl-2 text-zinc-600">
-                  {support.quote}
-                </blockquote>
-              </li>
-            ))}
-            {evidence.supports.length === 0 && (
-              <li className="text-[11px] text-zinc-500">No supporting observation is linked yet.</li>
-            )}
-          </ul>
+        <div className="mt-2">
+          <EvidenceList evidence={evidence} />
         </div>
       )}
     </div>

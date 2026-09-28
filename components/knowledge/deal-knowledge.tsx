@@ -1,5 +1,6 @@
 import { EvidencePanel } from "@/components/knowledge/evidence-panel";
 import type { DealKnowledge } from "@/lib/promotion/types";
+import Link from "next/link";
 
 function stakeLabel(predicate: string): string {
   if (predicate === "OWNS") return "Owner";
@@ -22,7 +23,7 @@ export function DealKnowledgeView({ knowledge }: { knowledge: DealKnowledge }) {
         <div className="mt-4 rounded-sm border border-zinc-200 bg-white px-4 py-4">
           <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-400">Property</p>
           <h3 className="mt-1 text-base font-semibold text-zinc-900">
-            {property?.name ?? knowledge.propertyLabel}
+            {property ? <Link className="underline decoration-zinc-300 underline-offset-2" href={`/properties/${property.id}`}>{property.name}</Link> : knowledge.propertyLabel}
           </h3>
           {property?.address && <p className="text-xs text-zinc-500">{property.address}</p>}
           {property && <EvidencePanel evidence={property.evidence} />}
@@ -32,7 +33,7 @@ export function DealKnowledgeView({ knowledge }: { knowledge: DealKnowledge }) {
                 <dt className="text-[10px] font-semibold uppercase tracking-wider text-zinc-400">
                   {stakeLabel(stake.predicate)}
                 </dt>
-                <dd className="text-sm text-zinc-900">{stake.companyName}</dd>
+                <dd className="text-sm text-zinc-900"><Link className="underline decoration-zinc-300 underline-offset-2" href={`/companies/${stake.companyId}`}>{stake.companyName}</Link></dd>
                 <EvidencePanel evidence={stake.evidence} />
               </div>
             ))}
@@ -50,9 +51,11 @@ export function DealKnowledgeView({ knowledge }: { knowledge: DealKnowledge }) {
             <ul className="mt-3 space-y-4">
               {knowledge.canonical.people.map((person) => (
                 <li key={person.personId}>
-                  <p className="text-sm font-medium text-zinc-900">{person.name}</p>
+                  <p className="text-sm font-medium text-zinc-900"><Link className="underline decoration-zinc-300 underline-offset-2" href={`/people/${person.personId}`}>{person.name}</Link></p>
                   <p className="text-xs text-zinc-500">
-                    {[...person.roles, ...person.employers.map((employer) => employer.companyName)].join(" · ")}
+                    {person.roles.join(" · ")}
+                    {person.roles.length > 0 && person.employers.length > 0 ? " · " : ""}
+                    {person.employers.map((employer, index) => <span key={employer.employmentId}>{index > 0 ? " · " : ""}<Link className="underline decoration-zinc-300" href={`/companies/${employer.companyId}`}>{employer.companyName}</Link></span>)}
                   </p>
                 </li>
               ))}
@@ -66,10 +69,10 @@ export function DealKnowledgeView({ knowledge }: { knowledge: DealKnowledge }) {
             <ul className="mt-3 space-y-3">
               {knowledge.canonical.participations.map((participation) => (
                 <li key={participation.id}>
-                  <p className="text-sm text-zinc-900">{participation.actorName}</p>
+                  <p className="text-sm text-zinc-900">{participation.actorId && participation.actorType ? <Link className="underline decoration-zinc-300 underline-offset-2" href={`/${participation.actorType === "PERSON" ? "people" : "companies"}/${participation.actorId}`}>{participation.actorName}</Link> : participation.actorName}</p>
                   <p className="text-xs text-zinc-500">
                     {participation.roleLabel ?? participation.role.replaceAll("_", " ")}
-                    {participation.representsCompanyName ? ` · represents ${participation.representsCompanyName}` : ""}
+                    {participation.representsCompanyName && participation.representsCompanyId ? <> · represents <Link className="underline decoration-zinc-300" href={`/companies/${participation.representsCompanyId}`}>{participation.representsCompanyName}</Link></> : ""}
                   </p>
                   <EvidencePanel evidence={participation.evidence} />
                 </li>
@@ -85,9 +88,9 @@ export function DealKnowledgeView({ knowledge }: { knowledge: DealKnowledge }) {
               {knowledge.canonical.employments.map((employment) => (
                 <li key={employment.id}>
                   <p className="text-sm text-zinc-900">
-                    {employment.personName}
+                    <Link className="underline decoration-zinc-300" href={`/people/${employment.personId}`}>{employment.personName}</Link>
                     <span className="text-zinc-400"> works at </span>
-                    {employment.companyName}
+                    <Link className="underline decoration-zinc-300" href={`/companies/${employment.companyId}`}>{employment.companyName}</Link>
                   </p>
                   <p className="text-xs text-zinc-500">{employment.affiliationKind}</p>
                   <EvidencePanel evidence={employment.evidence} />

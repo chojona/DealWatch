@@ -97,6 +97,7 @@ export interface EvidenceSupport {
   messageId: string | null;
   sourceKind: string;
   sourceLocation: string | null;
+  sourceDate: string | null;
   href: string | null;
 }
 
@@ -110,9 +111,10 @@ export interface DealKnowledgePerson {
   personId: string;
   name: string;
   roles: string[];
-  employers: Array<{
-    employmentId: string;
-    companyName: string;
+    employers: Array<{
+      employmentId: string;
+      companyId: string;
+      companyName: string;
     affiliationKind: string;
     titleAtTime: string | null;
   }>;
@@ -133,6 +135,7 @@ export interface DealKnowledge {
     stakes: Array<{
       id: string;
       predicate: string;
+      companyId: string;
       companyName: string;
       evidence: EvidenceView;
     }>;
@@ -140,13 +143,18 @@ export interface DealKnowledge {
       id: string;
       role: string;
       roleLabel: string | null;
+      actorId: string | null;
+      actorType: "PERSON" | "COMPANY" | null;
       actorName: string;
+      representsCompanyId: string | null;
       representsCompanyName: string | null;
       evidence: EvidenceView;
     }>;
     employments: Array<{
       id: string;
+      personId: string;
       personName: string;
+      companyId: string;
       companyName: string;
       affiliationKind: string;
       titleAtTime: string | null;

@@ -4,10 +4,11 @@ import { formatCurrency, formatDate } from "@/lib/formatters";
 
 interface DealHeaderProps {
   dealId?: string;
-  activeSection?: "overview" | "negotiation" | "knowledge";
+  activeSection?: "overview" | "negotiation" | "knowledge" | "connections";
   name: string;
   company: string;
   property: string;
+  propertyHref?: string | null;
   stage: string;
   status: string;
   estimatedValue: number | null;
@@ -30,6 +31,7 @@ export function DealHeader({
   name,
   company,
   property,
+  propertyHref,
   stage,
   status,
   estimatedValue,
@@ -52,7 +54,7 @@ export function DealHeader({
             </div>
             <h1 className="text-xl font-semibold text-zinc-900">{name}</h1>
             <div className="flex items-center gap-2 mt-0.5">
-              <span className="text-sm text-zinc-500">{property}</span>
+              {propertyHref ? <Link href={propertyHref} className="text-sm text-zinc-500 underline decoration-zinc-300 underline-offset-2 hover:text-zinc-800">{property}</Link> : <span className="text-sm text-zinc-500">{property}</span>}
             </div>
           </div>
           <div className="flex flex-col items-end gap-1.5">
@@ -95,6 +97,12 @@ export function DealHeader({
               className={`border-b-2 pb-2.5 text-xs font-medium ${activeSection === "knowledge" ? "border-zinc-900 text-zinc-900" : "border-transparent text-zinc-400 hover:text-zinc-700"}`}
             >
               Knowledge
+            </Link>
+            <Link
+              href={`/deals/${dealId}/connections`}
+              className={`border-b-2 pb-2.5 text-xs font-medium ${activeSection === "connections" ? "border-zinc-900 text-zinc-900" : "border-transparent text-zinc-400 hover:text-zinc-700"}`}
+            >
+              Connection map
             </Link>
           </nav>
         )}

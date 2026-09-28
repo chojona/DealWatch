@@ -9,9 +9,45 @@ function count(value: CountMetric) {
 }
 
 export function formatEvaluationSummary(report: EvaluationReport) {
+  if (!report.run.complete) {
+    const evaluated =
+      report.suite.documentCount - report.run.remainingDocuments;
+    const lines = [
+      "EVALUATION INCOMPLETE",
+      evaluated + "/" + report.suite.documentCount + " documents evaluated",
+      report.run.remainingDocuments + " remaining",
+      "",
+      "Processed this run: " + report.run.processedThisRun,
+      "Loaded from cache: " + report.run.loadedFromCache,
+      "Remaining: " + report.run.remainingDocuments,
+    ];
+    if (report.run.stopReason === "daily-quota") {
+      lines.push("Reason: " + report.run.provider + " daily quota limit reached");
+    } else if (report.run.stopReason === "authentication") {
+      lines.push("Reason: Authentication or API configuration failure");
+    }
+    if (report.run.errors.length) {
+      lines.push("", "Errors");
+      for (const error of report.run.errors) {
+        lines.push(
+          "  " +
+            error.fixtureId +
+            " / " +
+            error.documentId +
+            ": " +
+            error.message
+        );
+      }
+    }
+    return lines.join("\n");
+  }
+
   const lines = [
-    "DealWatch negotiation intelligence evaluation",
+    report.run.officialBenchmark
+      ? "DealWatch negotiation intelligence evaluation — OFFICIAL AGGREGATE BENCHMARK"
+      : "DealWatch negotiation intelligence evaluation — SELECTED SUBSET (not an official benchmark)",
     "",
+    "Provider:   " + report.run.provider,
     "Model:      " + report.run.model,
     "Suite:      " +
       report.suite.scenarioCount +
@@ -20,6 +56,8 @@ export function formatEvaluationSummary(report: EvaluationReport) {
       " documents",
     "Duration:   " + (report.run.durationMs / 1000).toFixed(1) + "s",
     "Failures:   " + report.run.failedDocuments + " document(s)",
+    "Processed this run: " + report.run.processedThisRun,
+    "Loaded from cache:  " + report.run.loadedFromCache,
     "",
     "Extraction",
     "  Precision:          " + percent(report.metrics.extraction.precision),

@@ -81,11 +81,6 @@ function loadLocalEnvironment() {
 async function main() {
   const options = parseArgs(process.argv.slice(2));
   loadLocalEnvironment();
-  if (!process.env.GEMINI_API_KEY?.trim()) {
-    throw new Error(
-      "GEMINI_API_KEY is required. Set it in the environment or .env.local."
-    );
-  }
   const requested = new Set(options.fixtureIds);
   const fixtures = requested.size
     ? NEGOTIATION_FIXTURES.filter((fixture) => requested.has(fixture.id))
@@ -100,6 +95,10 @@ async function main() {
   const report = await runNegotiationEvaluation({
     fixtures,
     concurrency: options.concurrency,
+    onProgress: (line) => {
+      const stream = options.jsonStdout ? process.stderr : process.stdout;
+      stream.write(line + "\n");
+    },
   });
   const outputPath = resolve(options.output);
   mkdirSync(dirname(outputPath), { recursive: true });
@@ -114,8 +113,14 @@ async function main() {
     process.stdout.write(summary + "\n\nJSON report: " + outputPath + "\n");
   }
 
-  if (report.run.failedDocuments > 0) process.exitCode = 1;
   if (
+    !report.run.complete &&
+    report.run.stopReason !== "daily-quota"
+  ) {
+    process.exitCode = 1;
+  }
+  if (
+    report.run.complete &&
     options.failUnderF1 !== undefined &&
     (report.metrics.extraction.f1 ?? 0) < options.failUnderF1
   ) {

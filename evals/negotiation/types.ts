@@ -158,10 +158,22 @@ export interface EvaluationReport {
   run: {
     startedAt: string;
     completedAt: string;
+    provider: string;
     model: string;
     concurrency: number;
     durationMs: number;
     failedDocuments: number;
+    complete: boolean;
+    officialBenchmark: boolean;
+    processedThisRun: number;
+    loadedFromCache: number;
+    remainingDocuments: number;
+    stopReason?: "daily-quota" | "authentication";
+    errors: Array<{
+      fixtureId: string;
+      documentId: string;
+      message: string;
+    }>;
   };
   metrics: MetricBundle;
   scenarios: ScenarioEvaluation[];

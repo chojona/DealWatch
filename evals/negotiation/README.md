@@ -9,14 +9,34 @@ Run the full live-model suite:
 
     npm run eval:negotiation
 
+Select the API provider with `DEALWATCH_AI_PROVIDER` (`gemini` by default):
+
+    DEALWATCH_AI_PROVIDER=openai npm run eval:negotiation
+
+OpenAI evaluation reads `OPENAI_API_KEY`; Gemini evaluation reads
+`GEMINI_API_KEY`. Both use `DEALWATCH_NEGOTIATION_MODEL` for the model name.
+
 The command reads GEMINI_API_KEY from the environment, .env.local, or .env;
 writes a machine-readable report to artifacts/negotiation-eval.json; and
-prints a human-readable summary. Useful options:
+prints progress and a human-readable summary. Successful raw extractions are
+checkpointed under artifacts/negotiation-eval-cache and reused when the
+fixture, provider, model, extraction contract, and document content still
+match. Useful options:
 
     npm run eval:negotiation -- --fixture n19-prompt-injection
     npm run eval:negotiation -- --concurrency 2 --output /tmp/report.json
     npm run eval:negotiation -- --fail-under-f1 0.90
     npm run eval:negotiation -- --json-stdout > report.json
+
+For Gemini's five-request-per-minute free-tier limit, pace calls sequentially:
+
+    DEALWATCH_EVAL_REQUEST_INTERVAL_MS=13000 npm run eval:negotiation
+
+HTTP 429 and 503 responses are retried with exponential backoff and jitter,
+including any provider-supplied Retry-After or retryDelay. A daily-quota error
+stops cleanly with processed, cached, and remaining document counts. Incomplete
+runs do not print aggregate benchmark scores; rerun the same command after the
+quota resets to continue from the cache.
 
 ## Metrics
 

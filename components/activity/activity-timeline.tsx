@@ -66,6 +66,11 @@ function EventCard({ event }: { event: ActivityEvent }) {
             Open document
           </a>
         )}
+        {event.negotiationHref && (
+          <Link href={event.negotiationHref} className="shrink-0 text-[11px] font-medium text-zinc-700 underline">
+            Open negotiation round
+          </Link>
+        )}
       </div>
       {event.details && event.details.length > 0 && (
         <div className="mt-3 divide-y divide-zinc-100 rounded-sm border border-zinc-200 bg-zinc-50/60">

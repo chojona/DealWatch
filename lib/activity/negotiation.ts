@@ -132,10 +132,14 @@ export function buildNegotiationEvents(
     const prior = ordered.slice(0, index);
     const uniqueTerms = new Map<string, ActivityNegotiationTerm>();
     for (const term of row.terms) uniqueTerms.set(`${term.canonicalType}:${term.status}:${JSON.stringify(term.structuredPayload)}`, term);
+    let changedCount = 0;
+    let agreedCount = 0;
     const details: ActivityTermDetail[] = [...uniqueTerms.values()].map((term) => {
       const previous = currentPositionForSide(prior, term.canonicalType as CanonicalTermType, row.side as "TENANT" | "LANDLORD");
       const value = displayValue(term);
       const previousValue = previous ? previous.normalizedValue?.trim() || previous.rawValue : undefined;
+      if (!previous || previousValue !== value || previous.status !== term.status) changedCount += 1;
+      if (term.status === "AGREED") agreedCount += 1;
       return {
         canonicalType: term.canonicalType,
         label: TERM_LABELS[term.canonicalType as CanonicalTermType] ?? term.canonicalType.toLowerCase().replaceAll("_", " "),
@@ -152,9 +156,10 @@ export function buildNegotiationEvents(
       occurredAt: row.documentDate.toISOString(),
       recordedAt: row.createdAt.toISOString(),
       ...eventKind(row),
-      description: `${row.documentName} · ${details.length} ${details.length === 1 ? "term" : "terms"}`,
+      description: `${row.documentName} · ${changedCount} ${changedCount === 1 ? "term" : "terms"} changed${agreedCount ? ` · ${agreedCount} agreed` : ""}`,
       entityRefs: refsForDeal(row.dealId),
       dealId: row.dealId,
+      negotiationHref: `/deals/${row.dealId}/negotiation?round=${row.id}`,
       ...(row.documentId ? { documentId: row.documentId } : {}),
       ...(exactPageIds.length === 1 ? { documentPageId: exactPageIds[0] } : {}),
       evidence: { title: `Terms recorded in ${row.document?.originalFilename ?? row.documentName}`, supportCount: supports.length, supports },

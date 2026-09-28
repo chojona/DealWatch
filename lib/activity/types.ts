@@ -68,6 +68,7 @@ export interface ActivityEvent {
   dealId?: string;
   documentId?: string;
   documentPageId?: string;
+  negotiationHref?: string;
   evidence?: EvidenceView;
   details?: ActivityTermDetail[];
   sourceType: ActivitySourceType;

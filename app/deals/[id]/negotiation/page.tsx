@@ -1,309 +1,58 @@
 import { notFound } from "next/navigation";
-import { prisma } from "@/lib/db";
-import { Nav } from "@/components/nav";
 import { DealHeader } from "@/components/deals/deal-header";
+import { Nav } from "@/components/nav";
 import { AddRoundForm } from "@/components/negotiation/add-round-form";
-import { NegotiationMatrix } from "@/components/negotiation/negotiation-matrix";
+import { NegotiationWorkspaceView } from "@/components/negotiation/negotiation-workspace";
 import { UploadNegotiationDocument } from "@/components/negotiation/upload-document-form";
-import {
-  DOCUMENT_TYPE_LABELS,
-  INGESTION_STATUS_LABELS,
-} from "@/lib/documents/labels";
-import { compareRounds } from "@/lib/negotiation/compareRounds";
-import { presentTermSource } from "@/lib/negotiation/presentSource";
-import { TERM_LABELS } from "@/lib/negotiation/termCatalog";
-import type {
-  NegotiationRoundRecord,
-  NegotiationTermRecord,
-} from "@/lib/negotiation/types";
-import type {
-  CanonicalTermType,
-  NegotiationSide,
-  NegotiationTermStatus,
-} from "@/lib/ai/negotiation/schemas";
+import { prisma } from "@/lib/db";
+import { getNegotiationWorkspace } from "@/lib/negotiation/intelligence/service";
 
 export const dynamic = "force-dynamic";
 
-function formatMovement(value: number, unit: string) {
-  const sign = value > 0 ? "+" : value < 0 ? "−" : "";
-  const amount = Math.abs(value);
-  const number = Number.isInteger(amount) ? amount.toString() : amount.toFixed(2);
-  if (unit === "USD_PER_RSF_YEAR") return `${sign}$${number}/SF`;
-  if (unit === "PERCENT_ANNUAL") return `${sign}${number}%`;
-  if (unit === "MONTHS") return `${sign}${number} mo`;
-  if (unit === "MONTHS_RENT") return `${sign}${number} mo rent`;
-  if (unit === "RSF") return `${sign}${amount.toLocaleString()} RSF`;
-  return `${sign}${number}`;
-}
-
 export default async function NegotiationPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ round?: string | string[] }>;
 }) {
-  const { id } = await params;
-  const deal = await prisma.deal.findUnique({
-    where: { id },
-    include: {
-      negotiationRounds: {
-        include: {
-          terms: { include: { documentPage: true } },
-          document: true,
-        },
-        orderBy: [{ documentDate: "asc" }, { createdAt: "asc" }],
-      },
-      documents: {
-        orderBy: { createdAt: "desc" },
-        include: {
-          pages: {
-            where: { pageNumber: 1 },
-            select: { text: true },
-          },
-          negotiationRounds: {
-            include: { _count: { select: { terms: true } } },
-          },
-        },
-      },
-    },
-  });
-  if (!deal) notFound();
-
-  const sourceByTermId = new Map(
-    deal.negotiationRounds.flatMap((round) =>
-      round.terms.map((term) => [
-        term.id,
-        presentTermSource({
-          documentName: round.documentName,
-          evidenceQuote: term.evidenceQuote,
-          sourceLocation: term.sourceLocation,
-          provenanceStatus: term.provenanceStatus,
-          pageNumber: term.documentPage?.pageNumber ?? null,
-          originalFilename: round.document?.originalFilename ?? null,
-          documentId: round.documentId,
-        }),
-      ] as const)
-    )
-  );
-
-  const rounds: NegotiationRoundRecord[] = deal.negotiationRounds.map(
-    (round) => ({
-      id: round.id,
-      side: round.side as NegotiationSide,
-      roundNumber: round.roundNumber,
-      documentName: round.documentName,
-      documentText: round.documentText,
-      documentDate: round.documentDate,
-      createdAt: round.createdAt,
-      terms: round.terms.map(
-        (term): NegotiationTermRecord => ({
-          ...term,
-          canonicalType: term.canonicalType as CanonicalTermType,
-          status: term.status as NegotiationTermStatus,
-          side: term.side as NegotiationSide,
-        })
-      ),
-    })
-  );
-  const analysis = compareRounds(rounds);
-  const latestRound = analysis.rounds.at(-1);
-  const movementRows = analysis.rows.filter(
-    (row) =>
-      (row.movement.tenant && row.movement.tenant.change !== 0) ||
-      (row.movement.landlord && row.movement.landlord.change !== 0)
-  );
-
-  const matrixRounds = analysis.rounds.map((round) => ({
-    id: round.id,
-    side: round.side,
-    roundNumber: round.roundNumber,
-    documentName: round.documentName,
-    documentDate: round.documentDate.toISOString(),
-  }));
-  const matrixRows = analysis.rows.map((row) => ({
-    type: row.type,
-    label: row.label,
-    status: row.state.status,
-    contradictory: row.state.contradictory,
-    gap: row.gap,
-    cells: row.cells.map((cell) => ({
-      roundId: cell.roundId,
-      terms: cell.terms.map((term) => ({
-        id: term.id,
-        normalizedValue: term.normalizedValue,
-        normalizedNumeric: term.normalizedNumeric,
-        normalizedUnit: term.normalizedUnit,
-        rawValue: term.rawValue,
-        status: term.status,
-        confidence: term.confidence,
-        evidenceQuote: term.evidenceQuote,
-        sourceLocation: term.sourceLocation,
-        sourceFilename: sourceByTermId.get(term.id)?.filename ?? null,
-        pageLabel: sourceByTermId.get(term.id)?.pageLabel ?? null,
-        pageNumber: sourceByTermId.get(term.id)?.pageNumber ?? null,
-        documentId: sourceByTermId.get(term.id)?.documentId ?? null,
-      })),
-    })),
-  }));
+  const [{ id }, query] = await Promise.all([params, searchParams]);
+  const workspace = await getNegotiationWorkspace(prisma, id);
+  if (!workspace) notFound();
+  const focusedRound = typeof query.round === "string" ? query.round : null;
 
   return (
     <div className="min-h-screen">
       <Nav />
       <DealHeader
-        dealId={deal.id}
+        dealId={workspace.deal.id}
         activeSection="negotiation"
-        name={deal.name}
-        company={deal.company}
-        property={deal.property}
-        propertyHref={deal.propertyId ? `/properties/${deal.propertyId}` : null}
-        stage={deal.stage}
-        status={deal.status}
-        estimatedValue={deal.estimatedValue}
-        createdAt={deal.createdAt}
+        name={workspace.deal.name}
+        company={workspace.deal.company}
+        property={workspace.deal.property}
+        propertyHref={workspace.deal.propertyId ? `/properties/${workspace.deal.propertyId}` : null}
+        stage={workspace.deal.stage}
+        status={workspace.deal.status}
+        estimatedValue={workspace.deal.estimatedValue}
+        createdAt={new Date(workspace.deal.createdAt)}
       />
 
       <main className="mx-auto max-w-[1500px] px-6 py-6">
-        <div className="mb-4 flex items-start justify-between gap-6">
+        <div className="mb-4 flex flex-wrap items-start justify-between gap-4">
           <div>
-            <h2 className="text-xs font-semibold uppercase tracking-wider text-zinc-400">Negotiation overview</h2>
+            <h2 className="text-xs font-semibold uppercase tracking-wider text-zinc-500">Negotiation intelligence</h2>
             <p className="mt-1 max-w-2xl text-xs text-zinc-500">
-              Reconstructed from source-grounded term assertions. Missing terms do not supersede earlier positions.
+              Current positions, agreements, conflicts, and movement resolved from stored source-grounded term observations.
             </p>
           </div>
-          <AddRoundForm dealId={deal.id} />
+          <AddRoundForm dealId={workspace.deal.id} />
         </div>
 
-        <UploadNegotiationDocument dealId={deal.id} />
+        <div className="mb-6">
+          <UploadNegotiationDocument dealId={workspace.deal.id} />
+        </div>
 
-        <section className="mt-4 overflow-hidden rounded-sm border border-zinc-200 bg-white">
-          {deal.documents.length === 0 ? (
-            <p className="px-4 py-4 text-xs text-zinc-400">No documents uploaded yet.</p>
-          ) : (
-            deal.documents.map((document) => (
-              <div key={document.id} className="border-b border-zinc-100 px-4 py-3 last:border-0">
-                <div className="flex flex-wrap items-baseline justify-between gap-2">
-                  <p className="text-sm font-medium text-zinc-900">{document.originalFilename}</p>
-                  <p className="text-[11px] font-medium text-zinc-500">
-                    {INGESTION_STATUS_LABELS[document.ingestionStatus] ?? document.ingestionStatus}
-                  </p>
-                </div>
-                <p className="mt-1 text-[11px] text-zinc-500">
-                  {DOCUMENT_TYPE_LABELS[document.documentType] ?? document.documentType}
-                  {" · "}
-                  {document.documentDate
-                    ? document.documentDate.toLocaleDateString("en-US", {
-                        month: "short",
-                        day: "numeric",
-                        year: "numeric",
-                        timeZone: "UTC",
-                      })
-                    : "No date"}
-                  {" · "}
-                  {document.pageCount ?? 0} pages
-                  {" · "}
-                  {document.negotiationRounds[0]?._count.terms ?? 0} extracted terms
-                </p>
-                {document.failureReason && (
-                  <p className="mt-1 text-[11px] text-red-700">{document.failureReason}</p>
-                )}
-                {document.pages[0]?.text && (
-                  <pre className="mt-2 max-h-24 overflow-hidden whitespace-pre-wrap font-mono text-[11px] text-zinc-500">
-                    {document.pages[0].text.slice(0, 400)}
-                  </pre>
-                )}
-                <p className="mt-2 text-[11px]">
-                  <a className="underline text-zinc-600" href={`/api/documents/${document.id}/file`} target="_blank" rel="noreferrer">
-                    View source PDF
-                  </a>
-                  {" · "}
-                  <a className="underline text-zinc-600" href={`/documents/${document.id}/resolution`}>
-                    Review entities
-                  </a>
-                  {document.ingestionStatus === "COMPLETE" && (
-                    <>
-                      {" · "}
-                      <a className="underline text-zinc-600" href="#term-history">
-                        Negotiation intelligence
-                      </a>
-                    </>
-                  )}
-                </p>
-              </div>
-            ))
-          )}
-        </section>
-
-        <section className="mb-6 grid grid-cols-2 overflow-hidden rounded-sm border border-zinc-200 bg-white sm:grid-cols-5">
-          {[
-            ["Stage", deal.stage],
-            ["Rounds", analysis.rounds.length.toString()],
-            ["Last movement", latestRound ? `${latestRound.side === "TENANT" ? "Tenant" : "Landlord"} R${latestRound.roundNumber}` : "None"],
-            ["Open terms", analysis.openIssues.length.toString()],
-            ["Agreed terms", analysis.agreedTerms.length.toString()],
-          ].map(([label, value]) => (
-            <div key={label} className="border-b border-r border-zinc-100 px-4 py-3 last:border-r-0 sm:border-b-0">
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-400">{label}</p>
-              <p className="mt-1 text-sm font-semibold text-zinc-900">{value}</p>
-            </div>
-          ))}
-        </section>
-
-        {analysis.rounds.length === 0 ? (
-          <section className="rounded-sm border border-dashed border-zinc-300 bg-white px-6 py-12 text-center">
-            <h2 className="text-sm font-semibold text-zinc-800">No negotiation rounds yet</h2>
-            <p className="mt-1 text-xs text-zinc-500">Add a pasted LOI or upload a text-based negotiation PDF to begin reconstructing the negotiation.</p>
-          </section>
-        ) : (
-          <>
-            <section id="term-history">
-              <h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-zinc-400">Term history</h2>
-              <NegotiationMatrix rounds={matrixRounds} rows={matrixRows} />
-            </section>
-
-            <div className="mt-8 grid gap-6 lg:grid-cols-2">
-              <section>
-                <div className="mb-3 flex items-baseline justify-between">
-                  <h2 className="text-xs font-semibold uppercase tracking-wider text-zinc-400">Open issues</h2>
-                  <span className="text-[10px] text-zinc-400">Ranked by term centrality, not estimated dollars</span>
-                </div>
-                <div className="overflow-hidden rounded-sm border border-zinc-200 bg-white">
-                  {analysis.openIssues.length === 0 ? (
-                    <p className="px-4 py-6 text-center text-xs text-zinc-400">No unresolved mentioned terms.</p>
-                  ) : analysis.openIssues.map((row, index) => (
-                    <div key={row.type} className="flex items-start gap-3 border-b border-zinc-100 px-4 py-3 last:border-0">
-                      <span className="mt-0.5 text-[10px] tabular-nums text-zinc-300">{String(index + 1).padStart(2, "0")}</span>
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center justify-between gap-3">
-                          <p className="text-sm font-medium text-zinc-800">{row.label}</p>
-                          <span className="text-[9px] font-semibold text-amber-700">{row.state.contradictory ? "CONTRADICTORY" : row.state.status}</span>
-                        </div>
-                        <p className="mt-0.5 text-[11px] text-zinc-400">
-                          {row.gap ? `Current numeric gap: ${formatMovement(row.gap.currentGap, row.gap.unit).replace(/^\+/, "")}` : "Requires explicit resolution evidence"}
-                        </p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </section>
-
-              <section>
-                <h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-zinc-400">Negotiation movement</h2>
-                <div className="overflow-hidden rounded-sm border border-zinc-200 bg-white">
-                  {movementRows.length === 0 ? (
-                    <p className="px-4 py-6 text-center text-xs text-zinc-400">No measurable movement yet.</p>
-                  ) : movementRows.map((row) => (
-                    <div key={row.type} className="border-b border-zinc-100 px-4 py-3 last:border-0">
-                      <p className="text-sm font-medium text-zinc-800">{TERM_LABELS[row.type]}</p>
-                      <div className="mt-1.5 grid grid-cols-2 gap-4 text-xs">
-                        <p className="text-zinc-500">Tenant moved: <span className="font-semibold tabular-nums text-zinc-800">{row.movement.tenant ? formatMovement(row.movement.tenant.change, row.movement.tenant.unit) : "—"}</span></p>
-                        <p className="text-zinc-500">Landlord moved: <span className="font-semibold tabular-nums text-zinc-800">{row.movement.landlord ? formatMovement(row.movement.landlord.change, row.movement.landlord.unit) : "—"}</span></p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </section>
-            </div>
-          </>
-        )}
+        <NegotiationWorkspaceView workspace={workspace} initialRoundId={focusedRound} />
       </main>
     </div>
   );

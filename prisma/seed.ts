@@ -1,4 +1,6 @@
 import { PrismaClient } from "@prisma/client";
+import { seedClarendonGraph } from "../lib/entities/seedClarendonGraph";
+import { ensureDefaultWorkspace } from "../lib/entities/workspace";
 
 const prisma = new PrismaClient();
 
@@ -12,6 +14,29 @@ function daysFromNow(n: number) {
 }
 
 async function main() {
+  await prisma.employmentSupport.deleteMany();
+  await prisma.propertyStakeSupport.deleteMany();
+  await prisma.dealParticipationSupport.deleteMany();
+  await prisma.observationDisposition.deleteMany();
+  await prisma.observationSupersession.deleteMany();
+  await prisma.entityResolutionLink.deleteMany();
+  await prisma.canonicalMerge.deleteMany();
+  await prisma.relationshipObservation.deleteMany();
+  await prisma.entityObservation.deleteMany();
+  await prisma.employment.deleteMany();
+  await prisma.propertyStake.deleteMany();
+  await prisma.dealParticipation.deleteMany();
+  await prisma.personAlias.deleteMany();
+  await prisma.personIdentifier.deleteMany();
+  await prisma.companyAlias.deleteMany();
+  await prisma.companyIdentifier.deleteMany();
+  await prisma.propertyAlias.deleteMany();
+  await prisma.externalIdentifier.deleteMany();
+  await prisma.workspace.updateMany({ data: { firmCompanyId: null } });
+  await prisma.person.deleteMany();
+  await prisma.company.deleteMany();
+  await prisma.deal.updateMany({ data: { propertyId: null } });
+  await prisma.property.deleteMany();
   await prisma.negotiationTerm.deleteMany();
   await prisma.negotiationRound.deleteMany();
   await prisma.dealEvent.deleteMany();
@@ -19,6 +44,8 @@ async function main() {
   await prisma.message.deleteMany();
   await prisma.thread.deleteMany();
   await prisma.deal.deleteMany();
+
+  const workspace = await ensureDefaultWorkspace(prisma);
 
   // ─────────────────────────────────────────────────────────────
   // DEAL 1: Landlord counterproposal received 6 days ago — no response
@@ -31,6 +58,7 @@ async function main() {
       estimatedValue: 4_200_000,
       stage: "Negotiation",
       status: "ACTIVE",
+      workspaceId: workspace.id,
     },
   });
 
@@ -318,6 +346,7 @@ Agreed Delivery: Landlord will deliver broom-clean with base building systems in
       estimatedValue: 6_800_000,
       stage: "Market Survey",
       status: "ACTIVE",
+      workspaceId: workspace.id,
     },
   });
 
@@ -434,6 +463,7 @@ Executive Director | Cushman & Wakefield`,
       estimatedValue: 12_400_000,
       stage: "Prospect",
       status: "ACTIVE",
+      workspaceId: workspace.id,
     },
   });
 
@@ -539,6 +569,7 @@ CEO | NovaBio Sciences`,
       estimatedValue: 3_150_000,
       stage: "LOI",
       status: "ACTIVE",
+      workspaceId: workspace.id,
     },
   });
 
@@ -672,6 +703,7 @@ VP Asset Management | Equity Commonwealth`,
       estimatedValue: 1_850_000,
       stage: "Lease Execution",
       status: "ACTIVE",
+      workspaceId: workspace.id,
     },
   });
 
@@ -783,7 +815,14 @@ Ryan`,
     ],
   });
 
-  console.log("✅ Seeded 5 deals plus a four-round negotiation history.");
+  await seedClarendonGraph(prisma, {
+    workspaceId: workspace.id,
+    dealId: deal1.id,
+    tenantMessage: { id: msg1a.id, body: msg1a.body },
+    landlordMessage: { id: msg1b.id, body: msg1b.body },
+  });
+
+  console.log("✅ Seeded 5 deals, negotiation history, and the 200 Clarendon graph.");
 }
 
 main()

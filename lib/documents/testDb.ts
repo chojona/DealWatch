@@ -4,6 +4,8 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { PrismaClient } from "@prisma/client";
+import { applyPhase6bSql } from "@/lib/entities/applyPhase6bSql";
+import { ensureDefaultWorkspace } from "@/lib/entities/workspace";
 
 const repoRoot = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -23,6 +25,7 @@ export async function createTestDatabase() {
     }
   );
   const prisma = new PrismaClient({ datasourceUrl: databaseUrl });
+  await applyPhase6bSql(prisma);
   return {
     prisma,
     dir,
@@ -34,6 +37,7 @@ export async function createTestDatabase() {
 }
 
 export async function createTestDeal(prisma: PrismaClient) {
+  const workspace = await ensureDefaultWorkspace(prisma);
   return prisma.deal.create({
     data: {
       name: "200 Clarendon",
@@ -41,6 +45,7 @@ export async function createTestDeal(prisma: PrismaClient) {
       property: "200 Clarendon Street",
       stage: "Negotiation",
       status: "ACTIVE",
+      workspaceId: workspace.id,
     },
   });
 }

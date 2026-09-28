@@ -2208,7 +2208,9 @@ Review these before Phase 6B.
     final hosting story.
 12. **Seed and demo data** will keep showing Sarah Chen only inside
     message text until a later phase writes observations. The graph will
-    look empty in the product. That is intentional.
+    look empty in the product. That is intentional. Phase 6B's approved
+    seed task later added an explicit fictional network; see the appendix.
+    That seed is not automatic resolution of deal strings.
 13. **Introduction ranking and "who should I call" ranking** have no
     agreed sort. Schema supports the candidate sets. Do not invent a
     score during 6B.
@@ -2230,3 +2232,112 @@ that support it. Keep time-of-record, document time, and valid time apart.
 Scope every new row by workspace so two firms cannot share a graph.
 Leave resolution, extraction, and path APIs for later phases; give them
 indexes, reversible merges, and a `graph_edge` view.
+
+## Appendix — Phase 6B implementation notes
+
+Phase 6B stores the ontology above. It does not extract, resolve, or promote.
+This appendix records how that schema landed in Prisma and SQLite.
+
+### Prisma model names
+
+The schema uses the names in §14: `Workspace`, `Person`, `Company`, `Property`,
+`PersonAlias`, `PersonIdentifier`, `CompanyAlias`, `CompanyIdentifier`,
+`PropertyAlias`, `ExternalIdentifier`, `EntityObservation`,
+`RelationshipObservation`, `ObservationDisposition`, `ObservationSupersession`,
+`EntityResolutionLink`, `CanonicalMerge`, `Employment`, `EmploymentSupport`,
+`PropertyStake`, `PropertyStakeSupport`, `DealParticipation`,
+`DealParticipationSupport`. `Deal` is the existing model.
+
+`Deal.company` and `Deal.property` remain strings. `Deal.workspaceId` is
+required. `Deal.propertyId` is the nullable canonical building reference.
+
+### Deviation: relation field name on Deal
+
+Prisma cannot give `Deal` both a scalar field and a relation named
+`property`. The foreign key is still `propertyId`. The relation field is
+`canonicalProperty`. The legacy display string stays `property`.
+
+### Workspace
+
+One `Workspace` row named `Default` is created by the backfill and by
+`ensureDefaultWorkspace`. Existing deals were updated in place onto that
+row before `prisma db push` (`scripts/prepare-phase6b-workspace.ts`).
+`firmCompanyId` is null. There is no global canonical entity: company
+identity uniqueness is per workspace.
+
+`Document`, `DocumentPage`, `NegotiationRound`, and `NegotiationTerm` do
+not store `workspaceId`. They inherit it through `Deal`.
+
+### Constraints SQLite and Prisma cannot express alone
+
+`prisma db push` does not emit partial unique indexes, views, or `CHECK`
+constraints. `prisma/sql/phase6b.sql` creates:
+
+- `graph_edge` (a non-materialized view)
+- `Employment_open_edge`
+- `PropertyStake_open_edge`
+- `DealParticipation_open_person`
+- `DealParticipation_open_company`
+
+`npm run db:push` and the test database helper reapply that file after
+every push, because a later push drops objects that are not in
+`schema.prisma`.
+
+`CHECK` constraints from §15 are enforced in `lib/entities/invariants.ts`
+and the write functions in `lib/entities/service.ts`. Rebuilding SQLite
+tables to attach `CHECK`s would be overwritten by the next `db push`.
+There is no trigger framework.
+
+Observation → `Document`, `DocumentPage`, and `Message` foreign keys use
+`ON DELETE RESTRICT`. `DELETE /api/documents/[id]` returns 409 when any
+observation references the document, and the foreign key rejects a direct
+delete as well. Evidence references are not nulled, and observations are
+not cascade-deleted with the document.
+
+### graph_edge
+
+There is no Prisma view model. Readers use `listGraphEdges(db, workspaceId)`,
+which selects from the SQLite view and always filters `workspace_id`.
+The view unions open `Employment`, open `PropertyStake`, open
+`DealParticipation` (participant → deal, and participant → principal as
+`REPRESENTS_ON_DEAL` when `representsCompanyId` is set), and
+`Deal.propertyId` as `CONCERNS_PROPERTY`. Merged endpoints are excluded.
+The canonical tables remain the source of truth.
+
+### Domain services
+
+`lib/entities/service.ts` is the write path. Route handlers do not insert
+graph rows. Observations are insert-only: disposition and supersession are
+separate tables, and observations have no `updatedAt`. Recording an
+observation does not create or update `Employment`, `PropertyStake`, or
+`DealParticipation`. Support is attached only by `attachObservationSupport`.
+`DOCUMENT_PAGE` provenance is assigned with the existing `locateEvidence`
+helper. `EXACT` is page-scoped, so message evidence stores offsets and a
+null `provenanceStatus` rather than a second provenance enum.
+
+### Normalization
+
+`lib/entities/normalize.ts` implements the §12 light normalizer only.
+It does not strip `Inc`, `LLC`, `Group`, or street suffixes, and it does
+not merge rows.
+
+### Seed
+
+`seedClarendonGraph` builds an explicit fictional network on the existing
+200 Clarendon / Acme deal: the property, Acme, Boston Properties, JLL
+Boston, CBRE, Harborline Management, Sarah Chen, Derek Hollis, Priya Shah,
+and Elena Vasquez. It sets `Deal.propertyId` for that deal only. Ownership
+and management are `PropertyStake` rows. Tenant, landlord, and broker
+roles are `DealParticipation` rows. Sarah's and Derek's `WORKS_AT`
+observations quote substrings of the seeded message bodies. Participations
+and stakes that the messages do not state have `assertionSource = MANUAL`
+and no support rows. No `OCCUPIES` stake is created. `firmCompanyId` stays
+null. Other seeded deals receive only `workspaceId`.
+
+### Not in Phase 6B
+
+Entity extraction, changes to the negotiation prompt or structured output,
+entity resolution, `EntityResolutionLink` writers, merges, automatic
+promotion, fuzzy matching, alias inference, closing a prior employment when
+a new one appears, inferring `OCCUPIES` or `LENDS_ON` from a deal,
+path-search CTEs, graph visualization, and connection-map UI.

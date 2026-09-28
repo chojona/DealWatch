@@ -7,7 +7,7 @@
   },
   "scripts": {
     "dev": "next dev",
-    "test": "tsx --test lib/ai/*.test.ts lib/ai/negotiation/*.test.ts lib/negotiation/*.test.ts lib/documents/*.test.ts evals/negotiation/*.test.ts evals/negotiation/v2/*.test.ts",
+    "test": "tsx --test lib/ai/*.test.ts lib/ai/negotiation/*.test.ts lib/negotiation/*.test.ts lib/documents/*.test.ts lib/entities/*.test.ts evals/negotiation/*.test.ts evals/negotiation/v2/*.test.ts",
     "eval:negotiation": "node --import tsx evals/negotiation/cli.ts",
     "eval:negotiation:v2": "node --import tsx evals/negotiation/v2/cli.ts",
     "build": "next build --webpack",
@@ -15,7 +15,7 @@
     "lint": "eslint app/ lib/ components/ types/ evals/",
     "typecheck": "tsc --noEmit",
     "db:generate": "prisma generate",
-    "db:push": "prisma db push",
+    "db:push": "tsx scripts/prepare-phase6b-workspace.ts && prisma db push && tsx scripts/apply-phase6b-sql.ts",
     "db:seed": "tsx prisma/seed.ts",
     "db:studio": "prisma studio"
   },

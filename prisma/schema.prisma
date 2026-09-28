@@ -17,12 +17,26 @@ model Deal {
   status         String   @default("ACTIVE")
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
+  /// Firm boundary. Existing rows are backfilled to the Default workspace.
+  workspaceId    String
+  /// Canonical building this deal concerns. Null until explicitly linked.
+  propertyId     String?
 
+  workspace         Workspace                  @relation(fields: [workspaceId], references: [id])
+  /// Relation name differs from the legacy string column `property`.
+  canonicalProperty Property?                  @relation(fields: [propertyId], references: [id], onDelete: Restrict)
   threads           Thread[]
   obligations       Obligation[]
   events            DealEvent[]
   negotiationRounds NegotiationRound[]
   documents         Document[]
+  participations    DealParticipation[]
+  entityObservations EntityObservation[]
+  relationshipObservations RelationshipObservation[] @relation("RelationshipObservationDeal")
+  relationshipObservationContexts RelationshipObservation[] @relation("RelationshipObservationContextDeal")
+
+  @@index([workspaceId])
+  @@index([propertyId])
 }
 
 /// First-class CRE document. Independent of any one negotiation round so a
@@ -76,6 +90,8 @@ model Document {
   deal              Deal               @relation(fields: [dealId], references: [id], onDelete: Cascade)
   pages             DocumentPage[]
   negotiationRounds NegotiationRound[]
+  entityObservations EntityObservation[]
+  relationshipObservations RelationshipObservation[]
 
   @@unique([dealId, sha256])
   @@index([dealId, createdAt])
@@ -90,6 +106,8 @@ model DocumentPage {
 
   document Document          @relation(fields: [documentId], references: [id], onDelete: Cascade)
   terms    NegotiationTerm[]
+  entityObservations EntityObservation[]
+  relationshipObservations RelationshipObservation[]
 
   @@unique([documentId, pageNumber])
 }
@@ -117,6 +135,8 @@ model Message {
   thread      Thread       @relation(fields: [threadId], references: [id], onDelete: Cascade)
   obligations Obligation[]
   events      DealEvent[]
+  entityObservations EntityObservation[]
+  relationshipObservations RelationshipObservation[]
 }
 
 model Obligation {
@@ -204,4 +224,656 @@ model NegotiationTerm {
   @@index([roundId, canonicalType])
   @@index([documentPageId])
   @@index([canonicalType, side])
+}
+
+// ---------------------------------------------------------------------------
+// Phase 6B — workspace-scoped CRE knowledge graph.
+// Canonical rows are assertions. Observations are immutable evidence.
+// Workspace checks across foreign keys are enforced in lib/entities.
+// Partial unique indexes and the graph_edge view live in prisma/sql/phase6b.sql
+// because Prisma db push does not emit them.
+// ---------------------------------------------------------------------------
+
+enum EntityLifecycle {
+  ACTIVE
+  INACTIVE
+  MERGED
+}
+
+enum AssetType {
+  OFFICE
+  RETAIL
+  INDUSTRIAL
+  MULTIFAMILY
+  MIXED_USE
+  LAND
+  OTHER
+  UNKNOWN
+}
+
+enum PersonIdentifierKind {
+  EMAIL
+  PHONE
+  LINKEDIN
+}
+
+enum CompanyIdentifierKind {
+  DOMAIN
+  EMAIL_DOMAIN
+}
+
+enum ObservationSourceKind {
+  DOCUMENT_PAGE
+  MESSAGE
+  MANUAL
+}
+
+enum ObservedEntityType {
+  PERSON
+  COMPANY
+  PROPERTY
+}
+
+enum AffiliationKind {
+  UNKNOWN
+  STAFF
+  BROKER
+  EXECUTIVE
+  FOUNDER
+  COUNSEL
+  PROPERTY_MANAGER
+}
+
+enum PropertyStakePredicate {
+  OWNS
+  MANAGES
+  OCCUPIES
+  DEVELOPED
+  LENDS_ON
+}
+
+enum ParticipationRole {
+  TENANT
+  LANDLORD
+  SUBTENANT
+  SUBLANDLORD
+  TENANT_BROKER
+  LANDLORD_BROKER
+  TENANT_BROKERAGE
+  LANDLORD_BROKERAGE
+  LENDER
+  COUNSEL
+  PROPERTY_MANAGER
+  GUARANTOR
+  OTHER
+}
+
+enum RelationshipPredicate {
+  WORKS_AT
+  OWNS
+  MANAGES
+  OCCUPIES
+  DEVELOPED
+  LENDS_ON
+  PARTICIPATES_AS
+  CONCERNS_PROPERTY
+}
+
+enum AssertionStatus {
+  ASSERTED
+  RETIRED
+}
+
+enum AssertionSource {
+  OBSERVATION
+  MANUAL
+}
+
+enum DatePrecision {
+  DAY
+  MONTH
+  YEAR
+  UNKNOWN
+}
+
+enum ObservationDispositionValue {
+  ACCEPTED
+  REJECTED
+}
+
+enum DispositionActor {
+  USER
+  SYSTEM
+}
+
+enum ResolutionMethod {
+  MANUAL
+  DETERMINISTIC
+  MODEL
+}
+
+enum ResolutionLinkStatus {
+  ACCEPTED
+  REJECTED
+  SUPERSEDED
+}
+
+enum MergeEntityType {
+  PERSON
+  COMPANY
+  PROPERTY
+}
+
+model Workspace {
+  id            String   @id @default(cuid())
+  name          String
+  /// Null until a reviewer identifies the firm. Phase 6B does not infer it.
+  firmCompanyId String?
+  createdAt     DateTime @default(now())
+
+  firmCompany                  Company?                   @relation("WorkspaceFirm", fields: [firmCompanyId], references: [id])
+  deals                        Deal[]
+  people                       Person[]
+  companies                    Company[]
+  properties                   Property[]
+  personAliases                PersonAlias[]
+  personIdentifiers            PersonIdentifier[]
+  companyAliases               CompanyAlias[]
+  companyIdentifiers           CompanyIdentifier[]
+  propertyAliases              PropertyAlias[]
+  externalIdentifiers          ExternalIdentifier[]
+  entityObservations           EntityObservation[]
+  relationshipObservations     RelationshipObservation[]
+  resolutionLinks              EntityResolutionLink[]
+  merges                       CanonicalMerge[]
+  employments                  Employment[]
+  propertyStakes               PropertyStake[]
+  dealParticipations           DealParticipation[]
+
+  @@index([firmCompanyId])
+}
+
+model Person {
+  id                 String          @id @default(cuid())
+  workspaceId        String
+  canonicalName      String
+  firstName          String?
+  middleName         String?
+  lastName           String?
+  primaryTitle       String?
+  status             EntityLifecycle @default(ACTIVE)
+  mergedIntoPersonId String?
+  createdAt          DateTime        @default(now())
+  updatedAt          DateTime        @updatedAt
+
+  workspace      Workspace            @relation(fields: [workspaceId], references: [id])
+  mergedInto     Person?              @relation("PersonMerge", fields: [mergedIntoPersonId], references: [id])
+  mergedFrom     Person[]             @relation("PersonMerge")
+  aliases        PersonAlias[]
+  identifiers    PersonIdentifier[]
+  employments    Employment[]
+  participations DealParticipation[]
+  externalIdentifiers ExternalIdentifier[]
+  resolutionLinks EntityResolutionLink[]
+
+  @@index([workspaceId, status])
+  @@index([mergedIntoPersonId])
+}
+
+model PersonAlias {
+  id              String @id @default(cuid())
+  workspaceId     String
+  personId        String
+  alias           String
+  normalizedAlias String
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id])
+  person    Person    @relation(fields: [personId], references: [id])
+
+  @@unique([personId, normalizedAlias])
+  @@index([workspaceId, normalizedAlias])
+}
+
+model PersonIdentifier {
+  id              String               @id @default(cuid())
+  workspaceId     String
+  personId        String
+  kind            PersonIdentifierKind
+  value           String
+  normalizedValue String
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id])
+  person    Person    @relation(fields: [personId], references: [id])
+
+  @@unique([workspaceId, kind, normalizedValue])
+  @@index([personId])
+}
+
+model Company {
+  id                  String          @id @default(cuid())
+  workspaceId         String
+  canonicalName       String
+  legalName           String?
+  website             String?
+  primaryDomain       String?
+  status              EntityLifecycle @default(ACTIVE)
+  mergedIntoCompanyId String?
+  createdAt           DateTime        @default(now())
+  updatedAt           DateTime        @updatedAt
+
+  workspace         Workspace             @relation(fields: [workspaceId], references: [id])
+  mergedInto        Company?              @relation("CompanyMerge", fields: [mergedIntoCompanyId], references: [id])
+  mergedFrom        Company[]             @relation("CompanyMerge")
+  firmFor           Workspace[]           @relation("WorkspaceFirm")
+  aliases           CompanyAlias[]
+  identifiers       CompanyIdentifier[]
+  employments       Employment[]
+  stakes            PropertyStake[]
+  participations    DealParticipation[]   @relation("ParticipationCompany")
+  representedIn     DealParticipation[]   @relation("ParticipationPrincipal")
+  externalIdentifiers ExternalIdentifier[]
+  resolutionLinks   EntityResolutionLink[]
+
+  @@index([workspaceId, status])
+  @@index([workspaceId, primaryDomain])
+  @@index([mergedIntoCompanyId])
+}
+
+model CompanyAlias {
+  id              String @id @default(cuid())
+  workspaceId     String
+  companyId       String
+  alias           String
+  normalizedAlias String
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id])
+  company   Company   @relation(fields: [companyId], references: [id])
+
+  @@unique([companyId, normalizedAlias])
+  @@index([workspaceId, normalizedAlias])
+}
+
+model CompanyIdentifier {
+  id              String                @id @default(cuid())
+  workspaceId     String
+  companyId       String
+  kind            CompanyIdentifierKind
+  value           String
+  normalizedValue String
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id])
+  company   Company   @relation(fields: [companyId], references: [id])
+
+  @@unique([workspaceId, kind, normalizedValue])
+  @@index([companyId])
+}
+
+model Property {
+  id                   String          @id @default(cuid())
+  workspaceId          String
+  canonicalName        String
+  addressLine1         String?
+  addressLine2         String?
+  city                 String?
+  region               String?
+  postalCode           String?
+  country              String?
+  assetType            AssetType       @default(UNKNOWN)
+  status               EntityLifecycle @default(ACTIVE)
+  mergedIntoPropertyId String?
+  createdAt            DateTime        @default(now())
+  updatedAt            DateTime        @updatedAt
+
+  workspace   Workspace            @relation(fields: [workspaceId], references: [id])
+  mergedInto  Property?            @relation("PropertyMerge", fields: [mergedIntoPropertyId], references: [id])
+  mergedFrom  Property[]           @relation("PropertyMerge")
+  aliases     PropertyAlias[]
+  stakes      PropertyStake[]
+  deals       Deal[]
+  externalIdentifiers ExternalIdentifier[]
+  resolutionLinks EntityResolutionLink[]
+
+  @@index([workspaceId, status])
+  @@index([workspaceId, city, region])
+  @@index([mergedIntoPropertyId])
+}
+
+model PropertyAlias {
+  id              String @id @default(cuid())
+  workspaceId     String
+  propertyId      String
+  alias           String
+  normalizedAlias String
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id])
+  property  Property  @relation(fields: [propertyId], references: [id])
+
+  @@unique([propertyId, normalizedAlias])
+  @@index([workspaceId, normalizedAlias])
+}
+
+/// Public or vendor id. Unique per workspace so a shared id cannot bridge firms.
+model ExternalIdentifier {
+  id          String   @id @default(cuid())
+  workspaceId String
+  scheme      String
+  value       String
+  personId    String?
+  companyId   String?
+  propertyId  String?
+  createdAt   DateTime @default(now())
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id])
+  person    Person?   @relation(fields: [personId], references: [id])
+  company   Company?  @relation(fields: [companyId], references: [id])
+  property  Property? @relation(fields: [propertyId], references: [id])
+
+  @@unique([workspaceId, scheme, value])
+  @@index([personId])
+  @@index([companyId])
+  @@index([propertyId])
+}
+
+/// Immutable mention. No canonical foreign key and no updatedAt.
+model EntityObservation {
+  id                  String                    @id @default(cuid())
+  workspaceId         String
+  observedType        ObservedEntityType
+  surfaceForm         String
+  normalizedName      String
+  title               String?
+  email               String?
+  phone               String?
+  domain              String?
+  addressLine1        String?
+  city                String?
+  region              String?
+  postalCode          String?
+  country             String?
+  rawAttributes       Json?
+  sourceKind          ObservationSourceKind
+  dealId              String?
+  documentId          String?
+  documentPageId      String?
+  messageId           String?
+  evidenceQuote       String
+  evidenceStartOffset Int?
+  evidenceEndOffset   Int?
+  provenanceStatus    EvidenceProvenanceStatus?
+  sourceLocation      String?
+  extractionConfidence Float?
+  extractor           String
+  extractorVersion    String
+  createdAt           DateTime                  @default(now())
+
+  workspace    Workspace     @relation(fields: [workspaceId], references: [id])
+  deal         Deal?         @relation(fields: [dealId], references: [id], onDelete: Restrict)
+  document     Document?     @relation(fields: [documentId], references: [id], onDelete: Restrict)
+  documentPage DocumentPage? @relation(fields: [documentPageId], references: [id], onDelete: Restrict)
+  message      Message?      @relation(fields: [messageId], references: [id], onDelete: Restrict)
+  resolutionLinks EntityResolutionLink[]
+  dispositions ObservationDisposition[]
+  priorSupersessions ObservationSupersession[] @relation("SupersedePriorEntity")
+  successorSupersessions ObservationSupersession[] @relation("SupersedeSuccessorEntity")
+  relationshipSubjects RelationshipObservation[] @relation("RelationshipSubject")
+  relationshipObjects RelationshipObservation[] @relation("RelationshipObject")
+  relationshipPrincipals RelationshipObservation[] @relation("RelationshipPrincipal")
+
+  @@index([workspaceId, observedType, normalizedName])
+  @@index([workspaceId, email])
+  @@index([workspaceId, domain])
+  @@index([documentPageId])
+  @@index([dealId])
+  @@index([documentId])
+  @@index([messageId])
+}
+
+/// Immutable relationship claim. Endpoints are observations, not canonical ids.
+model RelationshipObservation {
+  id                     String                 @id @default(cuid())
+  workspaceId            String
+  predicate              RelationshipPredicate
+  subjectObservationId   String
+  objectObservationId    String?
+  participationRole      ParticipationRole?
+  roleLabel              String?
+  affiliationKind        AffiliationKind?
+  principalObservationId String?
+  contextDealId          String?
+  statedValidFrom        DateTime?
+  statedValidTo          DateTime?
+  statedTitle            String?
+  sourceKind             ObservationSourceKind
+  dealId                 String?
+  documentId             String?
+  documentPageId         String?
+  messageId              String?
+  evidenceQuote          String
+  evidenceStartOffset    Int?
+  evidenceEndOffset      Int?
+  provenanceStatus       EvidenceProvenanceStatus?
+  sourceLocation         String?
+  extractionConfidence   Float?
+  extractor              String
+  extractorVersion       String
+  createdAt              DateTime               @default(now())
+
+  workspace            Workspace            @relation(fields: [workspaceId], references: [id])
+  subjectObservation   EntityObservation    @relation("RelationshipSubject", fields: [subjectObservationId], references: [id], onDelete: Restrict)
+  objectObservation    EntityObservation?   @relation("RelationshipObject", fields: [objectObservationId], references: [id], onDelete: Restrict)
+  principalObservation EntityObservation?   @relation("RelationshipPrincipal", fields: [principalObservationId], references: [id], onDelete: Restrict)
+  deal                 Deal?                @relation("RelationshipObservationDeal", fields: [dealId], references: [id], onDelete: Restrict)
+  contextDeal          Deal?                @relation("RelationshipObservationContextDeal", fields: [contextDealId], references: [id], onDelete: Restrict)
+  document             Document?            @relation(fields: [documentId], references: [id], onDelete: Restrict)
+  documentPage         DocumentPage?        @relation(fields: [documentPageId], references: [id], onDelete: Restrict)
+  message              Message?             @relation(fields: [messageId], references: [id], onDelete: Restrict)
+  dispositions         ObservationDisposition[]
+  priorSupersessions   ObservationSupersession[] @relation("SupersedePriorRelationship")
+  successorSupersessions ObservationSupersession[] @relation("SupersedeSuccessorRelationship")
+  employmentSupports   EmploymentSupport[]
+  propertyStakeSupports PropertyStakeSupport[]
+  dealParticipationSupports DealParticipationSupport[]
+
+  @@index([workspaceId, predicate])
+  @@index([subjectObservationId])
+  @@index([objectObservationId])
+  @@index([contextDealId])
+  @@index([documentPageId])
+  @@index([documentId])
+  @@index([dealId])
+}
+
+model ObservationDisposition {
+  id                        String                      @id @default(cuid())
+  entityObservationId       String?
+  relationshipObservationId String?
+  disposition               ObservationDispositionValue
+  actor                     DispositionActor
+  note                      String?
+  createdAt                 DateTime                    @default(now())
+
+  entityObservation       EntityObservation?       @relation(fields: [entityObservationId], references: [id])
+  relationshipObservation RelationshipObservation? @relation(fields: [relationshipObservationId], references: [id])
+
+  @@index([entityObservationId, createdAt])
+  @@index([relationshipObservationId, createdAt])
+}
+
+model ObservationSupersession {
+  id                                 String   @id @default(cuid())
+  priorEntityObservationId           String?
+  successorEntityObservationId       String?
+  priorRelationshipObservationId     String?
+  successorRelationshipObservationId String?
+  createdAt                          DateTime @default(now())
+
+  priorEntity           EntityObservation?       @relation("SupersedePriorEntity", fields: [priorEntityObservationId], references: [id])
+  successorEntity       EntityObservation?       @relation("SupersedeSuccessorEntity", fields: [successorEntityObservationId], references: [id])
+  priorRelationship     RelationshipObservation? @relation("SupersedePriorRelationship", fields: [priorRelationshipObservationId], references: [id])
+  successorRelationship RelationshipObservation? @relation("SupersedeSuccessorRelationship", fields: [successorRelationshipObservationId], references: [id])
+
+  @@index([priorEntityObservationId])
+  @@index([priorRelationshipObservationId])
+}
+
+/// Append-only mention-to-canonical decision. Phase 6B stores the table and does not resolve.
+model EntityResolutionLink {
+  id                   String               @id @default(cuid())
+  workspaceId          String
+  entityObservationId  String
+  personId             String?
+  companyId            String?
+  propertyId           String?
+  method               ResolutionMethod
+  resolutionConfidence Float?
+  status               ResolutionLinkStatus
+  createdAt            DateTime             @default(now())
+  supersededAt         DateTime?
+
+  workspace   Workspace         @relation(fields: [workspaceId], references: [id])
+  observation EntityObservation @relation(fields: [entityObservationId], references: [id])
+  person      Person?           @relation(fields: [personId], references: [id])
+  company     Company?          @relation(fields: [companyId], references: [id])
+  property    Property?         @relation(fields: [propertyId], references: [id])
+
+  @@index([entityObservationId, status])
+  @@index([personId])
+  @@index([companyId])
+  @@index([propertyId])
+  @@index([workspaceId])
+}
+
+model CanonicalMerge {
+  id          String          @id @default(cuid())
+  workspaceId String
+  entityType  MergeEntityType
+  sourceId    String
+  targetId    String
+  reason      String?
+  createdAt   DateTime        @default(now())
+  undoneAt    DateTime?
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id])
+
+  @@index([workspaceId, entityType, sourceId])
+  @@index([targetId])
+}
+
+model Employment {
+  id                 String          @id @default(cuid())
+  workspaceId        String
+  personId           String
+  companyId          String
+  affiliationKind    AffiliationKind @default(UNKNOWN)
+  titleAtTime        String?
+  validFrom          DateTime?
+  validTo            DateTime?
+  validFromPrecision DatePrecision   @default(UNKNOWN)
+  validToPrecision   DatePrecision   @default(UNKNOWN)
+  status             AssertionStatus @default(ASSERTED)
+  assertionSource    AssertionSource
+  createdAt          DateTime        @default(now())
+  updatedAt          DateTime        @updatedAt
+
+  workspace Workspace           @relation(fields: [workspaceId], references: [id])
+  person    Person              @relation(fields: [personId], references: [id])
+  company   Company             @relation(fields: [companyId], references: [id])
+  supports  EmploymentSupport[]
+
+  @@index([workspaceId, companyId, status])
+  @@index([workspaceId, personId, status])
+}
+
+model EmploymentSupport {
+  id                        String   @id @default(cuid())
+  employmentId              String
+  relationshipObservationId String
+  createdAt                 DateTime @default(now())
+
+  employment              Employment              @relation(fields: [employmentId], references: [id])
+  relationshipObservation RelationshipObservation @relation(fields: [relationshipObservationId], references: [id])
+
+  @@unique([employmentId, relationshipObservationId])
+  @@index([relationshipObservationId])
+}
+
+model PropertyStake {
+  id                 String                 @id @default(cuid())
+  workspaceId        String
+  companyId          String
+  propertyId         String
+  predicate          PropertyStakePredicate
+  validFrom          DateTime?
+  validTo            DateTime?
+  validFromPrecision DatePrecision          @default(UNKNOWN)
+  validToPrecision   DatePrecision          @default(UNKNOWN)
+  status             AssertionStatus        @default(ASSERTED)
+  assertionSource    AssertionSource
+  createdAt          DateTime               @default(now())
+  updatedAt          DateTime               @updatedAt
+
+  workspace Workspace              @relation(fields: [workspaceId], references: [id])
+  company   Company                @relation(fields: [companyId], references: [id])
+  property  Property               @relation(fields: [propertyId], references: [id])
+  supports  PropertyStakeSupport[]
+
+  @@index([workspaceId, propertyId, predicate, status])
+  @@index([workspaceId, companyId, predicate, status])
+}
+
+model PropertyStakeSupport {
+  id                        String   @id @default(cuid())
+  propertyStakeId           String
+  relationshipObservationId String
+  createdAt                 DateTime @default(now())
+
+  stake                   PropertyStake           @relation(fields: [propertyStakeId], references: [id])
+  relationshipObservation RelationshipObservation @relation(fields: [relationshipObservationId], references: [id])
+
+  @@unique([propertyStakeId, relationshipObservationId])
+  @@index([relationshipObservationId])
+}
+
+model DealParticipation {
+  id                  String            @id @default(cuid())
+  workspaceId         String
+  dealId              String
+  role                ParticipationRole
+  roleLabel           String?
+  personId            String?
+  companyId           String?
+  representsCompanyId String?
+  validFrom           DateTime?
+  validTo             DateTime?
+  validFromPrecision  DatePrecision     @default(UNKNOWN)
+  validToPrecision    DatePrecision     @default(UNKNOWN)
+  status              AssertionStatus   @default(ASSERTED)
+  assertionSource     AssertionSource
+  createdAt           DateTime          @default(now())
+  updatedAt           DateTime          @updatedAt
+
+  workspace  Workspace                   @relation(fields: [workspaceId], references: [id])
+  deal       Deal                        @relation(fields: [dealId], references: [id])
+  person     Person?                     @relation(fields: [personId], references: [id])
+  company    Company?                    @relation("ParticipationCompany", fields: [companyId], references: [id])
+  represents Company?                    @relation("ParticipationPrincipal", fields: [representsCompanyId], references: [id])
+  supports   DealParticipationSupport[]
+
+  @@index([workspaceId, dealId, role])
+  @@index([personId, role])
+  @@index([companyId, role])
+  @@index([representsCompanyId])
+}
+
+model DealParticipationSupport {
+  id                        String   @id @default(cuid())
+  dealParticipationId       String
+  relationshipObservationId String
+  createdAt                 DateTime @default(now())
+
+  participation           DealParticipation       @relation(fields: [dealParticipationId], references: [id])
+  relationshipObservation RelationshipObservation @relation(fields: [relationshipObservationId], references: [id])
+
+  @@unique([dealParticipationId, relationshipObservationId])
+  @@index([relationshipObservationId])
 }

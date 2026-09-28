@@ -7,6 +7,7 @@ import {
   analyzeThread,
 } from "@/lib/ai/analyzeThread";
 import { prisma } from "@/lib/db";
+import { ensureDefaultWorkspace } from "@/lib/entities/workspace";
 
 const PostBody = z.object({
   threadText: z
@@ -54,6 +55,7 @@ export async function PUT(req: NextRequest) {
       .filter(Boolean)
       .join(" — ") || "Untitled Deal (from Thread Analysis)";
 
+    const workspace = await ensureDefaultWorkspace(prisma);
     const deal = await prisma.deal.create({
       data: {
         name: dealName,
@@ -61,6 +63,7 @@ export async function PUT(req: NextRequest) {
         property: result.deal.property ?? "Unknown",
         stage: result.deal.stage ?? "Unknown",
         status: "ACTIVE",
+        workspaceId: workspace.id,
       },
     });
 

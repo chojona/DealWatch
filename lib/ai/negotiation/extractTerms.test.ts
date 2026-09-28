@@ -161,3 +161,262 @@ test("normalization numbers without units fail closed", () => {
   );
   assert.equal(result.terms.length, 0);
 });
+
+const qualitativeZeroCases: Array<{
+  failure: string;
+  canonicalType: NegotiationExtraction["terms"][number]["canonicalType"];
+  text: string;
+  status: NegotiationExtraction["terms"][number]["status"];
+  normalizedValue?: string;
+}> = [
+  {
+    failure: "F07 conditional commencement",
+    canonicalType: "COMMENCEMENT_DATE",
+    text: "Commencement would be July 1, 2027 only if the existing tenant surrenders by May 15, 2027; otherwise the date remains open.",
+    status: "UNRESOLVED",
+  },
+  {
+    failure: "F09 operating expenses during abatement",
+    canonicalType: "OPERATING_EXPENSES",
+    text: "Operating expenses remain payable throughout.",
+    status: "PROPOSED",
+  },
+  {
+    failure: "F11 composite termination right",
+    canonicalType: "TERMINATION_RIGHTS",
+    text: "Tenant may terminate once effective after month 84 by giving 15 months' advance notice and paying the termination fee.",
+    status: "PROPOSED",
+    normalizedValue: "null",
+  },
+  {
+    failure: "F17 termination request",
+    canonicalType: "TERMINATION_RIGHTS",
+    text: "termination option after lease year five",
+    status: "PROPOSED",
+  },
+  {
+    failure: "F18 expansion request",
+    canonicalType: "EXPANSION_RIGHTS",
+    text: "right of first offer on Suite 900.",
+    status: "PROPOSED",
+  },
+  {
+    failure: "F21 expansion withdrawal",
+    canonicalType: "EXPANSION_RIGHTS",
+    text: "Tenant withdraws its request for the Suite 900 right of first offer.",
+    status: "WITHDRAWN",
+  },
+  {
+    failure: "F31 open termination right",
+    canonicalType: "TERMINATION_RIGHTS",
+    text: "Termination remains open and is expressly excluded from this agreement.",
+    status: "UNRESOLVED",
+  },
+];
+
+for (const item of qualitativeZeroCases) {
+  test(item.failure + " treats placeholder zero as absent", () => {
+    const result = validate(
+      item.text,
+      extraction([
+        {
+          ...baseCandidate,
+          canonicalType: item.canonicalType,
+          normalizedValue: item.normalizedValue ?? "",
+          normalizedNumeric: 0,
+          normalizedUnit: null,
+          rawValue: item.text,
+          status: item.status,
+          evidenceQuote: item.text,
+        },
+      ])
+    );
+
+    assert.equal(result.terms.length, 1);
+    assert.equal(result.terms[0]!.normalizedNumeric, undefined);
+    assert.equal(result.terms[0]!.normalizedUnit, undefined);
+    assert.equal(result.terms[0]!.normalizedValue, undefined);
+    assert.equal(result.metadata.validationFailures, 0);
+  });
+}
+
+test("nonzero qualitative numbers without units still fail closed", () => {
+  const text = "Tenant requests a termination option after month 84.";
+  const result = validate(
+    text,
+    extraction([
+      {
+        ...baseCandidate,
+        canonicalType: "TERMINATION_RIGHTS",
+        normalizedValue: null,
+        normalizedNumeric: 84,
+        normalizedUnit: null,
+        rawValue: text,
+        evidenceQuote: text,
+      },
+    ])
+  );
+
+  assert.equal(result.terms.length, 0);
+  assert.equal(result.metadata.validationFailures, 1);
+});
+
+test("stepped rent recovers each rate from its grounded clause, not the first evidence number", () => {
+  const text =
+    "Base Rent shall be $48.00/RSF/year for months 1-24, $51.00/RSF/year for months 25-60, and $55.50/RSF/year for months 61-120.";
+  const rawValues = [
+    "Base Rent shall be $48.00/RSF/year for months 1-24",
+    "$51.00/RSF/year for months 25-60",
+    "$55.50/RSF/year for months 61-120",
+  ];
+  const result = validate(
+    text,
+    extraction(
+      rawValues.map((rawValue) => ({
+        ...baseCandidate,
+        normalizedValue: null,
+        normalizedNumeric: 0,
+        rawValue,
+        evidenceQuote: text,
+      }))
+    )
+  );
+
+  assert.deepEqual(
+    result.terms.map((term) => term.normalizedNumeric),
+    [48, 51, 55.5]
+  );
+});
+
+test("ambiguous repeated rent rates are rejected instead of choosing the first", () => {
+  const text =
+    "Base Rent is $48.00/RSF/year, followed by $51.00/RSF/year.";
+  const result = validate(
+    text,
+    extraction([
+      {
+        ...baseCandidate,
+        normalizedNumeric: 0,
+        rawValue: text,
+        evidenceQuote: text,
+      },
+    ])
+  );
+
+  assert.equal(result.terms.length, 0);
+  assert.equal(result.metadata.validationFailures, 1);
+});
+
+test("parking separates the space count from the price per space", () => {
+  const text = "Parking is $325 per space per month for 20 spaces.";
+  const result = validate(
+    text,
+    extraction([
+      {
+        ...baseCandidate,
+        canonicalType: "PARKING",
+        normalizedValue: "$325 per space per month",
+        normalizedNumeric: 325,
+        normalizedUnit: "USD",
+        rawValue: text,
+        evidenceQuote: text,
+      },
+    ])
+  );
+
+  assert.equal(result.terms[0]!.normalizedNumeric, 20);
+  assert.equal(result.terms[0]!.normalizedUnit, "SPACES");
+  assert.equal(
+    result.terms[0]!.normalizedValue,
+    "$325/space/month for 20 spaces"
+  );
+});
+
+test("operating-expense caps are not classified as rent escalation", () => {
+  const text =
+    "Controllable Operating Expenses may increase by no more than 5% per calendar year, compounded.";
+  const result = validate(
+    text,
+    extraction([
+      {
+        ...baseCandidate,
+        canonicalType: "ANNUAL_ESCALATION",
+        normalizedValue: "5% compounded annual cap",
+        normalizedNumeric: 5,
+        normalizedUnit: "PERCENT_ANNUAL",
+        rawValue: text,
+        evidenceQuote: text,
+      },
+    ])
+  );
+
+  assert.equal(result.terms[0]!.canonicalType, "OPERATING_EXPENSES");
+});
+
+test("Base Rent abatements are classified as FREE_RENT", () => {
+  const text = "Tenant requests 10 months of Base Rent abatement.";
+  const result = validate(
+    text,
+    extraction([
+      {
+        ...baseCandidate,
+        canonicalType: "BASE_RENT",
+        normalizedValue: "10 months",
+        normalizedNumeric: 10,
+        normalizedUnit: "MONTHS",
+        rawValue: text,
+        evidenceQuote: text,
+      },
+    ])
+  );
+
+  assert.equal(result.terms[0]!.canonicalType, "FREE_RENT");
+});
+
+test("explicit absence statements do not create term assertions", () => {
+  const text = "No Base Rent or TI Allowance is stated in this letter.";
+  const result = validate(
+    text,
+    extraction([
+      {
+        ...baseCandidate,
+        normalizedValue: null,
+        normalizedNumeric: 0,
+        normalizedUnit: "OTHER",
+        rawValue: text,
+        status: "UNRESOLVED",
+        evidenceQuote: text,
+      },
+      {
+        ...baseCandidate,
+        canonicalType: "TI_ALLOWANCE",
+        normalizedValue: null,
+        normalizedNumeric: 0,
+        normalizedUnit: "OTHER",
+        rawValue: text,
+        status: "UNRESOLVED",
+        evidenceQuote: text,
+      },
+    ])
+  );
+
+  assert.equal(result.terms.length, 0);
+  assert.equal(result.metadata.validationFailures, 2);
+});
+
+test("prompt distinguishes the observed status-classification failures", () => {
+  assert.match(NEGOTIATION_EXTRACTION_PROMPT, /condition precedent is UNRESOLVED/i);
+  assert.match(NEGOTIATION_EXTRACTION_PROMPT, /"Under review," "remains open," and "not agreed" are UNRESOLVED/i);
+  assert.match(NEGOTIATION_EXTRACTION_PROMPT, /contradictory alternatives[\s\S]*each alternative as UNRESOLVED/i);
+  assert.match(NEGOTIATION_EXTRACTION_PROMPT, /unilateral replacement[\s\S]*new PROPOSED term, not AGREED/i);
+  assert.match(NEGOTIATION_EXTRACTION_PROMPT, /"works; put it in the execution draft" is AGREED/i);
+});
+
+test("prompt specifies semantic numeric roles and canonical disambiguation", () => {
+  assert.match(NEGOTIATION_EXTRACTION_PROMPT, /every step[\s\S]*actual rent rate/i);
+  assert.match(NEGOTIATION_EXTRACTION_PROMPT, /never because it appears first/i);
+  assert.match(NEGOTIATION_EXTRACTION_PROMPT, /space count and a price per space[\s\S]*SPACES/i);
+  assert.match(NEGOTIATION_EXTRACTION_PROMPT, /operating expenses is OPERATING_EXPENSES, not ANNUAL_ESCALATION/i);
+  assert.match(NEGOTIATION_EXTRACTION_PROMPT, /rent concessions are FREE_RENT, not BASE_RENT/i);
+  assert.match(NEGOTIATION_EXTRACTION_PROMPT, /"No Base Rent or TI Allowance is stated\."/i);
+});

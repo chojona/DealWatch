@@ -6,11 +6,11 @@ import {
   NegotiationExtractionConfigurationError,
   NegotiationExtractionInputError,
 } from "@/lib/ai/negotiation/extractTerms";
-import { validateStructuredPayload } from "@/lib/ai/negotiation/payloads";
 import {
   ingestDocument,
   NegotiationDocumentInputSchema,
 } from "@/lib/negotiation/ingestDocument";
+import { persistExtractedNegotiationRound } from "@/lib/negotiation/persistRound";
 
 export async function POST(
   request: NextRequest,
@@ -42,49 +42,14 @@ export async function POST(
       roundNumber,
     });
 
-    const round = await prisma.negotiationRound.create({
-      data: {
-        dealId,
-        side: document.side,
-        roundNumber,
-        documentName: document.documentName,
-        documentText: document.documentText,
-        documentDate: document.documentDate,
-        sourceType: document.sourceType,
-        terms: {
-          create: extraction.terms.map((term) => {
-            /**
-             * Persistence boundary: run structuredPayload through
-             * validateStructuredPayload one final time to strip unknown fields
-             * and produce a plain JSON-serialisable value before handing it
-             * to Prisma. If term.structuredPayload is null or undefined the
-             * column is written as null (legacy-compatible behaviour).
-             */
-            const structuredPayload = term.structuredPayload
-              ? (validateStructuredPayload(term.structuredPayload) as
-                  // Prisma accepts any JSON-serialisable value for Json?
-                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                  any)
-              : null;
-
-            return {
-              canonicalType: term.canonicalType,
-              normalizedValue: term.normalizedValue ?? null,
-              normalizedNumeric: term.normalizedNumeric ?? null,
-              normalizedUnit: term.normalizedUnit ?? null,
-              rawValue: term.rawValue,
-              status: term.status,
-              side: document.side,
-              roundNumber,
-              confidence: term.confidence,
-              evidenceQuote: term.evidenceQuote,
-              sourceLocation: term.sourceLocation ?? null,
-              structuredPayload,
-            };
-          }),
-        },
-      },
-      include: { terms: true },
+    const round = await persistExtractedNegotiationRound(prisma, {
+      dealId,
+      side: document.side,
+      documentName: document.documentName,
+      documentText: document.documentText,
+      documentDate: document.documentDate,
+      sourceType: document.sourceType,
+      terms: extraction.terms,
     });
 
     return NextResponse.json(

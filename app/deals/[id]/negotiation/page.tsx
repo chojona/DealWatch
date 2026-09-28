@@ -4,7 +4,13 @@ import { Nav } from "@/components/nav";
 import { DealHeader } from "@/components/deals/deal-header";
 import { AddRoundForm } from "@/components/negotiation/add-round-form";
 import { NegotiationMatrix } from "@/components/negotiation/negotiation-matrix";
+import { UploadNegotiationDocument } from "@/components/negotiation/upload-document-form";
+import {
+  DOCUMENT_TYPE_LABELS,
+  INGESTION_STATUS_LABELS,
+} from "@/lib/documents/labels";
 import { compareRounds } from "@/lib/negotiation/compareRounds";
+import { presentTermSource } from "@/lib/negotiation/presentSource";
 import { TERM_LABELS } from "@/lib/negotiation/termCatalog";
 import type {
   NegotiationRoundRecord,
@@ -40,12 +46,44 @@ export default async function NegotiationPage({
     where: { id },
     include: {
       negotiationRounds: {
-        include: { terms: true },
+        include: {
+          terms: { include: { documentPage: true } },
+          document: true,
+        },
         orderBy: [{ documentDate: "asc" }, { createdAt: "asc" }],
+      },
+      documents: {
+        orderBy: { createdAt: "desc" },
+        include: {
+          pages: {
+            where: { pageNumber: 1 },
+            select: { text: true },
+          },
+          negotiationRounds: {
+            include: { _count: { select: { terms: true } } },
+          },
+        },
       },
     },
   });
   if (!deal) notFound();
+
+  const sourceByTermId = new Map(
+    deal.negotiationRounds.flatMap((round) =>
+      round.terms.map((term) => [
+        term.id,
+        presentTermSource({
+          documentName: round.documentName,
+          evidenceQuote: term.evidenceQuote,
+          sourceLocation: term.sourceLocation,
+          provenanceStatus: term.provenanceStatus,
+          pageNumber: term.documentPage?.pageNumber ?? null,
+          originalFilename: round.document?.originalFilename ?? null,
+          documentId: round.documentId,
+        }),
+      ] as const)
+    )
+  );
 
   const rounds: NegotiationRoundRecord[] = deal.negotiationRounds.map(
     (round) => ({
@@ -99,6 +137,10 @@ export default async function NegotiationPage({
         confidence: term.confidence,
         evidenceQuote: term.evidenceQuote,
         sourceLocation: term.sourceLocation,
+        sourceFilename: sourceByTermId.get(term.id)?.filename ?? null,
+        pageLabel: sourceByTermId.get(term.id)?.pageLabel ?? null,
+        pageNumber: sourceByTermId.get(term.id)?.pageNumber ?? null,
+        documentId: sourceByTermId.get(term.id)?.documentId ?? null,
       })),
     })),
   }));
@@ -129,6 +171,62 @@ export default async function NegotiationPage({
           <AddRoundForm dealId={deal.id} />
         </div>
 
+        <UploadNegotiationDocument dealId={deal.id} />
+
+        <section className="mt-4 overflow-hidden rounded-sm border border-zinc-200 bg-white">
+          {deal.documents.length === 0 ? (
+            <p className="px-4 py-4 text-xs text-zinc-400">No documents uploaded yet.</p>
+          ) : (
+            deal.documents.map((document) => (
+              <div key={document.id} className="border-b border-zinc-100 px-4 py-3 last:border-0">
+                <div className="flex flex-wrap items-baseline justify-between gap-2">
+                  <p className="text-sm font-medium text-zinc-900">{document.originalFilename}</p>
+                  <p className="text-[11px] font-medium text-zinc-500">
+                    {INGESTION_STATUS_LABELS[document.ingestionStatus] ?? document.ingestionStatus}
+                  </p>
+                </div>
+                <p className="mt-1 text-[11px] text-zinc-500">
+                  {DOCUMENT_TYPE_LABELS[document.documentType] ?? document.documentType}
+                  {" · "}
+                  {document.documentDate
+                    ? document.documentDate.toLocaleDateString("en-US", {
+                        month: "short",
+                        day: "numeric",
+                        year: "numeric",
+                        timeZone: "UTC",
+                      })
+                    : "No date"}
+                  {" · "}
+                  {document.pageCount ?? 0} pages
+                  {" · "}
+                  {document.negotiationRounds[0]?._count.terms ?? 0} extracted terms
+                </p>
+                {document.failureReason && (
+                  <p className="mt-1 text-[11px] text-red-700">{document.failureReason}</p>
+                )}
+                {document.pages[0]?.text && (
+                  <pre className="mt-2 max-h-24 overflow-hidden whitespace-pre-wrap font-mono text-[11px] text-zinc-500">
+                    {document.pages[0].text.slice(0, 400)}
+                  </pre>
+                )}
+                <p className="mt-2 text-[11px]">
+                  <a className="underline text-zinc-600" href={`/api/documents/${document.id}/file`} target="_blank" rel="noreferrer">
+                    View source PDF
+                  </a>
+                  {document.ingestionStatus === "COMPLETE" && (
+                    <>
+                      {" · "}
+                      <a className="underline text-zinc-600" href="#term-history">
+                        Negotiation intelligence
+                      </a>
+                    </>
+                  )}
+                </p>
+              </div>
+            ))
+          )}
+        </section>
+
         <section className="mb-6 grid grid-cols-2 overflow-hidden rounded-sm border border-zinc-200 bg-white sm:grid-cols-5">
           {[
             ["Stage", deal.stage],
@@ -147,11 +245,11 @@ export default async function NegotiationPage({
         {analysis.rounds.length === 0 ? (
           <section className="rounded-sm border border-dashed border-zinc-300 bg-white px-6 py-12 text-center">
             <h2 className="text-sm font-semibold text-zinc-800">No negotiation rounds yet</h2>
-            <p className="mt-1 text-xs text-zinc-500">Add a pasted LOI or counterproposal to begin reconstructing the negotiation.</p>
+            <p className="mt-1 text-xs text-zinc-500">Add a pasted LOI or upload a text-based negotiation PDF to begin reconstructing the negotiation.</p>
           </section>
         ) : (
           <>
-            <section>
+            <section id="term-history">
               <h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-zinc-400">Term history</h2>
               <NegotiationMatrix rounds={matrixRounds} rows={matrixRows} />
             </section>

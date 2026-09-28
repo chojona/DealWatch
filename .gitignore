@@ -9,7 +9,11 @@ out/
 
 # Production
 build/
-artifacts/
+artifacts/*
+!artifacts/document-ingestion-design.md
+
+# Local uploaded documents (never commit PDF bytes)
+data/
 
 # Misc
 .DS_Store

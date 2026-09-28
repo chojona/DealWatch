@@ -22,6 +22,76 @@ model Deal {
   obligations       Obligation[]
   events            DealEvent[]
   negotiationRounds NegotiationRound[]
+  documents         Document[]
+}
+
+/// First-class CRE document. Independent of any one negotiation round so a
+/// later phase can attach entity or relationship observations to the same
+/// pages. This model stores no Person, Company, or Property ids.
+enum DocumentType {
+  LOI
+  PROPOSAL
+  COUNTERPROPOSAL
+  TERM_SHEET
+  AMENDMENT
+  RENEWAL_PROPOSAL
+  OTHER
+}
+
+enum DocumentIngestionStatus {
+  UPLOADED
+  EXTRACTING
+  READY
+  ANALYZING
+  COMPLETE
+  FAILED
+}
+
+enum EvidenceProvenanceStatus {
+  EXACT
+  AMBIGUOUS
+  UNLOCATED
+}
+
+model Document {
+  id               String                  @id @default(cuid())
+  dealId           String
+  filename         String
+  originalFilename String
+  mimeType         String
+  sizeBytes        Int
+  sha256           String
+  documentType     DocumentType
+  documentDate     DateTime?
+  negotiationSide  String?
+  ingestionStatus  DocumentIngestionStatus @default(UPLOADED)
+  failureCode      String?
+  failureReason    String?
+  /// Relative storage key. Never an absolute filesystem path.
+  storageKey       String
+  pageCount        Int?
+  createdAt        DateTime                @default(now())
+  updatedAt        DateTime                @updatedAt
+
+  deal              Deal               @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  pages             DocumentPage[]
+  negotiationRounds NegotiationRound[]
+
+  @@unique([dealId, sha256])
+  @@index([dealId, createdAt])
+}
+
+model DocumentPage {
+  id         String   @id @default(cuid())
+  documentId String
+  pageNumber Int
+  text       String
+  createdAt  DateTime @default(now())
+
+  document Document          @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  terms    NegotiationTerm[]
+
+  @@unique([documentId, pageNumber])
 }
 
 model Thread {
@@ -89,13 +159,16 @@ model NegotiationRound {
   documentText String
   documentDate DateTime
   sourceType   String   @default("PASTED_TEXT")
+  documentId   String?
   createdAt    DateTime @default(now())
 
-  deal  Deal              @relation(fields: [dealId], references: [id], onDelete: Cascade)
-  terms NegotiationTerm[]
+  deal     Deal              @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  document Document?         @relation(fields: [documentId], references: [id], onDelete: SetNull)
+  terms    NegotiationTerm[]
 
   @@unique([dealId, side, roundNumber])
   @@index([dealId, documentDate])
+  @@index([documentId])
 }
 
 model NegotiationTerm {
@@ -110,9 +183,14 @@ model NegotiationTerm {
   side              String
   roundNumber       Int
   confidence        Float
-  evidenceQuote     String
-  sourceLocation    String?
-  createdAt         DateTime @default(now())
+  evidenceQuote       String
+  sourceLocation      String?
+  /// Set only when the evidence quote matches exactly one extracted page.
+  documentPageId      String?
+  evidenceStartOffset Int?
+  evidenceEndOffset   Int?
+  provenanceStatus    EvidenceProvenanceStatus?
+  createdAt           DateTime @default(now())
   /// Typed CRE structured payload (JSON). Validated at the application layer
   /// via Zod (see lib/ai/negotiation/payloads.ts). Null for legacy rows and
   /// for term types that carry no structured representation
@@ -120,8 +198,10 @@ model NegotiationTerm {
   /// DELIVERY_CONDITION, ASSIGNMENT_SUBLETTING). Never mutated after creation.
   structuredPayload Json?
 
-  round NegotiationRound @relation(fields: [roundId], references: [id], onDelete: Cascade)
+  round        NegotiationRound @relation(fields: [roundId], references: [id], onDelete: Cascade)
+  documentPage DocumentPage?    @relation(fields: [documentPageId], references: [id], onDelete: SetNull)
 
   @@index([roundId, canonicalType])
+  @@index([documentPageId])
   @@index([canonicalType, side])
 }

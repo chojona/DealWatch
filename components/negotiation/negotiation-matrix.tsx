@@ -13,6 +13,10 @@ interface TermView {
   confidence: number;
   evidenceQuote: string;
   sourceLocation: string | null;
+  sourceFilename?: string | null;
+  pageLabel?: string | null;
+  pageNumber?: number | null;
+  documentId?: string | null;
 }
 
 interface RoundView {
@@ -174,8 +178,32 @@ export function NegotiationMatrix({
                 </div>
                 <dl className="mt-3 space-y-2 text-xs">
                   <div><dt className="text-[10px] uppercase tracking-wider text-zinc-400">Raw value</dt><dd className="mt-0.5 text-zinc-800">{term.rawValue}</dd></div>
+                  <div>
+                    <dt className="text-[10px] uppercase tracking-wider text-zinc-400">Source</dt>
+                    <dd className="mt-0.5 text-zinc-700">
+                      {term.documentId ? (
+                        <>
+                          <span className="block">{term.sourceFilename}</span>
+                          {term.pageLabel ? <span className="block">{term.pageLabel}</span> : null}
+                          {term.sourceLocation ? <span className="block text-zinc-500">{term.sourceLocation}</span> : null}
+                          <a
+                            className="mt-1 inline-block underline"
+                            href={`/api/documents/${term.documentId}/file${term.pageNumber ? `#page=${term.pageNumber}` : ""}`}
+                            target="_blank"
+                            rel="noreferrer"
+                          >
+                            View source PDF
+                          </a>
+                        </>
+                      ) : (
+                        <>
+                          {selection.round.documentName} · {new Date(selection.round.documentDate).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" })}
+                          {term.sourceLocation ? ` · ${term.sourceLocation}` : ""}
+                        </>
+                      )}
+                    </dd>
+                  </div>
                   <div><dt className="text-[10px] uppercase tracking-wider text-zinc-400">Exact evidence</dt><dd className="mt-0.5 border-l-2 border-zinc-200 pl-2 italic text-zinc-600">&ldquo;{term.evidenceQuote}&rdquo;</dd></div>
-                  <div><dt className="text-[10px] uppercase tracking-wider text-zinc-400">Source document</dt><dd className="mt-0.5 text-zinc-700">{selection.round.documentName} · {new Date(selection.round.documentDate).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" })}{term.sourceLocation ? ` · ${term.sourceLocation}` : ""}</dd></div>
                 </dl>
               </div>
             ))}

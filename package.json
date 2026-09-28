@@ -7,7 +7,7 @@
   },
   "scripts": {
     "dev": "next dev",
-    "test": "tsx --test lib/ai/*.test.ts lib/ai/negotiation/*.test.ts lib/negotiation/*.test.ts evals/negotiation/*.test.ts evals/negotiation/v2/*.test.ts",
+    "test": "tsx --test lib/ai/*.test.ts lib/ai/negotiation/*.test.ts lib/negotiation/*.test.ts lib/documents/*.test.ts evals/negotiation/*.test.ts evals/negotiation/v2/*.test.ts",
     "eval:negotiation": "node --import tsx evals/negotiation/cli.ts",
     "eval:negotiation:v2": "node --import tsx evals/negotiation/v2/cli.ts",
     "build": "next build --webpack",
@@ -47,6 +47,7 @@
     "tailwindcss": "^4.3.3",
     "tsx": "^4.23.15",
     "typescript": "^5.9.3",
+    "unpdf": "^1.8.1",
     "zod": "^3.25.76"
   },
   "devDependencies": {

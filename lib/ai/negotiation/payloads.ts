@@ -137,8 +137,13 @@ export const RentStepSchema = z.object({
   /**
    * Provenance pointer back to the source NegotiationTerm observation for
    * this step. Enables per-step evidence drill-down.
+   *
+   * Optional: the model may omit this at extraction time (the "pending"
+   * placeholder is no longer required). The structured resolver attaches
+   * the real NegotiationTerm.id deterministically from the enclosing record.
+   * Legacy payloads with observationId: "pending" continue to parse safely.
    */
-  observationRef: ObservationRefSchema,
+  observationRef: ObservationRefSchema.optional(),
 });
 export type RentStep = z.infer<typeof RentStepSchema>;
 
@@ -180,7 +185,16 @@ export const AbatementPeriodSchema = z.object({
   abatementType: z.enum(["FULL", "PARTIAL"]),
   /** Required when abatementType is "PARTIAL". Range 0–100. */
   partialPct: z.number().min(0).max(100).optional(),
-  observationRef: ObservationRefSchema,
+  /**
+   * Provenance pointer back to the source NegotiationTerm observation for
+   * this period. Enables per-period evidence drill-down.
+   *
+   * Optional: the model may omit this at extraction time (the "pending"
+   * placeholder is no longer required). The structured resolver attaches
+   * the real NegotiationTerm.id deterministically from the enclosing record.
+   * Legacy payloads with observationId: "pending" continue to parse safely.
+   */
+  observationRef: ObservationRefSchema.optional(),
 });
 export type AbatementPeriod = z.infer<typeof AbatementPeriodSchema>;
 

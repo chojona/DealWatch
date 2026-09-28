@@ -121,9 +121,9 @@ test("BASE_RENT stepped — three steps with provenance", () => {
     },
   });
   if (payload.rent.kind === "stepped") {
-    assert.equal(payload.rent.steps[2]?.observationRef.observationId, "o3");
+    assert.equal(payload.rent.steps[2]?.observationRef?.observationId, "o3");
     assert.equal(
-      payload.rent.steps[2]?.observationRef.evidenceSpan,
+      payload.rent.steps[2]?.observationRef?.evidenceSpan,
       "step text"
     );
   }

@@ -4,6 +4,7 @@ import type {
   NegotiationMovementView,
   NegotiationPositionView,
 } from "@/lib/negotiation/intelligence/types";
+import type { DealBriefFormalStatus } from "./formalStatus";
 
 export type DealBriefSourceKind =
   | "FORMAL_NEGOTIATION"
@@ -24,7 +25,11 @@ export interface DealBriefSourceRef {
 export interface DealBriefNegotiationTerm {
   canonicalType: string;
   label: string;
+  /** Resolver status. Preserved even when the Brief label is more specific. */
   status: string;
+  /** Exhaustive Brief projection of `status`. Unknown resolver statuses are UNKNOWN. */
+  briefStatus: DealBriefFormalStatus;
+  statusLabel: string;
   conflict: boolean;
   tenantPosition: NegotiationPositionView | null;
   landlordPosition: NegotiationPositionView | null;
@@ -122,6 +127,8 @@ export type DealBriefAttentionType =
   | "DOCUMENT_ANALYSIS_FAILED"
   | "NEGOTIATION_CONFLICT"
   | "NEGOTIATION_UNRESOLVED"
+  | "NEGOTIATION_REJECTED"
+  | "NEGOTIATION_WITHDRAWN"
   | "ENTITY_REVIEW_REQUIRED"
   | "RELATIONSHIP_REVIEW_REQUIRED"
   | "PROVENANCE_REVIEW_REQUIRED"
@@ -216,9 +223,17 @@ export interface DealBrief {
   negotiation: {
     summary: {
       termCount: number;
+      /**
+       * Terms whose resolver status is PROPOSED or UNRESOLVED.
+       * REJECTED, WITHDRAWN, AGREED, NOT_MENTIONED, and unknown statuses
+       * do not contribute. Conflict terms still contribute when their
+       * resolver status is PROPOSED or UNRESOLVED.
+       */
       openCount: number;
       agreedCount: number;
       conflictCount: number;
+      rejectedCount: number;
+      withdrawnCount: number;
       latestFormalMovementAt: string | null;
     };
     terms: DealBriefNegotiationTerm[];
@@ -234,10 +249,27 @@ export interface DealBrief {
   systemAttention: DealBriefAttentionItem[];
   /** Phase 10A-compatible combined attention list. */
   attention: DealBriefAttentionItem[];
+  /**
+   * Available totals versus the bounded payload. UI caps are separate and
+   * live in `BRIEF_SECTION_CAPS`. `returned` is what this payload contains.
+   * `total` is the available count before this brief's own cap.
+   */
+  preview: {
+    attention: DealBriefWindow;
+    changes: DealBriefWindow;
+    communications: DealBriefWindow;
+    timeline: DealBriefWindow;
+    comparisons: DealBriefWindow;
+  };
   timeline: DealBriefTimelineItem[];
   actions: DealActionState;
   since: string | null;
   generatedAt: string;
+}
+
+export interface DealBriefWindow {
+  returned: number;
+  total: number;
 }
 
 export interface DealBriefOptions {

@@ -8,6 +8,7 @@ import type {
 import { effectiveActivityFact } from "@/lib/messages/effective";
 import { canonicalLabel } from "@/lib/messages/facts";
 import { factsFromLatestRun } from "@/lib/messages/latestRun";
+import { actionEvidenceReviewState } from "@/lib/messages/state";
 import {
   formalPositionFullyRejected,
   projectFormalBriefStatus,
@@ -97,6 +98,7 @@ function positionSummary(position: NegotiationPositionView | null): string | nul
 function presentCommunication(message: ActionMessageRow): DealBriefCommunication {
   const facts = factsFromLatestRun(message.facts);
   const timestamp = occurredAt(message);
+  const actionReviewState = actionEvidenceReviewState(facts);
   return {
     id: message.id,
     timestamp: iso(timestamp),
@@ -107,7 +109,9 @@ function presentCommunication(message: ActionMessageRow): DealBriefCommunication
     sourceType: "FIXTURE",
     analysisState: "ANALYZED",
     reviewState: "REVIEWED",
-    lifecycleState: "REVIEWED",
+    actionReviewState,
+    evidenceSettled: actionReviewState !== "PENDING",
+    lifecycleState: actionReviewState === "PENDING" ? "REVIEW_REQUIRED" : "REVIEWED",
     failureReason: null,
     facts: facts.map((fact) => {
       const effective = effectiveActivityFact(fact);

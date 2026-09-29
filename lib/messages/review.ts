@@ -2,7 +2,7 @@ import { Prisma, type ActivityFactReviewState, type PrismaClient } from "@prisma
 import { ActivityStructuredPayloadSchema } from "@/lib/ai/activity/schema";
 import { getDealReconciliation } from "@/lib/deals/reconciliation/service";
 import { factsFromLatestRun } from "./latestRun";
-import { latestMessageRun } from "./state";
+import { latestMessageRun, storedActionDirective } from "./state";
 
 async function scopedMessage(db: PrismaClient, sourceMessageId: string, expectedWorkspaceId?: string) {
   const message = await db.sourceMessage.findUnique({
@@ -49,11 +49,23 @@ export async function decideMessageReview(
 
 export async function reviewActivityFact(
   db: PrismaClient,
-  input: { sourceMessageId: string; activityFactId: string; state: ActivityFactReviewState; correctedPayload?: unknown; note?: string | null; expectedWorkspaceId?: string }
+  input: {
+    sourceMessageId: string;
+    activityFactId: string;
+    state: ActivityFactReviewState;
+    correctedPayload?: unknown;
+    note?: string | null;
+    expectedWorkspaceId?: string;
+    /** Message commercial-fact review. Action directives use the action-evidence decision instead. */
+    commercialReview?: boolean;
+  }
 ) {
   const message = await scopedMessage(db, input.sourceMessageId, input.expectedWorkspaceId);
   const fact = message.facts.find((item) => item.id === input.activityFactId);
   if (!fact) throw new Error("Activity fact not found");
+  if (input.commercialReview && storedActionDirective(fact.structuredPayload)) {
+    throw new Error("Action evidence is reviewed through the action evidence decision");
+  }
   let correction: Prisma.InputJsonValue | null = null;
   if (input.correctedPayload !== undefined) {
     if (input.state !== "INCORRECT") throw new Error("Only an incorrect fact can have a correction");

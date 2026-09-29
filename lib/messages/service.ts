@@ -18,7 +18,8 @@ import {
   type NormalizedParticipantInput,
   type NormalizedSourceMessageInput,
 } from "./ingest/service";
-import { deriveMessageLifecycle } from "./state";
+import { recordedSpeakerSide, type AnalyzeSpeakerChoice } from "./speakerSide";
+import { deriveMessageLifecycle, latestMessageRun, storedActionDirective } from "./state";
 import { effectiveActivityFact } from "./effective";
 import { reviewedReconciliationForFact } from "./reviewedReconciliation";
 
@@ -36,6 +37,8 @@ export interface AnalyzeSourceMessageOptions {
    * and negotiation state never select this value.
    */
   speakerSide?: ActionSpeakerSide | null;
+  /** Explicit product choice, including UNKNOWN. Internal callers may omit it. */
+  recordSpeakerSide?: AnalyzeSpeakerChoice | null;
 }
 
 const factInclude = {
@@ -234,12 +237,13 @@ export async function analyzeSourceMessage(
   if (prior?.status === "RUNNING") {
     return { runId: prior.id, idempotent: true, factCount: prior.factCount };
   }
+  const speakerSide = recordedSpeakerSide(options);
   let run;
   try {
     run = await db.$transaction(async (tx) => {
       const started = prior
-        ? await tx.activityExtractionRun.update({ where: { id: prior.id }, data: { status: "RUNNING", failureCode: null, failureReason: null, completedAt: null } })
-        : await tx.activityExtractionRun.create({ data: { ...identity, workspaceId: message.workspaceId, status: "RUNNING" } });
+        ? await tx.activityExtractionRun.update({ where: { id: prior.id }, data: { status: "RUNNING", failureCode: null, failureReason: null, completedAt: null, speakerSide } })
+        : await tx.activityExtractionRun.create({ data: { ...identity, workspaceId: message.workspaceId, status: "RUNNING", speakerSide } });
       await tx.messageReviewEvent.create({
         data: { workspaceId: message.workspaceId, sourceMessageId: message.id, eventType: "ANALYSIS_STARTED", actor: "SYSTEM", detail: { runId: started.id } },
       });
@@ -324,6 +328,7 @@ export interface MessageFactView {
   reviewedValue: string | null;
   reviewState: string | null;
   reviewedReconciliation: ReconciliationLink | null;
+  hasAction: boolean;
 }
 
 export interface MessageSourceView {
@@ -338,7 +343,10 @@ export interface MessageSourceView {
   bodyText: string;
   analysisState: string;
   reviewState: string;
+  actionReviewState: string;
+  evidenceSettled: boolean;
   lifecycleState: string;
+  speakerSide: "OUR_SIDE" | "COUNTERPARTY" | "UNKNOWN" | null;
   failureCode: string | null;
   failureReason: string | null;
   originalSourceHref: string | null;
@@ -397,7 +405,16 @@ export async function getMessageSource(db: PrismaClient, sourceMessageId: string
   const reconciliation = await getDealReconciliation(db, message.dealId);
   const links = reconciliation?.links.filter((link) => link.activityEventId === `source-message:${message.id}`) ?? [];
   const facts = factsFromLatestRun(message.facts);
-  const lifecycle = deriveMessageLifecycle({ runs: message.extractionRuns, decisions: message.reviewDecisions, currentFactIds: facts.map((fact) => fact.id) });
+  const lifecycle = deriveMessageLifecycle({
+    runs: message.extractionRuns,
+    decisions: message.reviewDecisions,
+    currentFactIds: facts.map((fact) => fact.id),
+    facts,
+  });
+  const run = latestMessageRun(message.extractionRuns);
+  const speakerSide = run?.speakerSide === "OUR_SIDE" || run?.speakerSide === "COUNTERPARTY" || run?.speakerSide === "UNKNOWN"
+    ? run.speakerSide
+    : null;
   return {
     id: message.id,
     subject: message.subject,
@@ -409,6 +426,7 @@ export async function getMessageSource(db: PrismaClient, sourceMessageId: string
     importedAt: message.createdAt.toISOString(),
     bodyText: message.bodyText,
     ...lifecycle,
+    speakerSide,
     originalSourceHref: message.sourceStorageKey ? `/api/messages/${message.id}/source` : null,
     originalFilename: message.originalFilename,
     factSummary: {
@@ -481,6 +499,7 @@ export async function getMessageSource(db: PrismaClient, sourceMessageId: string
         reviewedValue: effective.correction?.value.display ?? null,
         reviewState: effective.review?.state ?? null,
         reviewedReconciliation,
+        hasAction: Boolean(storedActionDirective(fact.structuredPayload)),
       };
     }),
   };

@@ -803,7 +803,12 @@ export async function getInbox(
       deal: { select: { id: true, name: true, company: true, property: true, propertyId: true, stage: true, status: true, estimatedValue: true } },
       extractionRuns: { orderBy: [{ createdAt: "asc" }, { id: "asc" }] },
       reviewDecisions: { orderBy: [{ createdAt: "asc" }, { id: "asc" }] },
-      facts: { include: { activityExtractionRun: { select: { id: true, status: true, completedAt: true, createdAt: true } } } },
+      facts: {
+        include: {
+          activityExtractionRun: { select: { id: true, status: true, completedAt: true, createdAt: true } },
+          reviews: { select: { id: true } },
+        },
+      },
     },
   })]);
   const dealIds = [...new Set(documents.map((document) => document.dealId))];
@@ -869,7 +874,12 @@ export async function getInbox(
   });
   const messageItems = messages.map((message) => {
     const facts = factsFromLatestRun(message.facts);
-    const lifecycle = deriveMessageLifecycle({ runs: message.extractionRuns, decisions: message.reviewDecisions, currentFactIds: facts.map((fact) => fact.id) });
+    const lifecycle = deriveMessageLifecycle({
+      runs: message.extractionRuns,
+      decisions: message.reviewDecisions,
+      currentFactIds: facts.map((fact) => fact.id),
+      facts,
+    });
     return {
       id: message.id,
       subject: message.subject || "Email",
@@ -886,9 +896,9 @@ export async function getInbox(
     if (input.dealId && message.deal.id !== input.dealId) return false;
     if (needle && ![message.subject, message.sender, message.deal.name, message.deal.company, message.deal.property].join("\n").toLowerCase().includes(needle)) return false;
     const filter = input.filter ?? "ALL";
-    if (filter === "NEEDS_REVIEW") return message.reviewState !== "REVIEWED";
+    if (filter === "NEEDS_REVIEW") return !message.evidenceSettled;
     if (filter === "PROCESSING") return message.analysisState === "ANALYZING";
-    if (filter === "COMPLETE") return message.reviewState === "REVIEWED";
+    if (filter === "COMPLETE") return message.evidenceSettled;
     if (filter === "FAILED") return message.analysisState === "ANALYSIS_FAILED";
     return true;
   });
@@ -899,12 +909,17 @@ export async function getInbox(
     .sort((left, right) => right.occurredAt.localeCompare(left.occurredAt));
   const allMessageStates = messages.map((message) => {
     const facts = factsFromLatestRun(message.facts);
-    return deriveMessageLifecycle({ runs: message.extractionRuns, decisions: message.reviewDecisions, currentFactIds: facts.map((fact) => fact.id) });
+    return deriveMessageLifecycle({
+      runs: message.extractionRuns,
+      decisions: message.reviewDecisions,
+      currentFactIds: facts.map((fact) => fact.id),
+      facts,
+    });
   });
   counts.ALL += messages.length;
-  counts.NEEDS_REVIEW += allMessageStates.filter((state) => state.reviewState !== "REVIEWED").length;
+  counts.NEEDS_REVIEW += allMessageStates.filter((state) => !state.evidenceSettled).length;
   counts.PROCESSING += allMessageStates.filter((state) => state.analysisState === "ANALYZING").length;
-  counts.COMPLETE += allMessageStates.filter((state) => state.reviewState === "REVIEWED").length;
+  counts.COMPLETE += allMessageStates.filter((state) => state.evidenceSettled).length;
   counts.FAILED += allMessageStates.filter((state) => state.analysisState === "ANALYSIS_FAILED").length;
   const sourceCounts = { ALL: built.length + messages.length, DOCUMENTS: built.length, MESSAGES: messages.length };
   return { workspaceId: input.workspaceId, items, sourceItems: allSources, facets, counts, sourceCounts };

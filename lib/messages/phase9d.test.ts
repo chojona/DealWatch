@@ -171,7 +171,7 @@ describe("Phase 9D email ingestion and review", { concurrency: 1 }, () => {
     assert.equal(reconciliation?.links.find((link) => link.canonicalType === "BASE_RENT")?.eventValue?.numeric, 68);
     assert.equal(reconciliation?.links.find((link) => link.canonicalType === "BASE_RENT")?.reviewedValue?.numeric, 72);
     const activity = await getActivityPage(prisma, { rootType: "DEAL", rootId: deal.id });
-    assert.match(activity?.events.find((event) => event.sourceId === message.id)?.description ?? "", /Reviewed/);
+    assert.match(activity?.events.find((event) => event.sourceId === message.id)?.description ?? "", /Message reviewed/);
   });
 
   test("workspace isolation, source isolation, inbox message state, and read-only projections", async () => {

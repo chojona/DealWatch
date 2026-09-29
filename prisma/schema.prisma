@@ -1452,6 +1452,9 @@ model ActivityExtractionRun {
   status           ActivityExtractionStatus
   failureCode      String?
   failureReason    String?
+  /// Explicit choice recorded at analysis: OUR_SIDE, COUNTERPARTY, or UNKNOWN.
+  /// Null means this run did not record a speaker choice. An address never fills it.
+  speakerSide      String?
   factCount        Int                      @default(0)
   createdAt        DateTime                 @default(now())
   completedAt      DateTime?

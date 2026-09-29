@@ -155,6 +155,7 @@ function presentCommunication(message: BriefMessageRow): DealBriefCommunication 
     runs: message.extractionRuns,
     decisions: message.reviewDecisions,
     currentFactIds: facts.map((fact) => fact.id),
+    facts,
   });
   const timestamp = occurredAt(message);
   return {
@@ -566,6 +567,20 @@ export async function getDealBrief(
         timestamp: communication.timestamp,
         category: "SYSTEM_REVIEW",
         priority: 6,
+      });
+    }
+    if (communication.actionReviewState === "PENDING") {
+      systemAttention.push({
+        id: `message-action-evidence:${communication.id}`,
+        type: "MESSAGE_ACTION_EVIDENCE_PENDING",
+        sourceId: communication.id,
+        sourceKind: "COMMUNICATION_EVIDENCE",
+        label: "Action evidence pending",
+        description: communication.subject,
+        href: communication.source.href!,
+        timestamp: communication.timestamp,
+        category: "SYSTEM_REVIEW",
+        priority: 4,
       });
     }
     if (communication.reviewState !== "NEEDS_FOLLOW_UP") {

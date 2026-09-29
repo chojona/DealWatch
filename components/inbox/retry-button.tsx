@@ -33,7 +33,7 @@ export function RetryAnalysisButton({ documentId }: { documentId: string }) {
         disabled={pending}
         className="h-8 rounded-sm bg-zinc-900 px-3 text-xs font-medium text-white disabled:opacity-50"
       >
-        {pending ? "Retrying" : "Retry"}
+        {pending ? "Retrying analysis" : "Retry analysis"}
       </button>
       {error && <p className="text-[11px] text-red-700">{error}</p>}
     </div>

@@ -262,6 +262,7 @@ export function FormalTermReviewControls({
     <div className="mt-3 rounded-sm border border-zinc-200 bg-zinc-50 px-3 py-2">
       <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-400">Formal value · {stateLabel}</p>
       <p className="mt-1 text-xs text-zinc-800">Extracted value {finding.formalExtractedSummary}</p>
+      <p className="mt-1 text-[11px] text-zinc-500">Formal value decisions control negotiation truth. The finding review decision below controls whether this review item remains open.</p>
       {finding.formalReviewState === "CORRECTED" && finding.formalEffectiveSummary && (
         <p className="mt-1 text-xs text-zinc-800">
           Current formal value {finding.formalEffectiveSummary}

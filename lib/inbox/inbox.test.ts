@@ -427,12 +427,13 @@ describe("Phase 8D deal inbox", { concurrency: 1 }, () => {
     assert.equal(review?.item.relationshipReviewSummary.approved, 0);
   });
 
-  test("document delete stays blocked while observations exist, and deal documents reuse the inbox", async () => {
+  test("the graph deletion guard remains while no deletion state is exposed, and deal documents reuse the inbox", async () => {
     const deal = await dealNamed("Delete");
     const document = await documentOn(deal.id, { originalFilename: "Keep.pdf", ingestionStatus: "COMPLETE" });
     await observeEntity(deal, document.id, "Keep Co", "COMPANY", "Keep Co is named");
     const review = await getDocumentReview(prisma, workspaceId, document.id);
-    assert.equal(review?.deletionBlocked, true);
+    assert.ok(review);
+    assert.equal("deletionBlocked" in review, false);
     await assert.rejects(() => deleteDocumentPreservingEvidence(prisma, document.id), /cannot be deleted/);
     const bare = await documentOn(deal.id, { originalFilename: "Bare.pdf", ingestionStatus: "UPLOADED" });
     const scoped = await getInbox(prisma, { workspaceId, scopeDealId: deal.id });

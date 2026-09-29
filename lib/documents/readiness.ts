@@ -23,6 +23,9 @@ export interface ReadinessGap {
 export interface DocumentReadiness {
   fileReady: boolean;
   metadataReady: boolean;
+  /** The Analyze action may run now, including on-demand page extraction. */
+  analysisEligible: boolean;
+  /** Extracted text is already present and negotiation analysis may run directly. */
   analysisReady: boolean;
   reviewReady: boolean;
   sourceFileState: SourceFileState;
@@ -77,6 +80,14 @@ export function deriveReadiness(input: ReadinessInput): DocumentReadiness {
     !ingestionBlocked &&
     !ingestionBusy &&
     input.ingestionStatus !== "COMPLETE";
+  const analysisEligible =
+    analysisReady ||
+    (input.ingestionStatus === "UPLOADED" &&
+      fileReady &&
+      metadataReady &&
+      !pagesReady &&
+      !ingestionBlocked &&
+      !ingestionBusy);
   const reviewReady = input.ingestionStatus === "COMPLETE";
 
   const missing: ReadinessGap[] = [];
@@ -114,6 +125,7 @@ export function deriveReadiness(input: ReadinessInput): DocumentReadiness {
   return {
     fileReady,
     metadataReady,
+    analysisEligible,
     analysisReady,
     reviewReady,
     sourceFileState: input.sourceFileState,

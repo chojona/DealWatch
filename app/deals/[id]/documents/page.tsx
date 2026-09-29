@@ -45,6 +45,7 @@ export default async function DealDocumentsPage({
         documentType: parsed.documentType,
         negotiationSide: parsed.negotiationSide,
         q: parsed.q,
+        includeMessages: false,
       });
 
   return (
@@ -66,7 +67,7 @@ export default async function DealDocumentsPage({
         {queryError || !page ? (
           <p className="text-sm text-red-800">{queryError}</p>
         ) : (
-          <InboxView page={page} basePath={`/deals/${deal.id}/documents`} query={query} lockedDealName={deal.name} />
+          <InboxView page={page} basePath={`/deals/${deal.id}/documents`} query={query} lockedDealName={deal.name} documentsOnly />
         )}
       </main>
     </div>

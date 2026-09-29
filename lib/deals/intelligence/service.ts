@@ -5,6 +5,7 @@ import { getNegotiationWorkspace } from "@/lib/negotiation/intelligence/service"
 import { getDealKnowledge } from "@/lib/promotion/service";
 import { projectDealIntelligence } from "./project";
 import type { DealIntelligence } from "./types";
+import { messageRollupForDeals } from "@/lib/messages/list";
 
 const ACTIVITY_PREVIEW_LIMIT = 8;
 
@@ -22,19 +23,23 @@ export async function getDealIntelligence(
   });
   if (!deal) return null;
 
-  const [workspace, inbox, knowledge, activity] = await Promise.all([
+  const [workspace, inbox, knowledge, activity, messageRollups] = await Promise.all([
     getNegotiationWorkspace(db, deal.id),
-    getInbox(db, { workspaceId: deal.workspaceId, scopeDealId: deal.id }),
+    getInbox(db, { workspaceId: deal.workspaceId, scopeDealId: deal.id, includeMessages: false }),
     getDealKnowledge(db, deal.id),
     getActivityPage(db, { rootType: "DEAL", rootId: deal.id, limit: ACTIVITY_PREVIEW_LIMIT }),
+    messageRollupForDeals(db, deal.workspaceId, [deal.id]),
   ]);
   if (!workspace || !knowledge || !activity) return null;
-  return projectDealIntelligence({
+  return {
+    ...projectDealIntelligence({
     workspace,
     documents: inbox.items,
     knowledge,
     activity: activity.events,
-  });
+    }),
+    messageRollup: messageRollups.get(deal.id) ?? { total: 0, needsReview: 0, failed: 0 },
+  };
 }
 
 export function rejectClientWorkspace(searchParams: { has(name: string): boolean }): string | null {

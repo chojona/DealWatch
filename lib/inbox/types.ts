@@ -133,9 +133,30 @@ export interface InboxFacet {
 export interface InboxPageModel {
   workspaceId: string;
   items: InboxItem[];
+  sourceItems: InboxSourceItem[];
   facets: InboxFacet;
   counts: Record<InboxFilter, number>;
+  sourceCounts: { ALL: number; DOCUMENTS: number; MESSAGES: number };
 }
+
+export interface InboxMessageItem {
+  id: string;
+  subject: string;
+  sender: string;
+  occurredAt: string;
+  sourceType: string;
+  analysisState: string;
+  reviewState: string;
+  lifecycleState: string;
+  factCount: number;
+  failureReason: string | null;
+  deal: InboxDealRef;
+  href: string;
+}
+
+export type InboxSourceItem =
+  | { kind: "DOCUMENT"; occurredAt: string; document: InboxItem }
+  | { kind: "MESSAGE"; occurredAt: string; message: InboxMessageItem };
 
 export interface NegotiationFinding {
   termId: string;

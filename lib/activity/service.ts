@@ -4,6 +4,7 @@ import type { ReconciliationLink } from "@/lib/deals/reconciliation/types";
 import type { GraphDb } from "@/lib/entities/workspace";
 import { activitySideLabel, canonicalLabel, storedFactValue } from "@/lib/messages/facts";
 import { factsFromLatestRun } from "@/lib/messages/latestRun";
+import { deriveMessageLifecycle } from "@/lib/messages/state";
 import { eventFactsByEventId, linkedLegacyEventIds, loadDealMessageSources, messageActivities, structuredFactsForEvent } from "@/lib/messages/load";
 import { canonicalEntityHref } from "@/lib/intelligence/routes";
 import { buildDocumentEvent, sentence, type ActivityEvidenceObservation } from "./documents";
@@ -318,6 +319,7 @@ function sourceMessageEvent(
     receivedAt: Date | null;
     createdAt: Date;
     facts: Array<{
+      id: string;
       factType: string;
       canonicalType: string | null;
       side: string;
@@ -326,12 +328,19 @@ function sourceMessageEvent(
       structuredPayload: unknown;
       activityExtractionRun: { id: string; status: string; completedAt: Date | null; createdAt: Date } | null;
     }>;
+    extractionRuns: Array<{ id: string; status: string; factCount: number; createdAt: Date; completedAt: Date | null; failureCode: string | null; failureReason: string | null }>;
+    reviewDecisions: Array<{ id: string; decision: string; activityExtractionRunId: string | null; presentedFactIds: unknown; createdAt: Date }>;
   },
   links: ReconciliationLink[],
   refs: ActivityEntityRef[]
 ): ActivityEvent {
   const facts = factsFromLatestRun(message.facts);
   const negotiationCount = facts.filter((fact) => fact.factType === "NEGOTIATION_VALUE").length;
+  const lifecycle = deriveMessageLifecycle({ runs: message.extractionRuns, decisions: message.reviewDecisions, currentFactIds: facts.map((fact) => fact.id) });
+  const factDescription = facts.length > 0 ? `${facts.length} commercial fact${facts.length === 1 ? "" : "s"}` : "No commercial facts";
+  const analyzedDescription = negotiationCount > 0
+    ? `${factDescription} · ${negotiationCount} negotiation fact${negotiationCount === 1 ? "" : "s"}`
+    : factDescription;
   const occurredAt = message.sentAt ?? message.receivedAt ?? message.createdAt;
   return {
     id: `source-message:${message.id}`,
@@ -339,7 +348,7 @@ function sourceMessageEvent(
     recordedAt: message.createdAt.toISOString(),
     eventType: "DEAL_ACTIVITY",
     title: message.subject?.trim() || "Email",
-    description: negotiationCount > 0 ? `${negotiationCount} negotiation fact${negotiationCount === 1 ? "" : "s"}` : undefined,
+    description: lifecycle.analysisState === "NOT_ANALYZED" ? "Not analyzed" : lifecycle.reviewState === "REVIEWED" ? `${analyzedDescription} · Reviewed` : lifecycle.analysisState === "ANALYSIS_FAILED" ? "Analysis failed" : analyzedDescription,
     entityRefs: refs,
     dealId: message.dealId,
     sourceType: "SOURCE_MESSAGE",

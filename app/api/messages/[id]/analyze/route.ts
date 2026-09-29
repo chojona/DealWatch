@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { analyzeSourceMessage } from "@/lib/messages/service";
+import { messageRequestWorkspaceId } from "@/lib/messages/workspace";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -15,7 +16,9 @@ export async function POST(
   }
   const { id } = await context.params;
   try {
-    const result = await analyzeSourceMessage(prisma, id);
+    const workspaceId = await messageRequestWorkspaceId(prisma);
+    if (!workspaceId) return NextResponse.json({ error: "Message not found" }, { status: 404 });
+    const result = await analyzeSourceMessage(prisma, id, { expectedWorkspaceId: workspaceId });
     return NextResponse.json(result);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Message could not be analyzed";

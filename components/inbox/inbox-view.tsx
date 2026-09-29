@@ -2,7 +2,7 @@ import Link from "next/link";
 import { DOCUMENT_TYPE_LABELS } from "@/lib/documents/labels";
 import { formatDate } from "@/lib/formatters";
 import { processingLabel } from "@/lib/inbox/status";
-import type { InboxFilter, InboxItem, InboxPageModel } from "@/lib/inbox/types";
+import type { InboxFilter, InboxItem, InboxMessageItem, InboxPageModel } from "@/lib/inbox/types";
 
 const FILTERS: Array<{ id: InboxFilter; label: string }> = [
   { id: "ALL", label: "All" },
@@ -33,26 +33,33 @@ export function InboxView({
   basePath,
   query,
   lockedDealName,
+  documentsOnly = false,
 }: {
   page: InboxPageModel;
   basePath: string;
   query: URLSearchParams;
   lockedDealName?: string | null;
+  documentsOnly?: boolean;
 }) {
+  const visibleCount = documentsOnly ? page.items.length : page.sourceItems.length;
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <p className="text-[11px] font-medium uppercase tracking-wider text-zinc-400">Deal inbox</p>
           <h1 className="mt-1 text-lg font-semibold text-zinc-900">
-            {lockedDealName ? `${lockedDealName} documents` : "Documents"}
+            {lockedDealName ? `${lockedDealName} documents` : "Documents & messages"}
           </h1>
           <p className="mt-1 max-w-2xl text-xs text-zinc-500">
-            Uploads that need processing, review, or no further action. Pasted negotiation rounds stay on the negotiation workspace.
+            Source evidence that needs processing, review, or no further action. Pasted negotiation rounds stay on the negotiation workspace.
           </p>
         </div>
-        <p className="text-xs tabular-nums text-zinc-500">{page.counts.ALL} documents</p>
+        <p className="text-xs tabular-nums text-zinc-500">{documentsOnly ? page.items.length : page.sourceCounts.ALL} sources</p>
       </div>
+
+      {!documentsOnly && <div className="flex flex-wrap gap-1">
+        {(["ALL", "DOCUMENTS", "MESSAGES"] as const).map((source) => <Link key={source} href={hrefWith(basePath, query, { source: source === "ALL" ? null : source })} className={`rounded-sm border px-2.5 py-1 text-[11px] font-medium ${(query.get("source") ?? "ALL").toUpperCase() === source ? "border-zinc-900 bg-zinc-900 text-white" : "border-zinc-200 bg-white text-zinc-600"}`}>{source === "ALL" ? "All" : source === "DOCUMENTS" ? "Documents" : "Messages"}<span className="ml-1.5 opacity-70">{page.sourceCounts[source]}</span></Link>)}
+      </div>}
 
       <div className="flex flex-wrap gap-1">
         {FILTERS.map((filter) => {
@@ -72,6 +79,7 @@ export function InboxView({
 
       <form action={basePath} className="grid gap-2 rounded-sm border border-zinc-200 bg-white p-3 md:grid-cols-[1.4fr_1fr_1fr_1fr_auto]">
         {query.get("filter") && <input type="hidden" name="filter" value={query.get("filter") ?? ""} />}
+        {query.get("source") && <input type="hidden" name="source" value={query.get("source") ?? ""} />}
         <input
           name="q"
           defaultValue={query.get("q") ?? ""}
@@ -105,26 +113,28 @@ export function InboxView({
         </button>
       </form>
 
-      {page.items.length === 0 ? (
+      {visibleCount === 0 ? (
         <div className="rounded-sm border border-zinc-200 bg-white px-4 py-10 text-center">
           <p className="text-sm font-medium text-zinc-800">
-            {page.counts.ALL === 0 ? "No documents yet" : "No documents match these filters"}
+            {(documentsOnly ? page.items.length : page.sourceCounts.ALL) === 0 ? "No sources yet" : "No sources match these filters"}
           </p>
           <p className="mt-1 text-xs text-zinc-500">
-            {page.counts.ALL === 0
-              ? "Upload a PDF from a deal’s negotiation workspace. It will appear here when stored."
+            {(documentsOnly ? page.items.length : page.sourceCounts.ALL) === 0
+              ? "Import an email or upload a PDF from a deal workspace."
               : "Clear a filter to see the rest of the inbox."}
           </p>
         </div>
       ) : (
         <div className="flex flex-col gap-2">
-          {page.items.map((item) => (
-            <InboxCard key={item.document.id} item={item} />
-          ))}
+          {documentsOnly ? page.items.map((item) => <InboxCard key={item.document.id} item={item} />) : page.sourceItems.map((source) => source.kind === "DOCUMENT" ? <InboxCard key={`document:${source.document.document.id}`} item={source.document} /> : <MessageInboxCard key={`message:${source.message.id}`} item={source.message} />)}
         </div>
       )}
     </div>
   );
+}
+
+function MessageInboxCard({ item }: { item: InboxMessageItem }) {
+  return <article className="rounded-sm border border-zinc-200 bg-white px-4 py-3"><div className="flex flex-wrap items-start justify-between gap-3"><div><p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-400">Message · {item.sourceType}</p><h2 className="mt-1 text-sm font-semibold text-zinc-900">{item.subject}</h2><p className="mt-0.5 text-xs text-zinc-600"><Link href={`/deals/${item.deal.id}`} className="underline">{item.deal.name}</Link><span className="text-zinc-400"> · {item.sender} · {formatDate(item.occurredAt)}</span></p></div><div className="text-right"><p className="text-[11px] font-semibold uppercase tracking-wider text-zinc-700">{item.analysisState.replaceAll("_", " ")}</p><p className="mt-0.5 text-[10px] uppercase tracking-wide text-zinc-500">{item.reviewState.replaceAll("_", " ")}</p></div></div><p className="mt-3 border-t border-zinc-100 pt-3 text-xs text-zinc-700">{item.factCount} commercial {item.factCount === 1 ? "fact" : "facts"}</p>{item.failureReason && <p className="mt-2 text-xs text-red-700">{item.failureReason}</p>}<Link href={item.href} className="mt-3 inline-flex h-8 items-center rounded-sm bg-zinc-900 px-3 text-xs font-medium text-white">{item.analysisState === "NOT_ANALYZED" ? "Analyze" : item.reviewState === "REVIEWED" ? "View reviewed message" : "Review message"}</Link></article>;
 }
 
 function InboxCard({ item }: { item: InboxItem }) {

@@ -11,31 +11,22 @@ import type { ReconciliationLink } from "@/lib/deals/reconciliation/types";
 import { getDealReconciliation } from "@/lib/deals/reconciliation/service";
 import { activitySideLabel, canonicalLabel, storedFactValue } from "./facts";
 import { factsFromLatestRun } from "./latestRun";
+import {
+  ingestSourceMessage as ingestSourceMessageBoundary,
+  type NormalizedParticipantInput,
+  type NormalizedSourceMessageInput,
+} from "./ingest/service";
+import { deriveMessageLifecycle } from "./state";
+import { effectiveActivityFact } from "./effective";
+import { reviewedReconciliationForFact } from "./reviewedReconciliation";
 
-export interface SourceParticipantInput {
-  role: "FROM" | "TO" | "CC" | "BCC";
-  displayName?: string | null;
-  address: string;
-}
-
-export interface IngestSourceMessageInput {
-  dealId: string;
-  externalMessageId?: string | null;
-  threadExternalId?: string | null;
-  subject?: string | null;
-  senderName?: string | null;
-  senderAddress?: string | null;
-  sentAt?: Date | null;
-  receivedAt?: Date | null;
-  bodyText: string;
-  sourceType: "MANUAL" | "FIXTURE" | "IMPORTED";
-  legacyDealEventId?: string | null;
-  participants?: SourceParticipantInput[];
-}
+export type SourceParticipantInput = NormalizedParticipantInput;
+export type IngestSourceMessageInput = NormalizedSourceMessageInput;
 
 export interface AnalyzeSourceMessageOptions {
   extractor?: ActivityExtractorIdentity;
   complete?: (prompt: string) => Promise<string>;
+  expectedWorkspaceId?: string;
   /** Explicit opt-in. Sender address alone never selects a side. */
   allowParticipationSideLookup?: boolean;
 }
@@ -45,10 +36,6 @@ const factInclude = {
     select: { id: true, status: true, completedAt: true, createdAt: true },
   },
 } as const;
-
-function isUnique(error: unknown): boolean {
-  return error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002";
-}
 
 function assertOneSource(sourceMessageId: string | null, dealEventId: string | null) {
   if ((sourceMessageId == null) === (dealEventId == null)) {
@@ -84,62 +71,21 @@ async function participationSide(
   return roles[0] === "TENANT" || roles[0] === "LANDLORD" ? roles[0] : null;
 }
 
-export async function ingestSourceMessage(db: PrismaClient, input: IngestSourceMessageInput) {
-  const deal = await db.deal.findUnique({
-    where: { id: input.dealId },
-    select: { id: true, workspaceId: true },
-  });
-  if (!deal) throw new Error("Deal not found");
-  if (input.legacyDealEventId) {
-    const event = await db.dealEvent.findFirst({
-      where: { id: input.legacyDealEventId, dealId: deal.id, deal: { workspaceId: deal.workspaceId } },
-      select: { id: true },
-    });
-    if (!event) throw new Error("Legacy deal event is not on this deal");
-  }
-  const participants = [...(input.participants ?? [])];
-  const sender = input.senderAddress?.trim();
-  if (sender && !participants.some((item) => item.role === "FROM" && item.address.trim().toLowerCase() === sender.toLowerCase())) {
-    participants.unshift({ role: "FROM", displayName: input.senderName ?? null, address: sender });
-  }
-  return db.sourceMessage.create({
-    data: {
-      workspaceId: deal.workspaceId,
-      dealId: deal.id,
-      externalMessageId: input.externalMessageId ?? null,
-      threadExternalId: input.threadExternalId ?? null,
-      subject: input.subject ?? null,
-      senderName: input.senderName ?? null,
-      senderAddress: sender ?? null,
-      sentAt: input.sentAt ?? null,
-      receivedAt: input.receivedAt ?? null,
-      bodyText: input.bodyText,
-      sourceType: input.sourceType,
-      legacyDealEventId: input.legacyDealEventId ?? null,
-      participants: {
-        create: participants.map((item) => ({
-          role: item.role,
-          displayName: item.displayName ?? null,
-          address: item.address.trim(),
-        })),
-      },
-    },
-    include: { participants: { orderBy: { createdAt: "asc" } } },
-  });
-}
+export const ingestSourceMessage = ingestSourceMessageBoundary;
 
 async function extractFacts(
   message: { bodyText: string; subject: string | null; senderAddress: string | null; workspaceId: string; dealId: string },
   db: PrismaClient,
   options: AnalyzeSourceMessageOptions
 ): Promise<{ identity: ActivityExtractorIdentity; facts: ExtractedActivityFact[] }> {
+  const bounded = { ...message, bodyText: message.bodyText.slice(0, 100_000) };
   if (options.complete) {
     const identity: ActivityExtractorIdentity = {
       ...(options.extractor ?? deterministicExtractorIdentity("activity-model")),
       extractionMethod: "MODEL",
     };
     const facts = await extractActivityFactsWithModel(
-      { bodyText: message.bodyText, subject: message.subject },
+      { bodyText: bounded.bodyText, subject: bounded.subject },
       options.complete
     );
     return { identity, facts };
@@ -151,8 +97,8 @@ async function extractFacts(
   return {
     identity,
     facts: extractActivityFacts({
-      bodyText: message.bodyText,
-      subject: message.subject,
+      bodyText: bounded.bodyText,
+      subject: bounded.subject,
       participationSide: side,
     }),
   };
@@ -178,51 +124,70 @@ export async function analyzeSourceMessage(
   if (!message || message.deal.workspaceId !== message.workspaceId) {
     throw new Error("Message not found");
   }
-  const extracted = await extractFacts(message, db, options);
+  if (options.expectedWorkspaceId && options.expectedWorkspaceId !== message.workspaceId) {
+    throw new Error("Message not found");
+  }
+  const selectedIdentity: ActivityExtractorIdentity = options.complete
+    ? { ...(options.extractor ?? deterministicExtractorIdentity("activity-model")), extractionMethod: "MODEL" }
+    : (options.extractor ?? deterministicExtractorIdentity());
   const identity = {
     sourceMessageId: message.id,
-    extractor: extracted.identity.extractor,
-    extractorVersion: extracted.identity.extractorVersion,
-    contractVersion: extracted.identity.contractVersion,
-    model: extracted.identity.model,
+    extractor: selectedIdentity.extractor,
+    extractorVersion: selectedIdentity.extractorVersion,
+    contractVersion: selectedIdentity.contractVersion,
+    model: selectedIdentity.model,
   };
-
-  const persist = async () => db.$transaction(async (tx) => {
-    const existing = await tx.activityExtractionRun.findUnique({
-      where: { sourceMessageId_extractor_extractorVersion_contractVersion_model: identity },
+  const prior = await db.activityExtractionRun.findUnique({
+    where: { sourceMessageId_extractor_extractorVersion_contractVersion_model: identity },
+  });
+  if (prior?.status === "SUCCEEDED") {
+    return { runId: prior.id, idempotent: true, factCount: prior.factCount };
+  }
+  if (prior?.status === "RUNNING") {
+    return { runId: prior.id, idempotent: true, factCount: prior.factCount };
+  }
+  let run;
+  try {
+    run = await db.$transaction(async (tx) => {
+      const started = prior
+        ? await tx.activityExtractionRun.update({ where: { id: prior.id }, data: { status: "RUNNING", failureCode: null, failureReason: null, completedAt: null } })
+        : await tx.activityExtractionRun.create({ data: { ...identity, workspaceId: message.workspaceId, status: "RUNNING" } });
+      await tx.messageReviewEvent.create({
+        data: { workspaceId: message.workspaceId, sourceMessageId: message.id, eventType: "ANALYSIS_STARTED", actor: "SYSTEM", detail: { runId: started.id } },
+      });
+      return started;
     });
-    if (existing?.status === "SUCCEEDED") {
-      return { runId: existing.id, idempotent: true, factCount: existing.factCount };
+  } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+      const racing = await db.activityExtractionRun.findUnique({ where: { sourceMessageId_extractor_extractorVersion_contractVersion_model: identity } });
+      if (racing) return { runId: racing.id, idempotent: true, factCount: racing.factCount };
     }
-    const run = existing
-      ? await tx.activityExtractionRun.update({
-          where: { id: existing.id },
-          data: {
-            status: "SUCCEEDED",
-            failureCode: null,
-            failureReason: null,
-            factCount: extracted.facts.length,
-            completedAt: new Date(),
-          },
-        })
-      : await tx.activityExtractionRun.create({
-          data: {
-            ...identity,
-            workspaceId: message.workspaceId,
-            status: "SUCCEEDED",
-            factCount: extracted.facts.length,
-            completedAt: new Date(),
-          },
-        });
-    for (const fact of extracted.facts) {
-      assertOneSource(message.id, null);
-      await tx.activityFact.create({
-        data: {
+    throw error;
+  }
+  let extracted: Awaited<ReturnType<typeof extractFacts>>;
+  try {
+    extracted = await extractFacts(message, db, { ...options, extractor: selectedIdentity });
+  } catch (error) {
+    const reason = (error instanceof Error ? error.message : "Activity extraction failed").slice(0, 1000);
+    await db.$transaction([
+      db.activityExtractionRun.update({ where: { id: run.id }, data: { status: "FAILED", failureCode: "EXTRACTION_FAILED", failureReason: reason, factCount: 0, completedAt: new Date() } }),
+      db.messageReviewEvent.create({ data: { workspaceId: message.workspaceId, sourceMessageId: message.id, eventType: "ANALYSIS_FAILED", actor: "SYSTEM", detail: { runId: run.id, reason } } }),
+    ]);
+    throw error;
+  }
+
+  try {
+    return await db.$transaction(async (tx) => {
+      const current = await tx.activityExtractionRun.findUniqueOrThrow({ where: { id: run.id } });
+      if (current.status === "SUCCEEDED") return { runId: current.id, idempotent: true, factCount: current.factCount };
+      for (const fact of extracted.facts) {
+        assertOneSource(message.id, null);
+        await tx.activityFact.create({ data: {
           workspaceId: message.workspaceId,
           dealId: message.dealId,
           sourceMessageId: message.id,
           dealEventId: null,
-          activityExtractionRunId: run.id,
+          activityExtractionRunId: current.id,
           factType: fact.factType,
           canonicalType: fact.canonicalType,
           side: fact.side,
@@ -232,25 +197,21 @@ export async function analyzeSourceMessage(
           evidenceStartOffset: fact.evidenceStartOffset,
           evidenceEndOffset: fact.evidenceEndOffset,
           provenanceStatus: fact.provenanceStatus,
-          extractionMethod: extracted.identity.extractionMethod,
+          extractionMethod: selectedIdentity.extractionMethod,
           extractorVersion: identity.extractorVersion,
           model: identity.model,
-        },
-      });
-    }
-    return { runId: run.id, idempotent: false, factCount: extracted.facts.length };
-  });
-
-  try {
-    return await persist();
-  } catch (error) {
-    if (!isUnique(error)) throw error;
-    const existing = await db.activityExtractionRun.findUnique({
-      where: { sourceMessageId_extractor_extractorVersion_contractVersion_model: identity },
+        } });
+      }
+      await tx.activityExtractionRun.update({ where: { id: current.id }, data: { status: "SUCCEEDED", failureCode: null, failureReason: null, factCount: extracted.facts.length, completedAt: new Date() } });
+      await tx.messageReviewEvent.create({ data: { workspaceId: message.workspaceId, sourceMessageId: message.id, eventType: "ANALYSIS_SUCCEEDED", actor: "SYSTEM", detail: { runId: current.id, factCount: extracted.facts.length } } });
+      return { runId: current.id, idempotent: false, factCount: extracted.facts.length };
     });
-    if (existing?.status === "SUCCEEDED") {
-      return { runId: existing.id, idempotent: true, factCount: existing.factCount };
-    }
+  } catch (error) {
+    const reason = (error instanceof Error ? error.message : "Activity facts could not be stored").slice(0, 1000);
+    await db.$transaction([
+      db.activityExtractionRun.update({ where: { id: run.id }, data: { status: "FAILED", failureCode: "PERSISTENCE_FAILED", failureReason: reason, factCount: 0, completedAt: new Date() } }),
+      db.messageReviewEvent.create({ data: { workspaceId: message.workspaceId, sourceMessageId: message.id, eventType: "ANALYSIS_FAILED", actor: "SYSTEM", detail: { runId: run.id, reason } } }),
+    ]).catch(() => undefined);
     throw error;
   }
 }
@@ -263,6 +224,8 @@ export interface MessageFactView {
   side: string;
   sideLabel: string;
   value: string;
+  rawNumeric: number | null;
+  rawUnit: string | null;
   assertionStatus: string;
   assertionLabel: string;
   evidenceQuote: string;
@@ -270,6 +233,9 @@ export interface MessageFactView {
   evidenceStartOffset: number | null;
   evidenceEndOffset: number | null;
   reconciliation: ReconciliationLink | null;
+  reviewedValue: string | null;
+  reviewState: string | null;
+  reviewedReconciliation: ReconciliationLink | null;
 }
 
 export interface MessageSourceView {
@@ -280,27 +246,49 @@ export interface MessageSourceView {
   sentAt: string | null;
   receivedAt: string | null;
   sourceType: string;
+  importedAt: string;
   bodyText: string;
+  analysisState: string;
+  reviewState: string;
+  lifecycleState: string;
+  failureCode: string | null;
+  failureReason: string | null;
+  originalSourceHref: string | null;
+  originalFilename: string | null;
+  factSummary: { total: number; negotiation: number; other: number };
   deal: { id: string; name: string; href: string };
   activityHref: string;
   negotiationHref: string;
   participants: Array<{ role: string; displayName: string | null; address: string }>;
+  attachments: Array<{ id: string; filename: string; contentType: string; size: number; contentId: string | null; disposition: string | null; sha256: string | null; analysisState: "NOT_ANALYZED" }>;
+  reviewHistory: Array<{ id: string; type: string; actor: string; createdAt: string; activityFactId: string | null; detail: unknown }>;
   facts: MessageFactView[];
 }
 
-export async function getMessageSource(db: PrismaClient, sourceMessageId: string): Promise<MessageSourceView | null> {
+export async function getMessageSource(db: PrismaClient, sourceMessageId: string, options: { expectedWorkspaceId?: string } = {}): Promise<MessageSourceView | null> {
   const message = await db.sourceMessage.findUnique({
     where: { id: sourceMessageId },
     include: {
       deal: { select: { id: true, name: true, workspaceId: true } },
       participants: { orderBy: [{ role: "asc" }, { address: "asc" }] },
-      facts: { include: factInclude, orderBy: [{ createdAt: "asc" }, { id: "asc" }] },
+      attachments: { orderBy: [{ createdAt: "asc" }, { id: "asc" }] },
+      extractionRuns: { orderBy: [{ createdAt: "asc" }, { id: "asc" }] },
+      reviewDecisions: { orderBy: [{ createdAt: "asc" }, { id: "asc" }] },
+      reviewEvents: { orderBy: [{ createdAt: "asc" }, { id: "asc" }] },
+      facts: {
+        include: {
+          ...factInclude,
+          reviews: { include: { correction: true }, orderBy: [{ createdAt: "asc" }, { id: "asc" }] },
+        },
+        orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+      },
     },
   });
-  if (!message || message.deal.workspaceId !== message.workspaceId) return null;
+  if (!message || message.deal.workspaceId !== message.workspaceId || (options.expectedWorkspaceId && options.expectedWorkspaceId !== message.workspaceId)) return null;
   const reconciliation = await getDealReconciliation(db, message.dealId);
   const links = reconciliation?.links.filter((link) => link.activityEventId === `source-message:${message.id}`) ?? [];
   const facts = factsFromLatestRun(message.facts);
+  const lifecycle = deriveMessageLifecycle({ runs: message.extractionRuns, decisions: message.reviewDecisions, currentFactIds: facts.map((fact) => fact.id) });
   return {
     id: message.id,
     subject: message.subject,
@@ -309,7 +297,16 @@ export async function getMessageSource(db: PrismaClient, sourceMessageId: string
     sentAt: message.sentAt?.toISOString() ?? null,
     receivedAt: message.receivedAt?.toISOString() ?? null,
     sourceType: message.sourceType,
+    importedAt: message.createdAt.toISOString(),
     bodyText: message.bodyText,
+    ...lifecycle,
+    originalSourceHref: message.sourceStorageKey ? `/api/messages/${message.id}/source` : null,
+    originalFilename: message.originalFilename,
+    factSummary: {
+      total: facts.length,
+      negotiation: facts.filter((fact) => fact.factType === "NEGOTIATION_VALUE").length,
+      other: facts.filter((fact) => fact.factType !== "NEGOTIATION_VALUE").length,
+    },
     deal: { id: message.deal.id, name: message.deal.name, href: `/deals/${message.deal.id}` },
     activityHref: `/deals/${message.deal.id}/activity`,
     negotiationHref: `/deals/${message.deal.id}/negotiation`,
@@ -317,6 +314,24 @@ export async function getMessageSource(db: PrismaClient, sourceMessageId: string
       role: item.role,
       displayName: item.displayName,
       address: item.address,
+    })),
+    attachments: message.attachments.map((item) => ({
+      id: item.id,
+      filename: item.filename,
+      contentType: item.contentType,
+      size: item.size,
+      contentId: item.contentId,
+      disposition: item.disposition,
+      sha256: item.sha256,
+      analysisState: "NOT_ANALYZED" as const,
+    })),
+    reviewHistory: message.reviewEvents.map((item) => ({
+      id: item.id,
+      type: item.eventType,
+      actor: item.actor,
+      createdAt: item.createdAt.toISOString(),
+      activityFactId: item.activityFactId,
+      detail: item.detail,
     })),
     facts: facts.map((fact) => {
       const value = storedFactValue(fact.structuredPayload);
@@ -326,6 +341,10 @@ export async function getMessageSource(db: PrismaClient, sourceMessageId: string
         && link.eventSide === fact.side
         && (numeric == null || link.eventValue?.numeric === numeric)
       ) ?? null;
+      const effective = effectiveActivityFact(fact);
+      const reviewedReconciliation = effective.correction
+        ? reviewedReconciliationForFact(reconciliationLink, effective.correction.payload)
+        : null;
       return {
         id: fact.id,
         factType: fact.factType,
@@ -334,6 +353,8 @@ export async function getMessageSource(db: PrismaClient, sourceMessageId: string
         side: fact.side,
         sideLabel: activitySideLabel(fact.side),
         value: value.display ?? fact.evidenceQuote,
+        rawNumeric: value.numeric,
+        rawUnit: value.unit,
         assertionStatus: fact.assertionStatus,
         assertionLabel: canonicalLabel(fact.assertionStatus),
         evidenceQuote: fact.evidenceQuote,
@@ -341,6 +362,9 @@ export async function getMessageSource(db: PrismaClient, sourceMessageId: string
         evidenceStartOffset: fact.evidenceStartOffset,
         evidenceEndOffset: fact.evidenceEndOffset,
         reconciliation: reconciliationLink,
+        reviewedValue: effective.correction?.value.display ?? null,
+        reviewState: effective.review?.state ?? null,
+        reviewedReconciliation,
       };
     }),
   };

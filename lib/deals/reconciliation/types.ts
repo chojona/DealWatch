@@ -61,6 +61,9 @@ export interface ReconciliationLink {
     observationId: string;
     currentDisplay: string;
   } | null;
+  /** Additional human-reviewed evidence presentation; raw eventValue is unchanged. */
+  reviewedValue?: { numeric: number | null; unit: string | null; display: string | null } | null;
+  reviewedRelationship?: ReconciliationRelationship | null;
 }
 
 export interface StructuredReconciliationFact {
@@ -134,6 +137,7 @@ export interface SourceChronologyEntry {
   activityEventId: string | null;
   href: string | null;
   relationship: ReconciliationRelationship | null;
+  reviewedValueDisplay?: string | null;
 }
 
 export interface SourceChronology {

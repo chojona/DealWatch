@@ -102,6 +102,7 @@ export function buildSourceChronology(input: {
     activityEventId: null,
     href: observation.href,
     relationship: null,
+    reviewedValueDisplay: null,
   }));
   const fromActivity: SourceChronologyEntry[] = related.map((item) => {
     const actor = item.eventSide === "TENANT" ? "Tenant" : item.eventSide === "LANDLORD" ? "Landlord" : "Activity";
@@ -114,7 +115,7 @@ export function buildSourceChronology(input: {
       sourceLabel: item.eventSource.kind === "MESSAGE" ? "Email" : item.eventSource.label,
       side: item.eventSide,
       statement: email
-        ? (value ?? `${actor} recorded related activity`)
+        ? (item.reviewedValue?.display ? `Email extraction: ${value ?? "—"} · Reviewed value: ${item.reviewedValue.display}` : (value ?? `${actor} recorded related activity`))
         : value
           ? `${actor} ${verb} ${value}`
           : `${actor} ${verb} related ${input.canonicalType.toLowerCase().replaceAll("_", " ")} activity`,
@@ -123,6 +124,7 @@ export function buildSourceChronology(input: {
       activityEventId: item.activityEventId,
       href: item.eventSource.href,
       relationship: item.relationship,
+      reviewedValueDisplay: item.reviewedValue?.display ?? null,
     };
   });
   const entries = [...fromRounds, ...fromActivity].sort((left, right) => {

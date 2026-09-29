@@ -7,6 +7,9 @@ const factInclude = {
   activityExtractionRun: {
     select: { id: true, status: true, completedAt: true, createdAt: true },
   },
+  reviews: {
+    include: { correction: true },
+  },
 } as const;
 
 export async function loadDealMessageSources(db: GraphDb, workspaceId: string, dealIds: string[]) {
@@ -14,7 +17,11 @@ export async function loadDealMessageSources(db: GraphDb, workspaceId: string, d
   const [messages, eventFacts] = await Promise.all([
     db.sourceMessage.findMany({
       where: { workspaceId, dealId: { in: dealIds } },
-      include: { facts: { include: factInclude } },
+      include: {
+        facts: { include: factInclude },
+        extractionRuns: { orderBy: [{ createdAt: "asc" }, { id: "asc" }] },
+        reviewDecisions: { orderBy: [{ createdAt: "asc" }, { id: "asc" }] },
+      },
       orderBy: [{ sentAt: "asc" }, { createdAt: "asc" }, { id: "asc" }],
     }),
     db.activityFact.findMany({

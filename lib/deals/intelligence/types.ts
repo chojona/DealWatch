@@ -189,6 +189,7 @@ export interface DealIntelligence {
   agreedTerms: DealAgreedTerm[];
   recentMovement: DealMovementItem[];
   documents: DealDocumentRollup[];
+  messageRollup: { total: number; needsReview: number; failed: number };
   reviewQueue: DealReviewQueueItem[];
   team: DealTeam;
   facts: DealFact[];

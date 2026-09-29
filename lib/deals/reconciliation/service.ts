@@ -2,6 +2,9 @@ import type { PrismaClient } from "@prisma/client";
 import { eventFactsByEventId, linkedLegacyEventIds, loadDealMessageSources, messageActivities, structuredFactsForEvent } from "@/lib/messages/load";
 import { linksByActivityEventId } from "./reconcile";
 import type { DealReconciliation, ReconciliationRound, ReconciliationTerm } from "./types";
+import { factsFromLatestRun } from "@/lib/messages/latestRun";
+import { effectiveActivityFact } from "@/lib/messages/effective";
+import { reviewedReconciliationForFact } from "@/lib/messages/reviewedReconciliation";
 
 export async function getDealReconciliation(
   db: PrismaClient,
@@ -77,9 +80,25 @@ export async function getDealReconciliation(
     rounds: mappedRounds,
   });
 
+  const links = [...grouped.values()].flat().map((link) => {
+    const messageId = link.eventSource.messageId;
+    if (!messageId) return link;
+    const message = sources.messages.find((item) => item.id === messageId);
+    if (!message) return link;
+    const fact = factsFromLatestRun(message.facts).find((item) => {
+      if (item.canonicalType !== link.canonicalType || item.side !== link.eventSide) return false;
+      const numeric = typeof item.structuredPayload === "object" && item.structuredPayload && "numeric" in item.structuredPayload ? (item.structuredPayload as { numeric?: unknown }).numeric : null;
+      return link.eventValue?.numeric == null || numeric === link.eventValue.numeric;
+    });
+    if (!fact) return link;
+    const effective = effectiveActivityFact(fact);
+    if (!effective.correction) return link;
+    const reviewed = reviewedReconciliationForFact(link, effective.correction.payload);
+    return { ...link, reviewedValue: effective.correction.value, reviewedRelationship: reviewed?.relationship ?? null };
+  });
   return {
     dealId: deal.id,
     workspaceId: deal.workspaceId,
-    links: [...grouped.values()].flat(),
+    links,
   };
 }

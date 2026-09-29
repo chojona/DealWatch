@@ -329,6 +329,10 @@ export function DealOverview({ intelligence }: { intelligence: DealIntelligence 
         )}
       </Section>
 
+      <Section title="Messages" action={<Link className="text-[11px] font-medium text-zinc-600 underline" href={`/deals/${intelligence.deal.id}/messages`}>Open messages</Link>}>
+        <div className="flex flex-wrap gap-6 text-sm text-zinc-800"><p>Messages: <span className="font-semibold">{intelligence.messageRollup.total}</span></p><p>Needs review: <span className="font-semibold">{intelligence.messageRollup.needsReview}</span></p><p>Analysis failed: <span className="font-semibold">{intelligence.messageRollup.failed}</span></p></div>
+      </Section>
+
       <Section
         title="Documents"
         action={<Link className="text-[11px] font-medium text-zinc-600 underline" href={`/deals/${intelligence.deal.id}/documents`}>Open documents</Link>}

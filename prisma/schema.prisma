@@ -22,21 +22,21 @@ model Deal {
   /// Canonical building this deal concerns. Null until explicitly linked.
   propertyId     String?
 
-  workspace         Workspace                  @relation(fields: [workspaceId], references: [id])
+  workspace                       Workspace                 @relation(fields: [workspaceId], references: [id])
   /// Relation name differs from the legacy string column `property`.
-  canonicalProperty Property?                  @relation(fields: [propertyId], references: [id], onDelete: Restrict)
-  threads           Thread[]
-  obligations       Obligation[]
-  events            DealEvent[]
-  sourceMessages    SourceMessage[]
-  activityFacts     ActivityFact[]
-  negotiationRounds NegotiationRound[]
-  documents         Document[]
-  participations    DealParticipation[]
-  entityObservations EntityObservation[]
-  relationshipObservations RelationshipObservation[] @relation("RelationshipObservationDeal")
+  canonicalProperty               Property?                 @relation(fields: [propertyId], references: [id], onDelete: Restrict)
+  threads                         Thread[]
+  obligations                     Obligation[]
+  events                          DealEvent[]
+  sourceMessages                  SourceMessage[]
+  activityFacts                   ActivityFact[]
+  negotiationRounds               NegotiationRound[]
+  documents                       Document[]
+  participations                  DealParticipation[]
+  entityObservations              EntityObservation[]
+  relationshipObservations        RelationshipObservation[] @relation("RelationshipObservationDeal")
   relationshipObservationContexts RelationshipObservation[] @relation("RelationshipObservationContextDeal")
-  relationshipPromotions RelationshipPromotion[]
+  relationshipPromotions          RelationshipPromotion[]
 
   @@index([workspaceId])
   @@index([propertyId])
@@ -78,38 +78,38 @@ enum EvidenceProvenanceStatus {
 }
 
 model Document {
-  id               String                  @id @default(cuid())
-  dealId           String
-  filename         String
-  originalFilename String
-  mimeType         String
-  sizeBytes        Int
-  sha256           String
-  documentType     DocumentType
-  documentDate     DateTime?
-  negotiationSide  String?
-  ingestionStatus  DocumentIngestionStatus @default(UPLOADED)
-  failureCode      String?
-  failureReason    String?
+  id                    String                  @id @default(cuid())
+  dealId                String
+  filename              String
+  originalFilename      String
+  mimeType              String
+  sizeBytes             Int
+  sha256                String
+  documentType          DocumentType
+  documentDate          DateTime?
+  negotiationSide       String?
+  ingestionStatus       DocumentIngestionStatus @default(UPLOADED)
+  failureCode           String?
+  failureReason         String?
   /// Relative storage key. Never an absolute filesystem path.
-  storageKey       String
-  pageCount        Int?
-  graphExtractionStatus GraphExtractionStatus @default(NOT_RUN)
+  storageKey            String
+  pageCount             Int?
+  graphExtractionStatus GraphExtractionStatus   @default(NOT_RUN)
   graphFailureCode      String?
   graphFailureReason    String?
-  createdAt        DateTime                @default(now())
-  updatedAt        DateTime                @updatedAt
+  createdAt             DateTime                @default(now())
+  updatedAt             DateTime                @updatedAt
 
-  deal              Deal               @relation(fields: [dealId], references: [id], onDelete: Cascade)
-  pages             DocumentPage[]
-  negotiationRounds NegotiationRound[]
-  entityObservations EntityObservation[]
+  deal                     Deal                      @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  pages                    DocumentPage[]
+  negotiationRounds        NegotiationRound[]
+  entityObservations       EntityObservation[]
   relationshipObservations RelationshipObservation[]
-  graphExtractionRuns GraphExtractionRun[]
-  reviewDecisions ReviewDecision[]
-  reviewDecisionEvents ReviewDecisionEvent[]
-  evidenceCorrections EvidenceCorrection[]
-  milestones DocumentMilestone[]
+  graphExtractionRuns      GraphExtractionRun[]
+  reviewDecisions          ReviewDecision[]
+  reviewDecisionEvents     ReviewDecisionEvent[]
+  evidenceCorrections      EvidenceCorrection[]
+  milestones               DocumentMilestone[]
 
   @@unique([dealId, sha256])
   @@index([dealId, createdAt])
@@ -122,11 +122,11 @@ model DocumentPage {
   text       String
   createdAt  DateTime @default(now())
 
-  document Document          @relation(fields: [documentId], references: [id], onDelete: Cascade)
-  terms    NegotiationTerm[]
-  entityObservations EntityObservation[]
+  document                 Document                  @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  terms                    NegotiationTerm[]
+  entityObservations       EntityObservation[]
   relationshipObservations RelationshipObservation[]
-  evidenceCorrections EvidenceCorrection[]
+  evidenceCorrections      EvidenceCorrection[]
 
   @@unique([documentId, pageNumber])
 }
@@ -151,10 +151,10 @@ model Message {
   sentAt     DateTime
   body       String
 
-  thread      Thread       @relation(fields: [threadId], references: [id], onDelete: Cascade)
-  obligations Obligation[]
-  events      DealEvent[]
-  entityObservations EntityObservation[]
+  thread                   Thread                    @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  obligations              Obligation[]
+  events                   DealEvent[]
+  entityObservations       EntityObservation[]
   relationshipObservations RelationshipObservation[]
 }
 
@@ -185,10 +185,10 @@ model DealEvent {
   confidence    Float
   evidenceQuote String
 
-  deal    Deal     @relation(fields: [dealId], references: [id], onDelete: Cascade)
-  message Message? @relation(fields: [messageId], references: [id])
+  deal                 Deal            @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  message              Message?        @relation(fields: [messageId], references: [id])
   linkedSourceMessages SourceMessage[]
-  activityFacts ActivityFact[]
+  activityFacts        ActivityFact[]
 }
 
 model NegotiationRound {
@@ -213,17 +213,17 @@ model NegotiationRound {
 }
 
 model NegotiationTerm {
-  id                String   @id @default(cuid())
-  roundId           String
-  canonicalType     String
-  normalizedValue   String?
-  normalizedNumeric Float?
-  normalizedUnit    String?
-  rawValue          String
-  status            String
-  side              String
-  roundNumber       Int
-  confidence        Float
+  id                  String                    @id @default(cuid())
+  roundId             String
+  canonicalType       String
+  normalizedValue     String?
+  normalizedNumeric   Float?
+  normalizedUnit      String?
+  rawValue            String
+  status              String
+  side                String
+  roundNumber         Int
+  confidence          Float
   evidenceQuote       String
   sourceLocation      String?
   /// Set only when the evidence quote matches exactly one extracted page.
@@ -231,18 +231,18 @@ model NegotiationTerm {
   evidenceStartOffset Int?
   evidenceEndOffset   Int?
   provenanceStatus    EvidenceProvenanceStatus?
-  createdAt           DateTime @default(now())
+  createdAt           DateTime                  @default(now())
   /// Typed CRE structured payload (JSON). Validated at the application layer
   /// via Zod (see lib/ai/negotiation/payloads.ts). Null for legacy rows and
   /// for term types that carry no structured representation
   /// (PREMISES_RSF, LEASE_TERM, SECURITY_DEPOSIT, RENT_STRUCTURE,
   /// DELIVERY_CONDITION, ASSIGNMENT_SUBLETTING). Never mutated after creation.
-  structuredPayload Json?
+  structuredPayload   Json?
 
-  round        NegotiationRound @relation(fields: [roundId], references: [id], onDelete: Cascade)
-  documentPage DocumentPage?    @relation(fields: [documentPageId], references: [id], onDelete: SetNull)
+  round               NegotiationRound     @relation(fields: [roundId], references: [id], onDelete: Cascade)
+  documentPage        DocumentPage?        @relation(fields: [documentPageId], references: [id], onDelete: SetNull)
   evidenceCorrections EvidenceCorrection[]
-  reviewDecisions ReviewDecision[]
+  reviewDecisions     ReviewDecision[]
 
   @@index([roundId, canonicalType])
   @@index([documentPageId])
@@ -416,31 +416,35 @@ model Workspace {
   firmCompanyId String?
   createdAt     DateTime @default(now())
 
-  firmCompany                  Company?                   @relation("WorkspaceFirm", fields: [firmCompanyId], references: [id])
-  deals                        Deal[]
-  people                       Person[]
-  companies                    Company[]
-  properties                   Property[]
-  personAliases                PersonAlias[]
-  personIdentifiers            PersonIdentifier[]
-  companyAliases               CompanyAlias[]
-  companyIdentifiers           CompanyIdentifier[]
-  propertyAliases              PropertyAlias[]
-  externalIdentifiers          ExternalIdentifier[]
-  entityObservations           EntityObservation[]
-  relationshipObservations     RelationshipObservation[]
-  resolutionLinks              EntityResolutionLink[]
-  merges                       CanonicalMerge[]
-  employments                  Employment[]
-  propertyStakes               PropertyStake[]
-  dealParticipations           DealParticipation[]
-  graphExtractionRuns          GraphExtractionRun[]
-  resolutionCandidates         EntityResolutionCandidate[]
-  relationshipPromotions       RelationshipPromotion[]
-  relationshipPromotionEvents  RelationshipPromotionEvent[]
-  sourceMessages               SourceMessage[]
-  activityFacts                ActivityFact[]
-  activityExtractionRuns       ActivityExtractionRun[]
+  firmCompany                 Company?                     @relation("WorkspaceFirm", fields: [firmCompanyId], references: [id])
+  deals                       Deal[]
+  people                      Person[]
+  companies                   Company[]
+  properties                  Property[]
+  personAliases               PersonAlias[]
+  personIdentifiers           PersonIdentifier[]
+  companyAliases              CompanyAlias[]
+  companyIdentifiers          CompanyIdentifier[]
+  propertyAliases             PropertyAlias[]
+  externalIdentifiers         ExternalIdentifier[]
+  entityObservations          EntityObservation[]
+  relationshipObservations    RelationshipObservation[]
+  resolutionLinks             EntityResolutionLink[]
+  merges                      CanonicalMerge[]
+  employments                 Employment[]
+  propertyStakes              PropertyStake[]
+  dealParticipations          DealParticipation[]
+  graphExtractionRuns         GraphExtractionRun[]
+  resolutionCandidates        EntityResolutionCandidate[]
+  relationshipPromotions      RelationshipPromotion[]
+  relationshipPromotionEvents RelationshipPromotionEvent[]
+  sourceMessages              SourceMessage[]
+  activityFacts               ActivityFact[]
+  activityExtractionRuns      ActivityExtractionRun[]
+  messageReviewDecisions      MessageReviewDecision[]
+  messageReviewEvents         MessageReviewEvent[]
+  activityFactReviews         ActivityFactReview[]
+  activityFactCorrections     ActivityFactCorrection[]
 
   @@index([firmCompanyId])
 }
@@ -458,15 +462,15 @@ model Person {
   createdAt          DateTime        @default(now())
   updatedAt          DateTime        @updatedAt
 
-  workspace      Workspace            @relation(fields: [workspaceId], references: [id])
-  mergedInto     Person?              @relation("PersonMerge", fields: [mergedIntoPersonId], references: [id])
-  mergedFrom     Person[]             @relation("PersonMerge")
-  aliases        PersonAlias[]
-  identifiers    PersonIdentifier[]
-  employments    Employment[]
-  participations DealParticipation[]
-  externalIdentifiers ExternalIdentifier[]
-  resolutionLinks EntityResolutionLink[]
+  workspace            Workspace                   @relation(fields: [workspaceId], references: [id])
+  mergedInto           Person?                     @relation("PersonMerge", fields: [mergedIntoPersonId], references: [id])
+  mergedFrom           Person[]                    @relation("PersonMerge")
+  aliases              PersonAlias[]
+  identifiers          PersonIdentifier[]
+  employments          Employment[]
+  participations       DealParticipation[]
+  externalIdentifiers  ExternalIdentifier[]
+  resolutionLinks      EntityResolutionLink[]
   resolutionCandidates EntityResolutionCandidate[]
 
   @@index([workspaceId, status])
@@ -514,18 +518,18 @@ model Company {
   createdAt           DateTime        @default(now())
   updatedAt           DateTime        @updatedAt
 
-  workspace         Workspace             @relation(fields: [workspaceId], references: [id])
-  mergedInto        Company?              @relation("CompanyMerge", fields: [mergedIntoCompanyId], references: [id])
-  mergedFrom        Company[]             @relation("CompanyMerge")
-  firmFor           Workspace[]           @relation("WorkspaceFirm")
-  aliases           CompanyAlias[]
-  identifiers       CompanyIdentifier[]
-  employments       Employment[]
-  stakes            PropertyStake[]
-  participations    DealParticipation[]   @relation("ParticipationCompany")
-  representedIn     DealParticipation[]   @relation("ParticipationPrincipal")
-  externalIdentifiers ExternalIdentifier[]
-  resolutionLinks   EntityResolutionLink[]
+  workspace            Workspace                   @relation(fields: [workspaceId], references: [id])
+  mergedInto           Company?                    @relation("CompanyMerge", fields: [mergedIntoCompanyId], references: [id])
+  mergedFrom           Company[]                   @relation("CompanyMerge")
+  firmFor              Workspace[]                 @relation("WorkspaceFirm")
+  aliases              CompanyAlias[]
+  identifiers          CompanyIdentifier[]
+  employments          Employment[]
+  stakes               PropertyStake[]
+  participations       DealParticipation[]         @relation("ParticipationCompany")
+  representedIn        DealParticipation[]         @relation("ParticipationPrincipal")
+  externalIdentifiers  ExternalIdentifier[]
+  resolutionLinks      EntityResolutionLink[]
   resolutionCandidates EntityResolutionCandidate[]
 
   @@index([workspaceId, status])
@@ -578,14 +582,14 @@ model Property {
   createdAt            DateTime        @default(now())
   updatedAt            DateTime        @updatedAt
 
-  workspace   Workspace            @relation(fields: [workspaceId], references: [id])
-  mergedInto  Property?            @relation("PropertyMerge", fields: [mergedIntoPropertyId], references: [id])
-  mergedFrom  Property[]           @relation("PropertyMerge")
-  aliases     PropertyAlias[]
-  stakes      PropertyStake[]
-  deals       Deal[]
-  externalIdentifiers ExternalIdentifier[]
-  resolutionLinks EntityResolutionLink[]
+  workspace            Workspace                   @relation(fields: [workspaceId], references: [id])
+  mergedInto           Property?                   @relation("PropertyMerge", fields: [mergedIntoPropertyId], references: [id])
+  mergedFrom           Property[]                  @relation("PropertyMerge")
+  aliases              PropertyAlias[]
+  stakes               PropertyStake[]
+  deals                Deal[]
+  externalIdentifiers  ExternalIdentifier[]
+  resolutionLinks      EntityResolutionLink[]
   resolutionCandidates EntityResolutionCandidate[]
 
   @@index([workspaceId, status])
@@ -631,51 +635,51 @@ model ExternalIdentifier {
 
 /// Immutable mention. No canonical foreign key and no updatedAt.
 model EntityObservation {
-  id                  String                    @id @default(cuid())
-  workspaceId         String
-  observedType        ObservedEntityType
-  surfaceForm         String
-  normalizedName      String
-  title               String?
-  email               String?
-  phone               String?
-  domain              String?
-  addressLine1        String?
-  city                String?
-  region              String?
-  postalCode          String?
-  country             String?
-  rawAttributes       Json?
-  sourceKind          ObservationSourceKind
-  dealId              String?
-  documentId          String?
-  documentPageId      String?
-  messageId           String?
-  evidenceQuote       String
-  evidenceStartOffset Int?
-  evidenceEndOffset   Int?
-  provenanceStatus    EvidenceProvenanceStatus?
-  sourceLocation      String?
+  id                   String                    @id @default(cuid())
+  workspaceId          String
+  observedType         ObservedEntityType
+  surfaceForm          String
+  normalizedName       String
+  title                String?
+  email                String?
+  phone                String?
+  domain               String?
+  addressLine1         String?
+  city                 String?
+  region               String?
+  postalCode           String?
+  country              String?
+  rawAttributes        Json?
+  sourceKind           ObservationSourceKind
+  dealId               String?
+  documentId           String?
+  documentPageId       String?
+  messageId            String?
+  evidenceQuote        String
+  evidenceStartOffset  Int?
+  evidenceEndOffset    Int?
+  provenanceStatus     EvidenceProvenanceStatus?
+  sourceLocation       String?
   extractionConfidence Float?
-  extractor           String
-  extractorVersion    String
+  extractor            String
+  extractorVersion     String
   graphExtractionRunId String?
-  createdAt           DateTime                  @default(now())
+  createdAt            DateTime                  @default(now())
 
-  workspace    Workspace     @relation(fields: [workspaceId], references: [id])
-  graphExtractionRun GraphExtractionRun? @relation(fields: [graphExtractionRunId], references: [id], onDelete: Restrict)
-  deal         Deal?         @relation(fields: [dealId], references: [id], onDelete: Restrict)
-  document     Document?     @relation(fields: [documentId], references: [id], onDelete: Restrict)
-  documentPage DocumentPage? @relation(fields: [documentPageId], references: [id], onDelete: Restrict)
-  message      Message?      @relation(fields: [messageId], references: [id], onDelete: Restrict)
-  resolutionLinks EntityResolutionLink[]
-  dispositions ObservationDisposition[]
-  priorSupersessions ObservationSupersession[] @relation("SupersedePriorEntity")
-  successorSupersessions ObservationSupersession[] @relation("SupersedeSuccessorEntity")
-  relationshipSubjects RelationshipObservation[] @relation("RelationshipSubject")
-  relationshipObjects RelationshipObservation[] @relation("RelationshipObject")
-  relationshipPrincipals RelationshipObservation[] @relation("RelationshipPrincipal")
-  resolutionCandidates EntityResolutionCandidate[]
+  workspace              Workspace                   @relation(fields: [workspaceId], references: [id])
+  graphExtractionRun     GraphExtractionRun?         @relation(fields: [graphExtractionRunId], references: [id], onDelete: Restrict)
+  deal                   Deal?                       @relation(fields: [dealId], references: [id], onDelete: Restrict)
+  document               Document?                   @relation(fields: [documentId], references: [id], onDelete: Restrict)
+  documentPage           DocumentPage?               @relation(fields: [documentPageId], references: [id], onDelete: Restrict)
+  message                Message?                    @relation(fields: [messageId], references: [id], onDelete: Restrict)
+  resolutionLinks        EntityResolutionLink[]
+  dispositions           ObservationDisposition[]
+  priorSupersessions     ObservationSupersession[]   @relation("SupersedePriorEntity")
+  successorSupersessions ObservationSupersession[]   @relation("SupersedeSuccessorEntity")
+  relationshipSubjects   RelationshipObservation[]   @relation("RelationshipSubject")
+  relationshipObjects    RelationshipObservation[]   @relation("RelationshipObject")
+  relationshipPrincipals RelationshipObservation[]   @relation("RelationshipPrincipal")
+  resolutionCandidates   EntityResolutionCandidate[]
 
   @@index([workspaceId, observedType, normalizedName])
   @@index([workspaceId, email])
@@ -689,7 +693,7 @@ model EntityObservation {
 
 /// Immutable relationship claim. Endpoints are observations, not canonical ids.
 model RelationshipObservation {
-  id                     String                 @id @default(cuid())
+  id                     String                    @id @default(cuid())
   workspaceId            String
   predicate              RelationshipPredicate
   subjectObservationId   String
@@ -716,26 +720,26 @@ model RelationshipObservation {
   extractor              String
   extractorVersion       String
   graphExtractionRunId   String?
-  createdAt              DateTime               @default(now())
+  createdAt              DateTime                  @default(now())
 
-  workspace            Workspace            @relation(fields: [workspaceId], references: [id])
-  graphExtractionRun   GraphExtractionRun?  @relation(fields: [graphExtractionRunId], references: [id], onDelete: Restrict)
-  subjectObservation   EntityObservation    @relation("RelationshipSubject", fields: [subjectObservationId], references: [id], onDelete: Restrict)
-  objectObservation    EntityObservation?   @relation("RelationshipObject", fields: [objectObservationId], references: [id], onDelete: Restrict)
-  principalObservation EntityObservation?   @relation("RelationshipPrincipal", fields: [principalObservationId], references: [id], onDelete: Restrict)
-  deal                 Deal?                @relation("RelationshipObservationDeal", fields: [dealId], references: [id], onDelete: Restrict)
-  contextDeal          Deal?                @relation("RelationshipObservationContextDeal", fields: [contextDealId], references: [id], onDelete: Restrict)
-  document             Document?            @relation(fields: [documentId], references: [id], onDelete: Restrict)
-  documentPage         DocumentPage?        @relation(fields: [documentPageId], references: [id], onDelete: Restrict)
-  message              Message?             @relation(fields: [messageId], references: [id], onDelete: Restrict)
-  dispositions         ObservationDisposition[]
-  priorSupersessions   ObservationSupersession[] @relation("SupersedePriorRelationship")
-  successorSupersessions ObservationSupersession[] @relation("SupersedeSuccessorRelationship")
-  employmentSupports   EmploymentSupport[]
-  propertyStakeSupports PropertyStakeSupport[]
+  workspace                 Workspace                    @relation(fields: [workspaceId], references: [id])
+  graphExtractionRun        GraphExtractionRun?          @relation(fields: [graphExtractionRunId], references: [id], onDelete: Restrict)
+  subjectObservation        EntityObservation            @relation("RelationshipSubject", fields: [subjectObservationId], references: [id], onDelete: Restrict)
+  objectObservation         EntityObservation?           @relation("RelationshipObject", fields: [objectObservationId], references: [id], onDelete: Restrict)
+  principalObservation      EntityObservation?           @relation("RelationshipPrincipal", fields: [principalObservationId], references: [id], onDelete: Restrict)
+  deal                      Deal?                        @relation("RelationshipObservationDeal", fields: [dealId], references: [id], onDelete: Restrict)
+  contextDeal               Deal?                        @relation("RelationshipObservationContextDeal", fields: [contextDealId], references: [id], onDelete: Restrict)
+  document                  Document?                    @relation(fields: [documentId], references: [id], onDelete: Restrict)
+  documentPage              DocumentPage?                @relation(fields: [documentPageId], references: [id], onDelete: Restrict)
+  message                   Message?                     @relation(fields: [messageId], references: [id], onDelete: Restrict)
+  dispositions              ObservationDisposition[]
+  priorSupersessions        ObservationSupersession[]    @relation("SupersedePriorRelationship")
+  successorSupersessions    ObservationSupersession[]    @relation("SupersedeSuccessorRelationship")
+  employmentSupports        EmploymentSupport[]
+  propertyStakeSupports     PropertyStakeSupport[]
   dealParticipationSupports DealParticipationSupport[]
-  promotion RelationshipPromotion?
-  promotionEvents RelationshipPromotionEvent[]
+  promotion                 RelationshipPromotion?
+  promotionEvents           RelationshipPromotionEvent[]
 
   @@index([workspaceId, predicate])
   @@index([subjectObservationId])
@@ -750,21 +754,21 @@ model RelationshipObservation {
 /// One immutable observation set for a document, extractor contract, and model.
 /// A later extractor version inserts a new run. It does not overwrite an earlier one.
 model GraphExtractionRun {
-  id                 String                @id @default(cuid())
-  workspaceId        String
-  documentId         String
-  extractor          String
-  extractorVersion   String
-  model              String
-  status             GraphExtractionStatus
-  failureCode        String?
-  failureReason      String?
-  entityCount        Int                   @default(0)
-  relationshipCount  Int                   @default(0)
-  rejectedCount      Int                   @default(0)
-  diagnostics        Json?
-  createdAt          DateTime              @default(now())
-  completedAt        DateTime?
+  id                String                @id @default(cuid())
+  workspaceId       String
+  documentId        String
+  extractor         String
+  extractorVersion  String
+  model             String
+  status            GraphExtractionStatus
+  failureCode       String?
+  failureReason     String?
+  entityCount       Int                   @default(0)
+  relationshipCount Int                   @default(0)
+  rejectedCount     Int                   @default(0)
+  diagnostics       Json?
+  createdAt         DateTime              @default(now())
+  completedAt       DateTime?
 
   workspace                Workspace                 @relation(fields: [workspaceId], references: [id])
   document                 Document                  @relation(fields: [documentId], references: [id], onDelete: Cascade)
@@ -823,11 +827,11 @@ model EntityResolutionLink {
   createdAt            DateTime             @default(now())
   supersededAt         DateTime?
 
-  workspace   Workspace         @relation(fields: [workspaceId], references: [id])
-  observation EntityObservation @relation(fields: [entityObservationId], references: [id])
-  person      Person?           @relation(fields: [personId], references: [id])
-  company     Company?          @relation(fields: [companyId], references: [id])
-  property    Property?         @relation(fields: [propertyId], references: [id])
+  workspace           Workspace                  @relation(fields: [workspaceId], references: [id])
+  observation         EntityObservation          @relation(fields: [entityObservationId], references: [id])
+  person              Person?                    @relation(fields: [personId], references: [id])
+  company             Company?                   @relation(fields: [companyId], references: [id])
+  property            Property?                  @relation(fields: [propertyId], references: [id])
   resolutionCandidate EntityResolutionCandidate?
 
   @@index([entityObservationId, status])
@@ -858,12 +862,12 @@ model EntityResolutionCandidate {
   decidedAt           DateTime?
   resolutionLinkId    String?                     @unique
 
-  workspace      Workspace              @relation(fields: [workspaceId], references: [id])
-  observation    EntityObservation      @relation(fields: [entityObservationId], references: [id])
-  person         Person?                @relation(fields: [candidatePersonId], references: [id])
-  company        Company?               @relation(fields: [candidateCompanyId], references: [id])
-  property       Property?              @relation(fields: [candidatePropertyId], references: [id])
-  resolutionLink EntityResolutionLink?  @relation(fields: [resolutionLinkId], references: [id])
+  workspace      Workspace             @relation(fields: [workspaceId], references: [id])
+  observation    EntityObservation     @relation(fields: [entityObservationId], references: [id])
+  person         Person?               @relation(fields: [candidatePersonId], references: [id])
+  company        Company?              @relation(fields: [candidateCompanyId], references: [id])
+  property       Property?             @relation(fields: [candidatePropertyId], references: [id])
+  resolutionLink EntityResolutionLink? @relation(fields: [resolutionLinkId], references: [id])
 
   @@index([workspaceId, entityObservationId, decision])
   @@index([entityObservationId])
@@ -904,10 +908,10 @@ model Employment {
   createdAt          DateTime        @default(now())
   updatedAt          DateTime        @updatedAt
 
-  workspace Workspace           @relation(fields: [workspaceId], references: [id])
-  person    Person              @relation(fields: [personId], references: [id])
-  company   Company             @relation(fields: [companyId], references: [id])
-  supports  EmploymentSupport[]
+  workspace  Workspace               @relation(fields: [workspaceId], references: [id])
+  person     Person                  @relation(fields: [personId], references: [id])
+  company    Company                 @relation(fields: [companyId], references: [id])
+  supports   EmploymentSupport[]
   promotions RelationshipPromotion[]
 
   @@index([workspaceId, companyId, status])
@@ -942,10 +946,10 @@ model PropertyStake {
   createdAt          DateTime               @default(now())
   updatedAt          DateTime               @updatedAt
 
-  workspace Workspace              @relation(fields: [workspaceId], references: [id])
-  company   Company                @relation(fields: [companyId], references: [id])
-  property  Property               @relation(fields: [propertyId], references: [id])
-  supports  PropertyStakeSupport[]
+  workspace  Workspace               @relation(fields: [workspaceId], references: [id])
+  company    Company                 @relation(fields: [companyId], references: [id])
+  property   Property                @relation(fields: [propertyId], references: [id])
+  supports   PropertyStakeSupport[]
   promotions RelationshipPromotion[]
 
   @@index([workspaceId, propertyId, predicate, status])
@@ -983,11 +987,11 @@ model DealParticipation {
   createdAt           DateTime          @default(now())
   updatedAt           DateTime          @updatedAt
 
-  workspace  Workspace                   @relation(fields: [workspaceId], references: [id])
-  deal       Deal                        @relation(fields: [dealId], references: [id])
-  person     Person?                     @relation(fields: [personId], references: [id])
-  company    Company?                    @relation("ParticipationCompany", fields: [companyId], references: [id])
-  represents Company?                    @relation("ParticipationPrincipal", fields: [representsCompanyId], references: [id])
+  workspace  Workspace                  @relation(fields: [workspaceId], references: [id])
+  deal       Deal                       @relation(fields: [dealId], references: [id])
+  person     Person?                    @relation(fields: [personId], references: [id])
+  company    Company?                   @relation("ParticipationCompany", fields: [companyId], references: [id])
+  represents Company?                   @relation("ParticipationPrincipal", fields: [representsCompanyId], references: [id])
   supports   DealParticipationSupport[]
   promotions RelationshipPromotion[]
 
@@ -1027,12 +1031,12 @@ model RelationshipPromotion {
   linkedDealId              String?
   createdAt                 DateTime                      @default(now())
 
-  workspace               Workspace                @relation(fields: [workspaceId], references: [id])
+  workspace               Workspace               @relation(fields: [workspaceId], references: [id])
   relationshipObservation RelationshipObservation @relation(fields: [relationshipObservationId], references: [id])
-  employment              Employment?              @relation(fields: [employmentId], references: [id])
+  employment              Employment?             @relation(fields: [employmentId], references: [id])
   propertyStake           PropertyStake?          @relation(fields: [propertyStakeId], references: [id])
   dealParticipation       DealParticipation?      @relation(fields: [dealParticipationId], references: [id])
-  linkedDeal              Deal?                    @relation(fields: [linkedDealId], references: [id])
+  linkedDeal              Deal?                   @relation(fields: [linkedDealId], references: [id])
 
   @@index([workspaceId, decision])
   @@index([employmentId])
@@ -1079,6 +1083,7 @@ enum ReviewDecisionState {
 /// for relationship promotion.
 enum ReviewActor {
   MANUAL_REVIEW
+  SYSTEM
 }
 
 enum ReviewSubjectKind {
@@ -1099,23 +1104,23 @@ enum DocumentMilestoneKind {
 /// Current human decision for one review subject. One row per subject.
 /// PENDING means the decision was cleared. History lives in ReviewDecisionEvent.
 model ReviewDecision {
-  id                          String              @id @default(cuid())
-  documentId                  String
+  id                        String              @id @default(cuid())
+  documentId                String
   /// term:{id} | conflict:{canonicalType} | evidence:term:{id} | evidence:entity:{id} | evidence:relationship:{id} | entity-closure:{observationId}
-  subjectKey                  String
-  kind                        ReviewSubjectKind
-  negotiationTermId           String?
-  canonicalType               String?
-  entityObservationId         String?
-  relationshipObservationId   String?
-  reviewState                 ReviewDecisionState
-  note                        String?
-  reviewedAt                  DateTime
-  actor                       ReviewActor         @default(MANUAL_REVIEW)
+  subjectKey                String
+  kind                      ReviewSubjectKind
+  negotiationTermId         String?
+  canonicalType             String?
+  entityObservationId       String?
+  relationshipObservationId String?
+  reviewState               ReviewDecisionState
+  note                      String?
+  reviewedAt                DateTime
+  actor                     ReviewActor         @default(MANUAL_REVIEW)
   /// Reserved for a future account id. Never invented.
-  reviewerUserId              String?
-  createdAt                   DateTime            @default(now())
-  updatedAt                   DateTime            @updatedAt
+  reviewerUserId            String?
+  createdAt                 DateTime            @default(now())
+  updatedAt                 DateTime            @updatedAt
 
   document        Document         @relation(fields: [documentId], references: [id], onDelete: Cascade)
   negotiationTerm NegotiationTerm? @relation(fields: [negotiationTermId], references: [id], onDelete: Cascade)
@@ -1127,20 +1132,20 @@ model ReviewDecision {
 
 /// Append-only audit of review actions, including clears back to pending.
 model ReviewDecisionEvent {
-  id                          String              @id @default(cuid())
-  documentId                  String
-  subjectKey                  String
-  kind                        ReviewSubjectKind
-  negotiationTermId           String?
-  canonicalType               String?
-  entityObservationId         String?
-  relationshipObservationId   String?
-  reviewState                 ReviewDecisionState
-  note                        String?
-  reviewedAt                  DateTime
-  actor                       ReviewActor         @default(MANUAL_REVIEW)
-  reviewerUserId              String?
-  createdAt                   DateTime            @default(now())
+  id                        String              @id @default(cuid())
+  documentId                String
+  subjectKey                String
+  kind                      ReviewSubjectKind
+  negotiationTermId         String?
+  canonicalType             String?
+  entityObservationId       String?
+  relationshipObservationId String?
+  reviewState               ReviewDecisionState
+  note                      String?
+  reviewedAt                DateTime
+  actor                     ReviewActor         @default(MANUAL_REVIEW)
+  reviewerUserId            String?
+  createdAt                 DateTime            @default(now())
 
   document Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
 
@@ -1150,7 +1155,7 @@ model ReviewDecisionEvent {
 /// Reviewed evidence span. The NegotiationTerm evidence columns stay the
 /// original model provenance. supersededAt null is the active correction.
 model EvidenceCorrection {
-  id                String    @id @default(cuid())
+  id                String      @id @default(cuid())
   documentId        String
   negotiationTermId String
   documentPageId    String
@@ -1159,7 +1164,7 @@ model EvidenceCorrection {
   evidenceQuote     String
   actor             ReviewActor @default(MANUAL_REVIEW)
   reviewerUserId    String?
-  createdAt         DateTime  @default(now())
+  createdAt         DateTime    @default(now())
   supersededAt      DateTime?
 
   document        Document        @relation(fields: [documentId], references: [id], onDelete: Cascade)
@@ -1187,7 +1192,7 @@ model DocumentMilestone {
 // Phase 9C — immutable message source material and structured activity facts.
 // SourceMessage is not the legacy thread Message used by analysis history.
 // ActivityFact is activity evidence. It is never a NegotiationTerm.
-// Source fields have no updatedAt: corrections are a future append-only path.
+// Source fields have no updatedAt. Phase 9D corrections are separate append-only rows.
 // ---------------------------------------------------------------------------
 
 enum MessageSourceType {
@@ -1235,39 +1240,96 @@ enum ActivityExtractionMethod {
 }
 
 enum ActivityExtractionStatus {
+  RUNNING
   SUCCEEDED
   FAILED
 }
 
+enum MessageReviewDecisionValue {
+  ACKNOWLEDGED
+  NEEDS_FOLLOW_UP
+}
+
+enum MessageReviewEventType {
+  ANALYSIS_STARTED
+  ANALYSIS_SUCCEEDED
+  ANALYSIS_FAILED
+  ACKNOWLEDGED
+  NEEDS_FOLLOW_UP
+  FACT_CONFIRMED
+  FACT_INCORRECT
+  FACT_SUPERSEDED
+  CORRECTION_RECORDED
+}
+
+enum ActivityFactReviewState {
+  CONFIRMED
+  INCORRECT
+  SUPERSEDED
+}
+
 /// Immutable ingested source. Workspace is copied from the deal at ingestion.
 model SourceMessage {
-  id                 String            @id @default(cuid())
-  workspaceId        String
-  dealId             String
-  externalMessageId  String?
-  threadExternalId   String?
-  subject            String?
-  senderName         String?
-  senderAddress      String?
-  sentAt             DateTime?
-  receivedAt         DateTime?
-  bodyText           String
-  sourceType         MessageSourceType
+  id                String            @id @default(cuid())
+  workspaceId       String
+  dealId            String
+  externalMessageId String?
+  /// Provider is required before externalMessageId is treated as trustworthy.
+  sourceProvider    String?
+  rfcMessageId      String?
+  sourceSha256      String?
+  sourceStorageKey  String?
+  originalFilename  String?
+  sourceMimeType    String?
+  sourceSize        Int?
+  threadExternalId  String?
+  subject           String?
+  senderName        String?
+  senderAddress     String?
+  sentAt            DateTime?
+  receivedAt        DateTime?
+  bodyText          String
+  sourceType        MessageSourceType
   /// Links this source to a legacy DealEvent that describes the same activity.
   /// The event is kept. Reads show the message once.
-  legacyDealEventId  String?
-  createdAt          DateTime          @default(now())
+  legacyDealEventId String?
+  createdAt         DateTime          @default(now())
 
-  workspace    Workspace                   @relation(fields: [workspaceId], references: [id])
-  deal         Deal                        @relation(fields: [dealId], references: [id], onDelete: Cascade)
-  legacyDealEvent DealEvent?               @relation(fields: [legacyDealEventId], references: [id], onDelete: SetNull)
-  participants SourceMessageParticipant[]
-  extractionRuns ActivityExtractionRun[]
-  facts        ActivityFact[]
+  workspace       Workspace                  @relation(fields: [workspaceId], references: [id])
+  deal            Deal                       @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  legacyDealEvent DealEvent?                 @relation(fields: [legacyDealEventId], references: [id], onDelete: SetNull)
+  participants    SourceMessageParticipant[]
+  attachments     SourceMessageAttachment[]
+  extractionRuns  ActivityExtractionRun[]
+  facts           ActivityFact[]
+  reviewDecisions MessageReviewDecision[]
+  reviewEvents    MessageReviewEvent[]
+  factReviews     ActivityFactReview[]
+  factCorrections ActivityFactCorrection[]
 
-  @@unique([dealId, externalMessageId])
+  @@unique([workspaceId, sourceProvider, externalMessageId])
+  @@unique([workspaceId, rfcMessageId])
+  @@unique([workspaceId, sourceSha256])
   @@index([workspaceId, dealId])
   @@index([legacyDealEventId])
+}
+
+model SourceMessageAttachment {
+  id              String   @id @default(cuid())
+  sourceMessageId String
+  filename        String
+  contentType     String
+  size            Int
+  contentId       String?
+  disposition     String?
+  sha256          String?
+  storageKey      String?
+  createdAt       DateTime @default(now())
+
+  sourceMessage SourceMessage @relation(fields: [sourceMessageId], references: [id], onDelete: Cascade)
+
+  @@index([sourceMessageId])
+  @@index([sha256])
 }
 
 model SourceMessageParticipant {
@@ -1312,34 +1374,119 @@ model ActivityExtractionRun {
 /// Immutable structured reading of one source. Exactly one of sourceMessageId
 /// or dealEventId is set. This row is not negotiation truth.
 model ActivityFact {
-  id                     String                    @id @default(cuid())
-  workspaceId            String
-  dealId                 String
-  sourceMessageId        String?
-  dealEventId            String?
+  id                      String                   @id @default(cuid())
+  workspaceId             String
+  dealId                  String
+  sourceMessageId         String?
+  dealEventId             String?
   activityExtractionRunId String?
-  factType               ActivityFactType
-  canonicalType          String?
-  side                   ActivityFactSide
-  assertionStatus        ActivityAssertionStatus
-  structuredPayload      Json
-  evidenceQuote          String
-  evidenceStartOffset    Int?
-  evidenceEndOffset      Int?
-  provenanceStatus       EvidenceProvenanceStatus
-  extractionMethod       ActivityExtractionMethod
-  extractorVersion       String?
-  model                  String?
-  createdAt              DateTime                  @default(now())
+  factType                ActivityFactType
+  canonicalType           String?
+  side                    ActivityFactSide
+  assertionStatus         ActivityAssertionStatus
+  structuredPayload       Json
+  evidenceQuote           String
+  evidenceStartOffset     Int?
+  evidenceEndOffset       Int?
+  provenanceStatus        EvidenceProvenanceStatus
+  extractionMethod        ActivityExtractionMethod
+  extractorVersion        String?
+  model                   String?
+  createdAt               DateTime                 @default(now())
 
-  workspace            Workspace             @relation(fields: [workspaceId], references: [id])
-  deal                 Deal                  @relation(fields: [dealId], references: [id], onDelete: Cascade)
-  sourceMessage        SourceMessage?        @relation(fields: [sourceMessageId], references: [id], onDelete: Cascade)
-  dealEvent            DealEvent?            @relation(fields: [dealEventId], references: [id], onDelete: Cascade)
-  activityExtractionRun ActivityExtractionRun? @relation(fields: [activityExtractionRunId], references: [id], onDelete: Restrict)
+  workspace             Workspace                @relation(fields: [workspaceId], references: [id])
+  deal                  Deal                     @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  sourceMessage         SourceMessage?           @relation(fields: [sourceMessageId], references: [id], onDelete: Cascade)
+  dealEvent             DealEvent?               @relation(fields: [dealEventId], references: [id], onDelete: Cascade)
+  activityExtractionRun ActivityExtractionRun?   @relation(fields: [activityExtractionRunId], references: [id], onDelete: Restrict)
+  reviews               ActivityFactReview[]
+  corrections           ActivityFactCorrection[]
 
   @@index([workspaceId, dealId])
   @@index([sourceMessageId])
   @@index([dealEventId])
   @@index([activityExtractionRunId])
+}
+
+/// Append-only message-level review decisions. Acknowledgement means the
+/// extraction was presented to a person; it is not a legal-fact attestation.
+model MessageReviewDecision {
+  id                      String                     @id @default(cuid())
+  workspaceId             String
+  sourceMessageId         String
+  decision                MessageReviewDecisionValue
+  actor                   ReviewActor                @default(SYSTEM)
+  reviewerUserId          String?
+  activityExtractionRunId String?
+  presentedFactIds        Json?
+  reconciliationSnapshot  Json?
+  note                    String?
+  createdAt               DateTime                   @default(now())
+
+  workspace     Workspace     @relation(fields: [workspaceId], references: [id])
+  sourceMessage SourceMessage @relation(fields: [sourceMessageId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, sourceMessageId, createdAt])
+}
+
+/// Append-only fact disposition. It never updates ActivityFact.
+model ActivityFactReview {
+  id                     String                  @id @default(cuid())
+  workspaceId            String
+  sourceMessageId        String
+  activityFactId         String
+  state                  ActivityFactReviewState
+  actor                  ReviewActor             @default(SYSTEM)
+  reviewerUserId         String?
+  note                   String?
+  reconciliationSnapshot Json?
+  createdAt              DateTime                @default(now())
+
+  workspace     Workspace               @relation(fields: [workspaceId], references: [id])
+  sourceMessage SourceMessage           @relation(fields: [sourceMessageId], references: [id], onDelete: Cascade)
+  activityFact  ActivityFact            @relation(fields: [activityFactId], references: [id], onDelete: Restrict)
+  correction    ActivityFactCorrection?
+
+  @@index([workspaceId, sourceMessageId, createdAt])
+  @@index([activityFactId, createdAt])
+}
+
+/// Optional corrected presentation attached to an INCORRECT fact decision.
+/// The original extracted payload remains immutable and auditable.
+model ActivityFactCorrection {
+  id                   String   @id @default(cuid())
+  workspaceId          String
+  sourceMessageId      String
+  activityFactId       String
+  activityFactReviewId String   @unique
+  structuredPayload    Json
+  note                 String?
+  createdAt            DateTime @default(now())
+
+  workspace          Workspace          @relation(fields: [workspaceId], references: [id])
+  sourceMessage      SourceMessage      @relation(fields: [sourceMessageId], references: [id], onDelete: Cascade)
+  activityFact       ActivityFact       @relation(fields: [activityFactId], references: [id], onDelete: Restrict)
+  activityFactReview ActivityFactReview @relation(fields: [activityFactReviewId], references: [id], onDelete: Restrict)
+
+  @@index([workspaceId, sourceMessageId, createdAt])
+  @@index([activityFactId, createdAt])
+}
+
+/// Denormalized append-only audit stream for the message workspace.
+model MessageReviewEvent {
+  id              String                 @id @default(cuid())
+  workspaceId     String
+  sourceMessageId String
+  activityFactId  String?
+  eventType       MessageReviewEventType
+  actor           ReviewActor            @default(SYSTEM)
+  reviewerUserId  String?
+  detail          Json?
+  createdAt       DateTime               @default(now())
+
+  workspace     Workspace     @relation(fields: [workspaceId], references: [id])
+  sourceMessage SourceMessage @relation(fields: [sourceMessageId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, sourceMessageId, createdAt])
+  @@index([activityFactId])
 }

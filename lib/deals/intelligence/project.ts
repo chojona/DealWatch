@@ -569,6 +569,7 @@ export function projectDealIntelligence(input: {
     agreedTerms: agreedTerms(input.workspace.terms),
     recentMovement: recentMovement(input.workspace),
     documents: documents(input.documents),
+    messageRollup: { total: 0, needsReview: 0, failed: 0 },
     reviewQueue: reviewQueue(input.documents),
     team,
     facts: factsFrom(input.workspace.terms, team),

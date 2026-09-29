@@ -23,6 +23,7 @@ export interface InboxQuery {
   documentType: string | null;
   negotiationSide: "TENANT" | "LANDLORD" | null;
   q: string | null;
+  source: "ALL" | "DOCUMENTS" | "MESSAGES";
 }
 
 export function parseInboxQuery(searchParams: {
@@ -46,11 +47,16 @@ export function parseInboxQuery(searchParams: {
   }
   const dealId = searchParams.get("dealId")?.trim() || null;
   const q = searchParams.get("q")?.trim() || null;
+  const source = (searchParams.get("source") ?? "ALL").toUpperCase();
+  if (source !== "ALL" && source !== "DOCUMENTS" && source !== "MESSAGES") {
+    throw new InboxQueryError("source must be ALL, DOCUMENTS, or MESSAGES");
+  }
   return {
     filter: filter as InboxFilter,
     dealId,
     documentType,
     negotiationSide: side === "TENANT" || side === "LANDLORD" ? side : null,
     q,
+    source,
   };
 }

@@ -18,44 +18,45 @@ function contextLine(hit: DealSearchHit): string {
   return [place || "Company and property not set", hit.stage].filter(Boolean).join(" · ");
 }
 
+type SearchSnapshot = {
+  query: string;
+  results: DealSearchHit[] | null;
+  error: boolean;
+};
+
 export function DealSearch({ children }: { children: ReactNode }) {
   const [query, setQuery] = useState("");
-  const [results, setResults] = useState<DealSearchHit[] | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(false);
-  const active = query.replace(/\s+/g, " ").trim().length > 0;
+  const [snapshot, setSnapshot] = useState<SearchSnapshot | null>(null);
+  const trimmed = query.replace(/\s+/g, " ").trim();
+  const active = trimmed.length > 0;
+  const settled = snapshot?.query === trimmed ? snapshot : null;
+  const loading = active && settled === null;
+  const error = settled?.error ?? false;
+  const results = settled?.results ?? null;
 
   useEffect(() => {
-    if (!active) {
-      setResults(null);
-      setLoading(false);
-      setError(false);
-      return;
-    }
+    if (!active) return;
     const controller = new AbortController();
-    setLoading(true);
-    setError(false);
     const timer = window.setTimeout(async () => {
       try {
-        const response = await fetch(`/api/deals/search?q=${encodeURIComponent(query)}`, {
+        const response = await fetch(`/api/deals/search?q=${encodeURIComponent(trimmed)}`, {
           signal: controller.signal,
         });
         if (!response.ok) throw new Error("search");
         const body = (await response.json()) as { results: DealSearchHit[] };
-        setResults(body.results);
+        if (controller.signal.aborted) return;
+        setSnapshot({ query: trimmed, results: body.results, error: false });
       } catch (fetchError) {
         if (fetchError instanceof DOMException && fetchError.name === "AbortError") return;
-        setResults(null);
-        setError(true);
-      } finally {
-        if (!controller.signal.aborted) setLoading(false);
+        if (controller.signal.aborted) return;
+        setSnapshot({ query: trimmed, results: null, error: true });
       }
     }, 200);
     return () => {
       window.clearTimeout(timer);
       controller.abort();
     };
-  }, [active, query]);
+  }, [active, trimmed]);
 
   return (
     <div>
@@ -79,7 +80,7 @@ export function DealSearch({ children }: { children: ReactNode }) {
           )}
           {!loading && !error && results?.length === 0 && (
             <p className="rounded-sm border border-zinc-200 bg-white px-4 py-6 text-center text-xs text-zinc-500">
-              No deals match “{query.replace(/\s+/g, " ").trim()}”.
+              No deals match “{trimmed}”.
             </p>
           )}
           {!loading && !error && results && results.length > 0 && (

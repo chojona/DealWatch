@@ -280,9 +280,17 @@ async function loadObservationEvents(db: GraphDb, scope: ActivityScope): Promise
   return [...events, ...buildPendingRelationshipEvents(pendingRelationships, (dealId) => refsForDeal(scope, dealId))];
 }
 
+function milestoneTitle(kind: string): string {
+  if (kind === "ANALYZED") return "Document analyzed";
+  if (kind === "NEGOTIATION_REVIEWED") return "Negotiation findings reviewed";
+  if (kind === "EVIDENCE_CORRECTED") return "Evidence corrected";
+  if (kind === "DOCUMENT_REVIEWED") return "Document review complete";
+  return "Document review";
+}
+
 function filterEvents(events: ActivityEvent[], filter: ActivityFilter): ActivityEvent[] {
   if (filter === "ALL") return events;
-  if (filter === "DOCUMENTS") return events.filter((event) => event.eventType === "DOCUMENT");
+  if (filter === "DOCUMENTS") return events.filter((event) => event.eventType === "DOCUMENT" || event.eventType === "DOCUMENT_REVIEW");
   if (filter === "NEGOTIATION") return events.filter((event) => event.eventType.startsWith("NEGOTIATION_"));
   return events.filter((event) => ["ENTITY_EVIDENCE", "RELATIONSHIP_EVIDENCE", "DEAL_PARTICIPATION", "EMPLOYMENT_EVIDENCE", "PROPERTY_RELATIONSHIP_EVIDENCE"].includes(event.eventType));
 }
@@ -311,8 +319,9 @@ export async function getActivityPage(db: GraphDb, input: ActivityQuery): Promis
     : scope.root.type === "COMPANY"
       ? { entityObservations: { some: { workspaceId: scope.workspaceId, resolutionLinks: { some: { status: "ACCEPTED", companyId: scope.root.id } }, dispositions: { none: { disposition: "REJECTED" } } } } }
       : {};
-  const [documents, negotiationRows, dealEvents, relationshipEvents, observationEvents] = await Promise.all([
+  const [documents, milestones, negotiationRows, dealEvents, relationshipEvents, observationEvents] = await Promise.all([
     wantsDocuments && dealIds.length ? db.document.findMany({ where: { dealId: { in: dealIds }, deal: { workspaceId: scope.workspaceId }, ...documentRootWhere }, include: { deal: { select: { id: true, name: true } } }, orderBy: [{ documentDate: "desc" }, { createdAt: "desc" }] }) : Promise.resolve([]),
+    wantsDocuments && dealIds.length ? db.documentMilestone.findMany({ where: { document: { dealId: { in: dealIds }, deal: { workspaceId: scope.workspaceId } } }, include: { document: { select: { id: true, originalFilename: true, dealId: true } } }, orderBy: { occurredAt: "desc" } }) : Promise.resolve([]),
     wantsNegotiation && dealIds.length ? db.negotiationRound.findMany({
       where: { dealId: { in: dealIds }, deal: { workspaceId: scope.workspaceId } },
       include: {
@@ -341,6 +350,20 @@ export async function getActivityPage(db: GraphDb, input: ActivityQuery): Promis
   }));
   const events: ActivityEvent[] = [
     ...documents.map((document) => buildDocumentEvent(document, refsForDeal(scope, document.dealId))),
+    ...milestones.map((milestone): ActivityEvent => ({
+      id: `milestone:${milestone.id}`,
+      occurredAt: milestone.occurredAt.toISOString(),
+      recordedAt: milestone.occurredAt.toISOString(),
+      eventType: "DOCUMENT_REVIEW",
+      title: milestoneTitle(milestone.kind),
+      description: milestone.document.originalFilename,
+      entityRefs: refsForDeal(scope, milestone.document.dealId),
+      dealId: milestone.document.dealId,
+      documentId: milestone.document.id,
+      sourceType: "DOCUMENT",
+      sourceId: milestone.id,
+      dedupeKey: milestone.dedupeKey,
+    })),
     ...buildNegotiationEvents(mappedRounds, (dealId) => refsForDeal(scope, dealId)),
     ...dealEvents.map((event): ActivityEvent => ({
       id: `deal-event:${event.id}`,

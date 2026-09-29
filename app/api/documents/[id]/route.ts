@@ -7,6 +7,7 @@ import { NegotiationExtractionConfigurationError } from "@/lib/ai/negotiation/ex
 import { GraphInvariantError } from "@/lib/entities/errors";
 import { deleteDocumentPreservingEvidence } from "@/lib/entities/service";
 import { getDocumentStorage } from "@/lib/documents/storage";
+import { loadDocumentReadiness } from "@/lib/documents/readiness";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -39,10 +40,20 @@ export async function POST(
     const { id } = await context.params;
     const existing = await prisma.document.findUnique({
       where: { id },
-      select: { id: true },
+      select: { id: true, ingestionStatus: true },
     });
     if (!existing) {
       return NextResponse.json({ error: "Document not found" }, { status: 404 });
+    }
+    const readiness = await loadDocumentReadiness(prisma, id);
+    if (!readiness) {
+      return NextResponse.json({ error: "Document not found" }, { status: 404 });
+    }
+    if (!readiness.analysisReady && existing.ingestionStatus !== "COMPLETE") {
+      return NextResponse.json(
+        { error: "Analysis unavailable", missing: readiness.missing },
+        { status: 409 }
+      );
     }
 
     let negotiationConfigError: unknown = null;

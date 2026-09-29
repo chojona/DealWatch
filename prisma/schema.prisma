@@ -104,6 +104,10 @@ model Document {
   entityObservations EntityObservation[]
   relationshipObservations RelationshipObservation[]
   graphExtractionRuns GraphExtractionRun[]
+  reviewDecisions ReviewDecision[]
+  reviewDecisionEvents ReviewDecisionEvent[]
+  evidenceCorrections EvidenceCorrection[]
+  milestones DocumentMilestone[]
 
   @@unique([dealId, sha256])
   @@index([dealId, createdAt])
@@ -120,6 +124,7 @@ model DocumentPage {
   terms    NegotiationTerm[]
   entityObservations EntityObservation[]
   relationshipObservations RelationshipObservation[]
+  evidenceCorrections EvidenceCorrection[]
 
   @@unique([documentId, pageNumber])
 }
@@ -232,6 +237,8 @@ model NegotiationTerm {
 
   round        NegotiationRound @relation(fields: [roundId], references: [id], onDelete: Cascade)
   documentPage DocumentPage?    @relation(fields: [documentPageId], references: [id], onDelete: SetNull)
+  evidenceCorrections EvidenceCorrection[]
+  reviewDecisions ReviewDecision[]
 
   @@index([roundId, canonicalType])
   @@index([documentPageId])
@@ -379,10 +386,12 @@ enum ResolutionCandidateDecision {
 
 /// Human review of one relationship observation. Absence of a row means the
 /// observation is still pending or blocked. Blocked is computed from endpoint
-/// resolution and is not stored, so it cannot go stale.
+/// resolution. ACKNOWLEDGED_BLOCKED records that a reviewer saw the block and
+/// chose not to promote. It never stores canonical assertion ids.
 enum RelationshipPromotionDecision {
   APPROVED
   REJECTED
+  ACKNOWLEDGED_BLOCKED
 }
 
 /// No authenticated user exists. This is a manual review source, not an account.
@@ -424,6 +433,7 @@ model Workspace {
   graphExtractionRuns          GraphExtractionRun[]
   resolutionCandidates         EntityResolutionCandidate[]
   relationshipPromotions       RelationshipPromotion[]
+  relationshipPromotionEvents  RelationshipPromotionEvent[]
 
   @@index([firmCompanyId])
 }
@@ -718,6 +728,7 @@ model RelationshipObservation {
   propertyStakeSupports PropertyStakeSupport[]
   dealParticipationSupports DealParticipationSupport[]
   promotion RelationshipPromotion?
+  promotionEvents RelationshipPromotionEvent[]
 
   @@index([workspaceId, predicate])
   @@index([subjectObservationId])
@@ -1021,4 +1032,146 @@ model RelationshipPromotion {
   @@index([propertyStakeId])
   @@index([dealParticipationId])
   @@index([linkedDealId])
+}
+
+/// Append-only relationship review history. The RelationshipPromotion row is
+/// the current decision. Canonical tables remain the graph truth.
+model RelationshipPromotionEvent {
+  id                        String                        @id @default(cuid())
+  workspaceId               String
+  relationshipObservationId String
+  decision                  RelationshipPromotionDecision
+  reviewReason              String?
+  reviewedAt                DateTime
+  actor                     PromotionActor                @default(MANUAL_REVIEW)
+  createdAt                 DateTime                      @default(now())
+
+  workspace               Workspace               @relation(fields: [workspaceId], references: [id])
+  relationshipObservation RelationshipObservation @relation(fields: [relationshipObservationId], references: [id], onDelete: Cascade)
+
+  @@index([relationshipObservationId, createdAt])
+  @@index([workspaceId, createdAt])
+}
+
+// ---------------------------------------------------------------------------
+// Phase 8E — human review above negotiation truth.
+// Decisions never change NegotiationTerm rows. Corrections never overwrite
+// model provenance. reviewerUserId stays null until accounts exist.
+// ---------------------------------------------------------------------------
+
+enum ReviewDecisionState {
+  PENDING
+  ACKNOWLEDGED
+  NEEDS_FOLLOW_UP
+  /// The reviewer saw an entity observation and chose not to resolve it.
+  /// This is not a rejection and does not create a canonical entity.
+  LEFT_UNRESOLVED
+}
+
+/// No authenticated user exists. This matches the manual-review actor used
+/// for relationship promotion.
+enum ReviewActor {
+  MANUAL_REVIEW
+}
+
+enum ReviewSubjectKind {
+  NEGOTIATION_TERM
+  NEGOTIATION_CONFLICT
+  EVIDENCE
+  /// Human closure for one entity observation: left unresolved, or reopened.
+  ENTITY_CLOSURE
+}
+
+enum DocumentMilestoneKind {
+  ANALYZED
+  NEGOTIATION_REVIEWED
+  EVIDENCE_CORRECTED
+  DOCUMENT_REVIEWED
+}
+
+/// Current human decision for one review subject. One row per subject.
+/// PENDING means the decision was cleared. History lives in ReviewDecisionEvent.
+model ReviewDecision {
+  id                          String              @id @default(cuid())
+  documentId                  String
+  /// term:{id} | conflict:{canonicalType} | evidence:term:{id} | evidence:entity:{id} | evidence:relationship:{id} | entity-closure:{observationId}
+  subjectKey                  String
+  kind                        ReviewSubjectKind
+  negotiationTermId           String?
+  canonicalType               String?
+  entityObservationId         String?
+  relationshipObservationId   String?
+  reviewState                 ReviewDecisionState
+  note                        String?
+  reviewedAt                  DateTime
+  actor                       ReviewActor         @default(MANUAL_REVIEW)
+  /// Reserved for a future account id. Never invented.
+  reviewerUserId              String?
+  createdAt                   DateTime            @default(now())
+  updatedAt                   DateTime            @updatedAt
+
+  document        Document         @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  negotiationTerm NegotiationTerm? @relation(fields: [negotiationTermId], references: [id], onDelete: Cascade)
+
+  @@unique([documentId, subjectKey])
+  @@index([documentId, kind])
+  @@index([negotiationTermId])
+}
+
+/// Append-only audit of review actions, including clears back to pending.
+model ReviewDecisionEvent {
+  id                          String              @id @default(cuid())
+  documentId                  String
+  subjectKey                  String
+  kind                        ReviewSubjectKind
+  negotiationTermId           String?
+  canonicalType               String?
+  entityObservationId         String?
+  relationshipObservationId   String?
+  reviewState                 ReviewDecisionState
+  note                        String?
+  reviewedAt                  DateTime
+  actor                       ReviewActor         @default(MANUAL_REVIEW)
+  reviewerUserId              String?
+  createdAt                   DateTime            @default(now())
+
+  document Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@index([documentId, subjectKey, createdAt])
+}
+
+/// Reviewed evidence span. The NegotiationTerm evidence columns stay the
+/// original model provenance. supersededAt null is the active correction.
+model EvidenceCorrection {
+  id                String    @id @default(cuid())
+  documentId        String
+  negotiationTermId String
+  documentPageId    String
+  startOffset       Int
+  endOffset         Int
+  evidenceQuote     String
+  actor             ReviewActor @default(MANUAL_REVIEW)
+  reviewerUserId    String?
+  createdAt         DateTime  @default(now())
+  supersededAt      DateTime?
+
+  document        Document        @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  negotiationTerm NegotiationTerm @relation(fields: [negotiationTermId], references: [id], onDelete: Cascade)
+  documentPage    DocumentPage    @relation(fields: [documentPageId], references: [id], onDelete: Cascade)
+
+  @@index([documentId, negotiationTermId, createdAt])
+  @@index([negotiationTermId, supersededAt])
+}
+
+/// Document-level activity milestones. Individual review clicks are not events.
+model DocumentMilestone {
+  id         String                @id @default(cuid())
+  documentId String
+  kind       DocumentMilestoneKind
+  dedupeKey  String                @unique
+  occurredAt DateTime              @default(now())
+
+  document Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@index([documentId, occurredAt])
 }

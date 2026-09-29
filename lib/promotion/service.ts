@@ -19,6 +19,8 @@ import {
   recordObservationDisposition,
 } from "@/lib/entities/service";
 import type { GraphDb } from "@/lib/entities/workspace";
+import { leftUnresolvedObservationIds, releaseEntityClosureOnResolve } from "@/lib/review/closure";
+import { syncReviewedMilestone } from "@/lib/review/reviewedMilestone";
 import { MANUAL_REVIEW_NOTE, planIdentifiers } from "./identifiers";
 import type {
   CanonicalEntityPreview,
@@ -33,6 +35,28 @@ import type {
   RelationshipReviewStatus,
   ResolvedEndpointView,
 } from "./types";
+
+async function writePromotionEvent(
+  db: GraphDb,
+  input: {
+    workspaceId: string;
+    relationshipObservationId: string;
+    decision: "APPROVED" | "REJECTED" | "ACKNOWLEDGED_BLOCKED";
+    reviewReason: string | null;
+    reviewedAt: Date;
+  }
+) {
+  await db.relationshipPromotionEvent.create({
+    data: {
+      workspaceId: input.workspaceId,
+      relationshipObservationId: input.relationshipObservationId,
+      decision: input.decision,
+      reviewReason: input.reviewReason,
+      reviewedAt: input.reviewedAt,
+      actor: "MANUAL_REVIEW",
+    },
+  });
+}
 
 const STAKE_PREDICATES = new Set<PropertyStakePredicate>([
   "OWNS",
@@ -263,6 +287,7 @@ async function createFromObservation(
   const type = observation.observedType;
   const existing = await resolvedEntity(db, observation);
   if (existing) {
+    await releaseEntityClosureOnResolve(db, observation.id);
     return {
       observationId: observation.id,
       workspaceId: observation.workspaceId,
@@ -305,6 +330,7 @@ async function createFromObservation(
     actor: "SYSTEM",
     note: MANUAL_REVIEW_NOTE,
   });
+  await releaseEntityClosureOnResolve(db, observation.id);
   const after = await db.entityObservation.findUniqueOrThrow({ where: { id: observation.id } });
   if (JSON.stringify(before) !== JSON.stringify(after)) {
     throw new GraphInvariantError("Promotion must not change the observation");
@@ -352,7 +378,8 @@ async function resolveEndpoint(
   db: GraphDb,
   role: ResolvedEndpointView["role"],
   observationId: string,
-  workspaceId: string
+  workspaceId: string,
+  leftUnresolved: Set<string>
 ): Promise<EndpointResolution> {
   const observation = await db.entityObservation.findUnique({ where: { id: observationId } });
   if (!observation) throw new GraphInvariantError("Relationship endpoint observation does not exist");
@@ -374,6 +401,7 @@ async function resolveEndpoint(
       surfaceForm: observation.surfaceForm,
       observedType: observation.observedType,
       resolved: Boolean(resolved),
+      closure: resolved ? "RESOLVED" : leftUnresolved.has(observation.id) ? "LEFT_UNRESOLVED" : "UNREVIEWED",
       entityId: resolved?.entityId ?? null,
       entityName: resolved?.name ?? null,
     },
@@ -407,17 +435,23 @@ async function buildRelationshipPreview(
   db: GraphDb,
   relationship: LoadedRelationship
 ): Promise<RelationshipPromotionPreview> {
+  const endpointIds = [
+    relationship.subjectObservationId,
+    relationship.objectObservationId,
+    relationship.principalObservationId,
+  ].filter((id): id is string => Boolean(id));
+  const leftUnresolved = await leftUnresolvedObservationIds(db, endpointIds);
   const endpoints: EndpointResolution[] = [
-    await resolveEndpoint(db, "subject", relationship.subjectObservationId, relationship.workspaceId),
+    await resolveEndpoint(db, "subject", relationship.subjectObservationId, relationship.workspaceId, leftUnresolved),
   ];
   if (relationship.objectObservationId) {
     endpoints.push(
-      await resolveEndpoint(db, "object", relationship.objectObservationId, relationship.workspaceId)
+      await resolveEndpoint(db, "object", relationship.objectObservationId, relationship.workspaceId, leftUnresolved)
     );
   }
   if (relationship.principalObservationId) {
     endpoints.push(
-      await resolveEndpoint(db, "principal", relationship.principalObservationId, relationship.workspaceId)
+      await resolveEndpoint(db, "principal", relationship.principalObservationId, relationship.workspaceId, leftUnresolved)
     );
   }
   const unresolved = endpoints.some((endpoint) => !endpoint.view.resolved);
@@ -586,9 +620,12 @@ async function buildRelationshipPreview(
   let status: RelationshipReviewStatus = "PENDING";
   if (stored?.decision === "APPROVED") status = "APPROVED";
   else if (stored?.decision === "REJECTED") status = "REJECTED";
+  else if (unresolved && stored?.decision === "ACKNOWLEDGED_BLOCKED") status = "ACKNOWLEDGED_BLOCKED";
   else if (unresolved) status = "BLOCKED_UNRESOLVED_ENTITY";
 
-  const canApprove = status !== "APPROVED" && status !== "REJECTED" ? !blockReason : status === "REJECTED" && !blockReason;
+  const closed = status === "APPROVED" || status === "REJECTED" || status === "ACKNOWLEDGED_BLOCKED";
+  const canApprove =
+    status === "APPROVED" || status === "ACKNOWLEDGED_BLOCKED" ? false : !blockReason;
   const headline =
     relationship.predicate === "PARTICIPATES_AS"
       ? `${subjectName} · ${relationship.participationRole ? roleLabel(relationship.participationRole, relationship.roleLabel) : "Participant"}`
@@ -613,8 +650,8 @@ async function buildRelationshipPreview(
     workspaceId: relationship.workspaceId,
     predicate: relationship.predicate,
     status,
-    canApprove: status === "APPROVED" ? false : Boolean(canApprove),
-    blockReason: status === "APPROVED" || status === "REJECTED" ? null : blockReason,
+    canApprove,
+    blockReason: closed ? null : blockReason,
     headline,
     assertionLines: lines,
     evidenceQuote: relationship.evidenceQuote,
@@ -845,6 +882,7 @@ async function approveInTransaction(
 ) {
   const relationship = await loadRelationship(db, relationshipObservationId);
   if (!relationship) return null;
+  await assertObservationWorkspace(db, relationship);
   const before = await db.relationshipObservation.findUniqueOrThrow({
     where: { id: relationship.id },
   });
@@ -885,17 +923,27 @@ async function approveInTransaction(
     };
   }
 
+  await assertObservationWorkspace(db, relationship);
   const preview = await buildRelationshipPreview(db, relationship);
-  if (preview.status === "BLOCKED_UNRESOLVED_ENTITY" || preview.blockReason) {
+  if (
+    preview.status === "BLOCKED_UNRESOLVED_ENTITY" ||
+    preview.status === "ACKNOWLEDGED_BLOCKED" ||
+    preview.blockReason
+  ) {
     throw new GraphInvariantError(preview.blockReason ?? "An endpoint observation is still unresolved.");
   }
 
-  const subject = await resolveEndpoint(db, "subject", relationship.subjectObservationId, relationship.workspaceId);
+  const leftUnresolved = await leftUnresolvedObservationIds(db, [
+    relationship.subjectObservationId,
+    relationship.objectObservationId,
+    relationship.principalObservationId,
+  ].filter((id): id is string => Boolean(id)));
+  const subject = await resolveEndpoint(db, "subject", relationship.subjectObservationId, relationship.workspaceId, leftUnresolved);
   const object = relationship.objectObservationId
-    ? await resolveEndpoint(db, "object", relationship.objectObservationId, relationship.workspaceId)
+    ? await resolveEndpoint(db, "object", relationship.objectObservationId, relationship.workspaceId, leftUnresolved)
     : null;
   const principal = relationship.principalObservationId
-    ? await resolveEndpoint(db, "principal", relationship.principalObservationId, relationship.workspaceId)
+    ? await resolveEndpoint(db, "principal", relationship.principalObservationId, relationship.workspaceId, leftUnresolved)
     : null;
   if (!subject.view.resolved || (object && !object.view.resolved) || (principal && !principal.view.resolved)) {
     throw new GraphInvariantError("An endpoint observation is still unresolved.");
@@ -928,6 +976,13 @@ async function approveInTransaction(
       },
     });
   }
+  await writePromotionEvent(db, {
+    workspaceId: relationship.workspaceId,
+    relationshipObservationId: relationship.id,
+    decision: "APPROVED",
+    reviewReason,
+    reviewedAt,
+  });
   await recordObservationDisposition(db, {
     relationshipObservationId: relationship.id,
     disposition: "ACCEPTED",
@@ -952,9 +1007,19 @@ export async function approveRelationshipObservation(
   relationshipObservationId: string,
   reviewReason?: string | null
 ) {
-  return prisma.$transaction((tx) =>
+  const result = await prisma.$transaction((tx) =>
     approveInTransaction(tx, relationshipObservationId, reviewReason ?? null)
   );
+  if (result) await syncRelationshipReview(prisma, relationshipObservationId);
+  return result;
+}
+
+async function syncRelationshipReview(prisma: PrismaClient, relationshipObservationId: string) {
+  const row = await prisma.relationshipObservation.findUnique({
+    where: { id: relationshipObservationId },
+    select: { documentId: true },
+  });
+  if (row?.documentId) await syncReviewedMilestone(prisma, row.documentId);
 }
 
 export async function rejectRelationshipObservation(
@@ -962,7 +1027,7 @@ export async function rejectRelationshipObservation(
   relationshipObservationId: string,
   reviewReason?: string | null
 ) {
-  return prisma.$transaction(async (tx) => {
+  const result = await prisma.$transaction(async (tx) => {
     const relationship = await loadRelationship(tx, relationshipObservationId);
     if (!relationship) return null;
     if (relationship.promotion?.decision === "APPROVED") {
@@ -977,6 +1042,7 @@ export async function rejectRelationshipObservation(
         idempotent: true,
       };
     }
+    await assertObservationWorkspace(tx, relationship);
     const beforeCounts = {
       employments: await tx.employment.count({ where: { workspaceId: relationship.workspaceId } }),
       stakes: await tx.propertyStake.count({ where: { workspaceId: relationship.workspaceId } }),
@@ -1001,6 +1067,13 @@ export async function rejectRelationshipObservation(
         },
       });
     }
+    await writePromotionEvent(tx, {
+      workspaceId: relationship.workspaceId,
+      relationshipObservationId: relationship.id,
+      decision: "REJECTED",
+      reviewReason: reason,
+      reviewedAt,
+    });
     await recordObservationDisposition(tx, {
       relationshipObservationId: relationship.id,
       disposition: "REJECTED",
@@ -1021,6 +1094,122 @@ export async function rejectRelationshipObservation(
       idempotent: false,
     };
   });
+  if (result) await syncRelationshipReview(prisma, relationshipObservationId);
+  return result;
+}
+
+async function assertObservationWorkspace(
+  db: GraphDb,
+  relationship: { workspaceId: string; documentId: string | null }
+) {
+  if (!relationship.documentId) return;
+  const document = await db.document.findUnique({
+    where: { id: relationship.documentId },
+    select: { deal: { select: { workspaceId: true } } },
+  });
+  if (!document || document.deal.workspaceId !== relationship.workspaceId) {
+    throw new GraphInvariantError("Relationship observation is outside its document workspace");
+  }
+}
+
+/**
+ * Records that a reviewer saw a relationship blocked by an unresolved endpoint
+ * and chose not to promote it. No canonical edge is created.
+ */
+export async function acknowledgeBlockedRelationship(
+  prisma: PrismaClient,
+  relationshipObservationId: string,
+  reviewReason?: string | null
+) {
+  const result = await prisma.$transaction(async (tx) => {
+    const relationship = await loadRelationship(tx, relationshipObservationId);
+    if (!relationship) return null;
+    if (!relationship.documentId) {
+      throw new GraphInvariantError("Blocked acknowledgement is only available for a document relationship");
+    }
+    await assertObservationWorkspace(tx, relationship);
+    if (relationship.promotion?.decision === "APPROVED") {
+      throw new GraphInvariantError("An approved relationship is already canonical. It cannot be marked blocked.");
+    }
+    if (relationship.promotion?.decision === "REJECTED") {
+      throw new GraphInvariantError("A rejected relationship is already closed.");
+    }
+    const preview = await buildRelationshipPreview(tx, relationship);
+    if (preview.status === "ACKNOWLEDGED_BLOCKED") {
+      const reason = reviewReason?.trim() ? reviewReason.trim().slice(0, 2000) : relationship.promotion?.reviewReason ?? null;
+      if ((relationship.promotion?.reviewReason ?? null) === reason) {
+        return {
+          relationshipObservationId: relationship.id,
+          decision: "ACKNOWLEDGED_BLOCKED" as const,
+          idempotent: true,
+        };
+      }
+    }
+    if (preview.status !== "BLOCKED_UNRESOLVED_ENTITY" && preview.status !== "ACKNOWLEDGED_BLOCKED") {
+      throw new GraphInvariantError("Only a relationship blocked by an unresolved endpoint can be acknowledged.");
+    }
+    const before = {
+      employments: await tx.employment.count({ where: { workspaceId: relationship.workspaceId } }),
+      stakes: await tx.propertyStake.count({ where: { workspaceId: relationship.workspaceId } }),
+      participations: await tx.dealParticipation.count({ where: { workspaceId: relationship.workspaceId } }),
+      propertyId: relationship.contextDeal?.propertyId ?? null,
+    };
+    const reviewedAt = new Date();
+    const reason = reviewReason?.trim() ? reviewReason.trim().slice(0, 2000) : "Blocked relationship acknowledged";
+    const data = {
+      decision: "ACKNOWLEDGED_BLOCKED" as const,
+      reviewReason: reason,
+      reviewedAt,
+      actor: "MANUAL_REVIEW" as const,
+      employmentId: null,
+      propertyStakeId: null,
+      dealParticipationId: null,
+      linkedDealId: null,
+    };
+    if (relationship.promotion) {
+      await tx.relationshipPromotion.update({ where: { id: relationship.promotion.id }, data });
+    } else {
+      await tx.relationshipPromotion.create({
+        data: {
+          workspaceId: relationship.workspaceId,
+          relationshipObservationId: relationship.id,
+          ...data,
+        },
+      });
+    }
+    await writePromotionEvent(tx, {
+      workspaceId: relationship.workspaceId,
+      relationshipObservationId: relationship.id,
+      decision: "ACKNOWLEDGED_BLOCKED",
+      reviewReason: reason,
+      reviewedAt,
+    });
+    const dealId = relationship.contextDealId ?? relationship.dealId;
+    const dealAfter = dealId
+      ? await tx.deal.findUnique({ where: { id: dealId }, select: { propertyId: true } })
+      : null;
+    const after = {
+      employments: await tx.employment.count({ where: { workspaceId: relationship.workspaceId } }),
+      stakes: await tx.propertyStake.count({ where: { workspaceId: relationship.workspaceId } }),
+      participations: await tx.dealParticipation.count({ where: { workspaceId: relationship.workspaceId } }),
+      propertyId: dealAfter?.propertyId ?? null,
+    };
+    if (
+      before.employments !== after.employments ||
+      before.stakes !== after.stakes ||
+      before.participations !== after.participations ||
+      before.propertyId !== after.propertyId
+    ) {
+      throw new GraphInvariantError("Acknowledging a blocked relationship must not create canonical truth");
+    }
+    return {
+      relationshipObservationId: relationship.id,
+      decision: "ACKNOWLEDGED_BLOCKED" as const,
+      idempotent: false,
+    };
+  });
+  if (result) await syncRelationshipReview(prisma, relationshipObservationId);
+  return result;
 }
 
 function supportView(input: {
@@ -1323,22 +1512,49 @@ export async function documentReviewCounts(
     relationships: RelationshipPromotionPreview[];
   }
 ) {
+  const [links, closures] = await Promise.all([
+    input.observationIds.length === 0
+      ? Promise.resolve([] as Array<{ entityObservationId: string }>)
+      : prisma.entityResolutionLink.findMany({
+          where: { entityObservationId: { in: input.observationIds }, status: "ACCEPTED", supersededAt: null },
+          select: { entityObservationId: true },
+        }),
+    input.observationIds.length === 0
+      ? Promise.resolve([] as Array<{ entityObservationId: string | null }>)
+      : prisma.reviewDecision.findMany({
+          where: {
+            entityObservationId: { in: input.observationIds },
+            kind: "ENTITY_CLOSURE",
+            reviewState: "LEFT_UNRESOLVED",
+          },
+          select: { entityObservationId: true },
+        }),
+  ]);
+  const resolvedIds = new Set(links.map((link) => link.entityObservationId));
+  const leftIds = new Set(
+    closures.map((row) => row.entityObservationId).filter((id): id is string => Boolean(id))
+  );
   let resolved = 0;
+  let leftUnresolved = 0;
+  let unresolved = 0;
   for (const observationId of input.observationIds) {
-    const link = await acceptedLink(prisma, observationId);
-    if (link) resolved += 1;
+    if (resolvedIds.has(observationId)) resolved += 1;
+    else if (leftIds.has(observationId)) leftUnresolved += 1;
+    else unresolved += 1;
   }
-  const unresolved = input.observationIds.length - resolved;
   const ready = input.relationships.filter((row) => row.status === "PENDING" && row.canApprove).length;
   const blocked = input.relationships.filter(
     (row) => row.status === "BLOCKED_UNRESOLVED_ENTITY" || (row.status === "PENDING" && !row.canApprove)
   ).length;
   const approved = input.relationships.filter((row) => row.status === "APPROVED").length;
+  const acknowledgedBlocked = input.relationships.filter((row) => row.status === "ACKNOWLEDGED_BLOCKED").length;
   return {
     unresolved,
     resolved,
+    leftUnresolved,
     ready,
     blocked,
     approved,
+    acknowledgedBlocked,
   };
 }

@@ -330,7 +330,13 @@ export function NegotiationWorkspaceView({ workspace, initialRoundId }: { worksp
           {workspace.documents.length === 0 ? <p className="px-4 py-5 text-xs text-zinc-500">No uploaded negotiation documents. Pasted rounds remain available above with their stored source labels.</p> : workspace.documents.map((document) => (
             <div key={document.id} className="flex flex-wrap items-start justify-between gap-3 border-b border-zinc-100 px-4 py-3 last:border-0">
               <div className="flex min-w-0 gap-2"><FileText className="mt-0.5 h-4 w-4 shrink-0 text-zinc-400" /><div><p className="truncate text-xs font-medium text-zinc-900">{document.name}</p><p className="mt-0.5 text-[10px] text-zinc-500">{document.documentType.replaceAll("_", " ")} · {document.documentDate ? date(document.documentDate) : "Date unknown"} · {document.pageCount ?? 0} pages · {document.termCount} terms · {document.ingestionStatus}</p></div></div>
-              <div className="flex gap-3 text-[11px]"><a href={document.sourceHref} target="_blank" rel="noreferrer" className="underline">Open source</a><Link href={document.reviewHref} className="underline">Review entities</Link><Link href={document.workspaceHref} className="underline">Negotiation</Link></div>
+              <div className="flex gap-3 text-[11px]">{document.sourceHref ? <a href={document.sourceHref} target="_blank" rel="noreferrer" className="underline">Open source</a> : <span className="text-zinc-400">PDF unavailable</span>}<Link href={document.reviewHref} className="underline">Review document</Link><Link href={document.workspaceHref} className="underline">Negotiation</Link></div>
+              {document.review && document.review.findingsTotal > 0 && (
+                <p className="mt-1 w-full text-[11px] text-zinc-600">
+                  Document review: {document.review.findingsReviewed} {document.review.findingsReviewed === 1 ? "finding" : "findings"} reviewed
+                  {document.review.findingsFollowUp > 0 ? ` · ${document.review.findingsFollowUp} needs follow-up` : ""}
+                </p>
+              )}
             </div>
           ))}
         </div>

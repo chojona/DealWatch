@@ -4,7 +4,7 @@ import { formatCurrency, formatDate } from "@/lib/formatters";
 
 interface DealHeaderProps {
   dealId?: string;
-  activeSection?: "overview" | "negotiation" | "activity" | "knowledge" | "connections";
+  activeSection?: "overview" | "negotiation" | "activity" | "knowledge" | "connections" | "documents";
   name: string;
   company: string;
   property: string;
@@ -103,6 +103,12 @@ export function DealHeader({
               className={`border-b-2 pb-2.5 text-xs font-medium ${activeSection === "knowledge" ? "border-zinc-900 text-zinc-900" : "border-transparent text-zinc-400 hover:text-zinc-700"}`}
             >
               Knowledge
+            </Link>
+            <Link
+              href={`/deals/${dealId}/documents`}
+              className={`border-b-2 pb-2.5 text-xs font-medium ${activeSection === "documents" ? "border-zinc-900 text-zinc-900" : "border-transparent text-zinc-400 hover:text-zinc-700"}`}
+            >
+              Documents
             </Link>
             <Link
               href={`/deals/${dealId}/connections`}

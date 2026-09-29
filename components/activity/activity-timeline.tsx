@@ -24,6 +24,7 @@ const eventLabels: Record<ActivityEvent["eventType"], string> = {
   DEAL_PARTICIPATION: "Deal participation",
   EMPLOYMENT_EVIDENCE: "Employment evidence",
   PROPERTY_RELATIONSHIP_EVIDENCE: "Property relationship",
+  DOCUMENT_REVIEW: "Document review",
 };
 
 function dateLabel(value: string): string {

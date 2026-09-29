@@ -4,7 +4,8 @@ export type RelationshipReviewStatus =
   | "PENDING"
   | "BLOCKED_UNRESOLVED_ENTITY"
   | "APPROVED"
-  | "REJECTED";
+  | "REJECTED"
+  | "ACKNOWLEDGED_BLOCKED";
 
 export interface CanonicalFieldPreview {
   label: string;
@@ -41,6 +42,8 @@ export interface ResolvedEndpointView {
   surfaceForm: string;
   observedType: string;
   resolved: boolean;
+  /** UNREVIEWED observations are not the same as an explicit left-unresolved decision. */
+  closure: "UNREVIEWED" | "RESOLVED" | "LEFT_UNRESOLVED";
   entityId: string | null;
   entityName: string | null;
 }

@@ -7,39 +7,50 @@ import type { CanonicalEntityPreview, RelationshipPromotionPreview } from "@/lib
 
 export function ResolutionReview({
   documentName,
+  documentId,
   dealId,
   observations,
   relationships,
   counts,
+  embedded = false,
+  section = "all",
 }: {
   documentName: string;
+  documentId: string;
   dealId: string;
-  observations: Array<ObservationResolutionView & { preview: CanonicalEntityPreview | null }>;
+  observations: Array<
+    ObservationResolutionView & {
+      preview: CanonicalEntityPreview | null;
+      closure: "UNREVIEWED" | "RESOLVED" | "LEFT_UNRESOLVED";
+    }
+  >;
   relationships: RelationshipPromotionPreview[];
   counts: {
     unresolved: number;
     resolved: number;
+    leftUnresolved: number;
     ready: number;
     blocked: number;
     approved: number;
+    acknowledgedBlocked: number;
   };
+  embedded?: boolean;
+  section?: "all" | "entities" | "relationships";
 }) {
   const router = useRouter();
   const [pendingId, setPendingId] = useState<string | null>(null);
   const [confirmingId, setConfirmingId] = useState<string | null>(null);
   const [openRelationshipId, setOpenRelationshipId] = useState<string | null>(relationships[0]?.relationshipObservationId ?? null);
-  const [leftUnresolved, setLeftUnresolved] = useState<Record<string, boolean>>({});
-  const [leftPending, setLeftPending] = useState<Record<string, boolean>>({});
   const [error, setError] = useState<string | null>(null);
 
-  async function post(url: string) {
+  async function post(url: string, body: unknown = {}) {
     const response = await fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({}),
+      body: JSON.stringify(body),
     });
-    const body = (await response.json().catch(() => ({}))) as { error?: string };
-    if (!response.ok) throw new Error(body.error ?? "Update failed");
+    const payload = (await response.json().catch(() => ({}))) as { error?: string };
+    if (!response.ok) throw new Error(payload.error ?? "Update failed");
     router.refresh();
   }
 
@@ -68,7 +79,7 @@ export function ResolutionReview({
     }
   }
 
-  async function reviewRelationship(relationshipId: string, action: "approve" | "reject") {
+  async function reviewRelationship(relationshipId: string, action: "approve" | "reject" | "acknowledge-blocked") {
     setError(null);
     setPendingId(relationshipId);
     try {
@@ -80,8 +91,24 @@ export function ResolutionReview({
     }
   }
 
+  async function closeEntity(observationId: string, action: "LEAVE_UNRESOLVED" | "REOPEN") {
+    setError(null);
+    setPendingId(observationId);
+    try {
+      await post(`/api/documents/${documentId}/entity-closure`, { observationId, action });
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Entity review could not be saved");
+    } finally {
+      setPendingId(null);
+    }
+  }
+
+  const showEntities = section === "all" || section === "entities";
+  const showRelationships = section === "all" || section === "relationships";
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-6" data-document={documentName}>
+      {!embedded && (
       <div>
         <p className="text-[11px] font-medium uppercase tracking-wider text-zinc-400">Graph review</p>
         <h1 className="mt-1 text-lg font-semibold text-zinc-900">{documentName}</h1>
@@ -91,13 +118,15 @@ export function ResolutionReview({
         <div className="mt-3 flex flex-wrap gap-4 text-xs text-zinc-700">
           <p>
             <span className="font-medium">Entity resolution</span>
-            <span className="ml-2 text-zinc-500">{counts.unresolved} unresolved</span>
+            <span className="ml-2 text-zinc-500">{counts.unresolved} unreviewed</span>
             <span className="ml-2 text-zinc-500">{counts.resolved} resolved</span>
+            <span className="ml-2 text-zinc-500">{counts.leftUnresolved} left unresolved</span>
           </p>
           <p>
             <span className="font-medium">Relationship promotion</span>
             <span className="ml-2 text-zinc-500">{counts.ready} ready</span>
             <span className="ml-2 text-zinc-500">{counts.blocked} blocked</span>
+            <span className="ml-2 text-zinc-500">{counts.acknowledgedBlocked} acknowledged blocked</span>
             <span className="ml-2 text-zinc-500">{counts.approved} approved</span>
           </p>
         </div>
@@ -105,10 +134,12 @@ export function ResolutionReview({
           Deal knowledge
         </a>
       </div>
+      )}
       {error && <p className="text-xs text-red-700">{error}</p>}
 
-      <section className="space-y-3">
+      {showEntities && <section className="space-y-3">
         <h2 className="text-sm font-semibold text-zinc-900">Entity resolution</h2>
+        <p className="text-[11px] text-zinc-500">{counts.unresolved} unreviewed · {counts.resolved} resolved · {counts.leftUnresolved} left unresolved</p>
         {observations.length === 0 ? (
           <p className="rounded-sm border border-zinc-200 bg-white px-4 py-6 text-xs text-zinc-500">
             This document has no person, company, or property observations yet.
@@ -172,18 +203,6 @@ export function ResolutionReview({
                               >
                                 Reject
                               </button>
-                              <button
-                                type="button"
-                                className="h-7 rounded-sm px-2.5 text-[11px] font-medium text-zinc-500"
-                                onClick={() =>
-                                  setLeftUnresolved((current) => ({
-                                    ...current,
-                                    [observation.observationId]: true,
-                                  }))
-                                }
-                              >
-                                Leave unresolved
-                              </button>
                             </div>
                           </li>
                         ))}
@@ -239,18 +258,43 @@ export function ResolutionReview({
                       )}
                     </div>
                   )}
-                  {leftUnresolved[observation.observationId] && (
-                    <p className="mt-2 text-[11px] text-zinc-500">Left unresolved. No canonical record was created.</p>
+                  {observation.closure === "LEFT_UNRESOLVED" && (
+                    <p className="mt-3 text-[11px] text-zinc-600">
+                      Left unresolved. This observation stays available. No canonical record was created.
+                    </p>
                   )}
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {observation.closure === "UNREVIEWED" && (
+                      <button
+                        type="button"
+                        className="h-7 rounded-sm border border-zinc-200 px-2.5 text-[11px] font-medium text-zinc-700 disabled:opacity-50"
+                        disabled={pendingId !== null}
+                        onClick={() => closeEntity(observation.observationId, "LEAVE_UNRESOLVED")}
+                      >
+                        Leave unresolved
+                      </button>
+                    )}
+                    {observation.closure === "LEFT_UNRESOLVED" && (
+                      <button
+                        type="button"
+                        className="h-7 rounded-sm border border-zinc-200 px-2.5 text-[11px] font-medium text-zinc-700 disabled:opacity-50"
+                        disabled={pendingId !== null}
+                        onClick={() => closeEntity(observation.observationId, "REOPEN")}
+                      >
+                        Reopen
+                      </button>
+                    )}
+                  </div>
                 </div>
               </article>
             );
           })
         )}
-      </section>
+      </section>}
 
-      <section className="space-y-3">
+      {showRelationships && <section className="space-y-3">
         <h2 className="text-sm font-semibold text-zinc-900">Relationship promotion</h2>
+        <p className="text-[11px] text-zinc-500">{counts.ready} pending review · {counts.blocked} blocked · {counts.acknowledgedBlocked} acknowledged blocked · {counts.approved} approved</p>
         {relationships.length === 0 ? (
           <p className="rounded-sm border border-zinc-200 bg-white px-4 py-6 text-xs text-zinc-500">
             This document has no relationship observations yet.
@@ -269,7 +313,7 @@ export function ResolutionReview({
                 >
                   <span className="text-sm font-medium text-zinc-900">{relationship.headline}</span>
                   <span className="text-[10px] font-semibold uppercase tracking-wider text-zinc-400">
-                    {relationship.status.replaceAll("_", " ")}
+                    {relationshipStatusLabel(relationship.status)}
                   </span>
                 </button>
                 {open && (
@@ -293,7 +337,7 @@ export function ResolutionReview({
                       <ul className="mt-1 space-y-1 text-xs text-zinc-700">
                         {relationship.endpoints.map((endpoint) => (
                           <li key={endpoint.observationId}>
-                            {endpoint.role}: {endpoint.resolved ? endpoint.entityName : `${endpoint.surfaceForm} (unresolved)`}
+                            {endpoint.role}: {endpoint.resolved ? endpoint.entityName : endpoint.closure === "LEFT_UNRESOLVED" ? `${endpoint.surfaceForm} (left unresolved)` : `${endpoint.surfaceForm} (unresolved)`}
                           </li>
                         ))}
                       </ul>
@@ -319,6 +363,22 @@ export function ResolutionReview({
                         {conflict.message}
                       </p>
                     ))}
+                    {relationship.status === "BLOCKED_UNRESOLVED_ENTITY" && (
+                      <p className="text-[11px] font-medium text-amber-800">
+                        BLOCKED — unresolved endpoint
+                        {relationship.endpoints.some((endpoint) => endpoint.closure === "LEFT_UNRESOLVED")
+                          ? `. ${relationship.endpoints
+                              .filter((endpoint) => endpoint.closure === "LEFT_UNRESOLVED")
+                              .map((endpoint) => endpoint.surfaceForm)
+                              .join(", ")} left unresolved.`
+                          : ""}
+                      </p>
+                    )}
+                    {relationship.status === "ACKNOWLEDGED_BLOCKED" && (
+                      <p className="text-[11px] text-zinc-600">
+                        Acknowledged blocked. No canonical relationship was created.
+                      </p>
+                    )}
                     {relationship.blockReason && relationship.status !== "APPROVED" && (
                       <p className="text-[11px] text-zinc-600">{relationship.blockReason}</p>
                     )}
@@ -339,29 +399,36 @@ export function ResolutionReview({
                       >
                         Reject
                       </button>
-                      <button
-                        type="button"
-                        className="h-7 rounded-sm px-2.5 text-[11px] font-medium text-zinc-500"
-                        onClick={() =>
-                          setLeftPending((current) => ({
-                            ...current,
-                            [relationship.relationshipObservationId]: true,
-                          }))
-                        }
-                      >
-                        Leave pending
-                      </button>
+                      {relationship.status === "BLOCKED_UNRESOLVED_ENTITY" && (
+                        <button
+                          type="button"
+                          className="h-7 rounded-sm border border-zinc-200 px-2.5 text-[11px] font-medium text-zinc-700 disabled:opacity-50"
+                          disabled={pendingId !== null}
+                          onClick={() => reviewRelationship(relationship.relationshipObservationId, "acknowledge-blocked")}
+                        >
+                          Acknowledge blocked
+                        </button>
+                      )}
                     </div>
-                    {leftPending[relationship.relationshipObservationId] && (
-                      <p className="text-[11px] text-zinc-500">Left pending. No canonical assertion was written.</p>
-                    )}
                   </div>
                 )}
               </article>
             );
           })
         )}
-      </section>
+      </section>}
+      {embedded && (
+        <a className="inline-block text-[11px] text-zinc-600 underline" href={`/deals/${dealId}/knowledge`}>
+          Deal knowledge
+        </a>
+      )}
     </div>
   );
+}
+
+function relationshipStatusLabel(status: RelationshipPromotionPreview["status"]): string {
+  if (status === "BLOCKED_UNRESOLVED_ENTITY") return "BLOCKED";
+  if (status === "ACKNOWLEDGED_BLOCKED") return "ACKNOWLEDGED BLOCKED";
+  if (status === "PENDING") return "PENDING REVIEW";
+  return status;
 }

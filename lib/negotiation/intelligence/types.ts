@@ -140,9 +140,14 @@ export interface NegotiationDocumentView {
   ingestionStatus: string;
   pageCount: number | null;
   termCount: number;
-  sourceHref: string;
+  sourceHref: string | null;
   reviewHref: string;
   workspaceHref: string;
+  review: {
+    findingsReviewed: number;
+    findingsFollowUp: number;
+    findingsTotal: number;
+  } | null;
 }
 
 export interface NegotiationWorkspace {

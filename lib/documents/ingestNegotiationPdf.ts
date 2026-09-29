@@ -26,6 +26,7 @@ import { validatePdfUpload } from "@/lib/documents/validateUpload";
 import type { GraphModelExtractor } from "@/lib/ai/graph/extractModel";
 import { runDocumentGraphExtraction } from "@/lib/documents/runGraphExtraction";
 import { writeNegotiationRound } from "@/lib/negotiation/persistRound";
+import { recordDocumentMilestone } from "@/lib/review/milestones";
 
 export type NegotiationTermExtractor = (
   input: ExtractTermsInput
@@ -530,7 +531,15 @@ export async function analyzeNegotiationDocument(input: {
     return result(document, false);
   }
 
-  return result(await loadDocument(input.prisma, document.id), false);
+  const loaded = await loadDocument(input.prisma, document.id);
+  if (loaded.ingestionStatus === "COMPLETE") {
+    await recordDocumentMilestone(input.prisma, {
+      documentId: loaded.id,
+      kind: "ANALYZED",
+      dedupeKey: `analyzed:${loaded.id}`,
+    });
+  }
+  return result(loaded, false);
 }
 
 export async function ingestNegotiationPdf(

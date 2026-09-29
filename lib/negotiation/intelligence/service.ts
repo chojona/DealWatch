@@ -24,6 +24,9 @@ import {
   type TermWithPayload,
 } from "@/lib/negotiation/resolveStructuredState";
 import { TERM_CATALOG } from "@/lib/negotiation/termCatalog";
+import { negotiationReviewSummaries } from "@/lib/review/decisions";
+import { getDocumentStorage } from "@/lib/documents/storage";
+import { inspectSourceFile } from "@/lib/documents/sourceFile";
 import { formatLegacyTerm, formatNumericValue, formatStructuredPayload } from "./formatting";
 import { calculateWorkspaceMovement, observationFingerprint } from "./movement";
 import type {
@@ -612,8 +615,9 @@ function documents(
       pageCount: document.pageCount,
       termCount: termCountByDocument.get(document.id) ?? 0,
       sourceHref: `/api/documents/${document.id}/file`,
-      reviewHref: `/documents/${document.id}/resolution`,
+      reviewHref: `/documents/${document.id}/review`,
       workspaceHref: `/deals/${source.id}/negotiation${round ? `?round=${round.id}` : ""}`,
+      review: null,
     };
   });
 }
@@ -677,5 +681,27 @@ export async function getNegotiationWorkspace(
     where: { id: dealId },
     select: workspaceSelect,
   });
-  return deal ? buildNegotiationWorkspace(deal) : null;
+  if (!deal) return null;
+  const workspace = buildNegotiationWorkspace(deal);
+  const documentIds = deal.documents.map((document) => document.id);
+  const [summaries, storedKeys] = await Promise.all([
+    negotiationReviewSummaries(db, deal.negotiationRounds),
+    documentIds.length
+      ? db.document.findMany({ where: { id: { in: documentIds } }, select: { id: true, storageKey: true } })
+      : Promise.resolve([]),
+  ]);
+  const storage = getDocumentStorage();
+  const available = new Map(
+    await Promise.all(
+      storedKeys.map(async (document) => [document.id, await inspectSourceFile(storage, document.storageKey)] as const)
+    )
+  );
+  return {
+    ...workspace,
+    documents: workspace.documents.map((document) => ({
+      ...document,
+      sourceHref: available.get(document.id) === "AVAILABLE" ? document.sourceHref : null,
+      review: summaries.get(document.id) ?? { findingsReviewed: 0, findingsFollowUp: 0, findingsTotal: document.termCount },
+    })),
+  };
 }

@@ -1,5 +1,6 @@
 import { Prisma, type PrismaClient } from "@prisma/client";
 import { GraphInvariantError } from "@/lib/entities/errors";
+import { releaseEntityClosureOnResolve } from "@/lib/review/closure";
 import {
   normalizeDomain,
   normalizeEmail,
@@ -531,6 +532,7 @@ export async function acceptResolutionCandidate(
         resolutionLinkId,
       },
     });
+    await releaseEntityClosureOnResolve(tx, candidate.entityObservationId);
     await tx.entityResolutionCandidate.updateMany({
       where: {
         entityObservationId: candidate.entityObservationId,

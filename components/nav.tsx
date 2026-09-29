@@ -3,6 +3,7 @@ import { cn } from "@/lib/utils";
 import { GlobalSearch } from "@/components/global-search";
 
 const navLinks = [
+  { href: "/inbox", label: "Inbox" },
   { href: "/dashboard", label: "Dashboard" },
   { href: "/analyze", label: "Analyze Thread" },
 ];

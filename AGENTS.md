@@ -20,6 +20,29 @@ This section is an explicit standing request. For every task that changes files,
 
 One task is one branch and one pull request. Questions and reviews that do not change files skip this sequence. Do not force-push. Do not skip git hooks. GitHub deletes the branch when the pull request is merged.
 
+# Git worktree workflow
+
+This section is an explicit standing request. File-changing work runs in a linked git worktree so the checkout you started from stays untouched.
+
+1. Detect isolation before creating anything. Resolve `git rev-parse --git-dir` and `git rev-parse --git-common-dir`. If those paths differ, and `git rev-parse --show-superproject-working-tree` is empty, this directory is already a linked worktree. Stay in it. Do not create a second worktree for the same task.
+2. When the directory is the primary checkout, fetch `origin/main` and add a worktree from `origin/main` before the first edit. Do this when the checkout is on another branch or has uncommitted work. Leave that checkout's files alone.
+3. Place the worktree outside the repository at `/private/tmp/dealwatch-<task-slug>`. Do not put it in `.worktrees/` or `worktrees/` inside the repo unless that directory is already gitignored. An unignored worktree path can be committed by accident.
+4. Create the task branch with the worktree:
+
+   ```bash
+   git fetch origin main
+   git worktree add -b <branch> /private/tmp/dealwatch-<task-slug> origin/main
+   ```
+
+   The worktree is already on the task branch. Do not create a second branch for the same task.
+5. One task is one worktree, one branch, and one pull request. Do not reuse a worktree or branch for a second task.
+6. Install dependencies in the new worktree with `npm ci` before running the app or tests. `node_modules` is not shared with the primary checkout. Copy or create `.env` in the worktree when the task needs the local database (`DATABASE_URL="file:./dev.db"`, resolved to `prisma/dev.db`).
+7. Move the agent workspace to the worktree path before editing. If that move fetches `origin/<branch>`, push the new branch once before the move.
+8. Do the work only inside the worktree, then follow the session workflow: commit, push, and open a pull request. Do not force-push. Do not skip git hooks.
+9. Leave the worktree in place until the pull request is merged. Remove it afterward with `git worktree remove /private/tmp/dealwatch-<task-slug>`.
+
+Questions and reviews that do not change files stay in the current checkout and skip this sequence.
+
 # Track bugs in Linear
 
 This section is an explicit standing request. When you encounter a bug, error, or unexpected problem, create a Linear issue on the DealWatch team before moving on. Do not ask for confirmation.

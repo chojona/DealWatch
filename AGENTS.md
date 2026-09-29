@@ -35,6 +35,14 @@ Each issue includes:
 
 File the issue even when you fix the problem in the same change, and mention the fix or pull request on the issue. Skip this only when no defect occurred.
 
+When work for a DealWatch Linear issue is finished, update that issue's status. The Linear tools can change status: pass `state` as `In Progress` or `Done` when updating the issue. Do not ask for confirmation.
+
+- Set the issue to In Progress when you start the fix.
+- Set the issue to Done when the fix is merged, or when the requested change is otherwise complete.
+- Mention the pull request on the issue when one exists.
+
+Do not leave a completed issue in Backlog, Todo, or In Progress.
+
 ## Cursor Cloud specific instructions
 
 Dealwatch is a Next.js app backed by a local SQLite database through Prisma. Node.js 22 and the `sqlite3` CLI are required. `scripts/prepare-phase6b-workspace.ts` shells out to `sqlite3` during `npm run db:push`.

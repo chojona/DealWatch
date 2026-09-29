@@ -24,7 +24,9 @@ export default defineConfig({
     ...devices["Desktop Chrome"],
   },
   webServer: {
-    command: `npx next dev --hostname 127.0.0.1 --port ${E2E_PORT}`,
+    // Playwright waits for this URL before globalSetup. Push the schema here so a
+    // fresh database exists before the first /dashboard request.
+    command: `npx prisma db push --skip-generate --accept-data-loss && npx next dev --hostname 127.0.0.1 --port ${E2E_PORT}`,
     url: `${baseURL}/dashboard`,
     timeout: 180_000,
     reuseExistingServer: false,

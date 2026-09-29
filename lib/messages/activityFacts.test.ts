@@ -106,6 +106,7 @@ describe("structured message activity", () => {
     assert.equal(view?.facts.find((fact) => fact.canonicalType === "FREE_RENT")?.value, "5 months");
     assert.equal(view?.facts.find((fact) => fact.canonicalType === "LEASE_TERM")?.value, "10 years");
     const rent = view?.facts.find((fact) => fact.canonicalType === "BASE_RENT" && fact.assertionStatus === "PROPOSED");
+    assert.equal(rent?.extractionMethod, "DETERMINISTIC");
     assert.equal(rent?.provenanceStatus, "EXACT");
     assert.equal(view?.bodyText.slice(rent!.evidenceStartOffset!, rent!.evidenceEndOffset!), rent?.evidenceQuote);
   });
@@ -405,6 +406,27 @@ describe("structured message activity", () => {
     });
     const viewed = await getMessageSource(prisma, message.id);
     assert.equal(viewed?.facts[0]?.side, "TENANT");
+  });
+
+  test("message fact view keeps the stored extraction method", async () => {
+    const deal = await createTestDeal(prisma);
+    const message = await ingestSourceMessage(prisma, {
+      dealId: deal.id,
+      bodyText: "Landlord proposes $72.00/RSF/year.",
+      sourceType: "MANUAL",
+      subject: "Revised rent",
+    });
+    await analyzeSourceMessage(prisma, message.id);
+    const deterministic = await getMessageSource(prisma, message.id);
+    const rent = deterministic?.facts.find((fact) => fact.canonicalType === "BASE_RENT");
+    assert.equal(rent?.value, "$72.00 / RSF / year");
+    assert.equal(rent?.extractionMethod, "DETERMINISTIC");
+    await prisma.activityFact.update({
+      where: { id: rent!.id },
+      data: { extractionMethod: "MODEL" },
+    });
+    const modeled = await getMessageSource(prisma, message.id);
+    assert.equal(modeled?.facts.find((fact) => fact.id === rent!.id)?.extractionMethod, "MODEL");
   });
 
   test("after", async () => {

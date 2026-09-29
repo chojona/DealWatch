@@ -25,17 +25,24 @@ import type {
   DocumentCompletionSummary,
   InboxFilter,
   InboxItem,
+  InboxMessageItem,
   InboxPageModel,
+  InboxSourceItem,
   NegotiationConflictView,
   NegotiationFinding,
   ProvenanceStatus,
 } from "./types";
+import { INBOX_MESSAGE_LIMIT } from "./types";
 import { factsFromLatestRun } from "@/lib/messages/latestRun";
 import { deriveMessageLifecycle } from "@/lib/messages/state";
 import {
   canRetryDocument,
   deriveInboxStatus,
   matchesInboxFilter,
+  matchesMessageInboxFilter,
+  messageAnalysisLabel,
+  messageNextAction,
+  messageReviewLabel,
   nextActionFor,
   reviewProgress,
   reviewReasonsFor,
@@ -797,7 +804,7 @@ export async function getInbox(
     includeMessages?: boolean;
   }
 ): Promise<InboxPageModel> {
-  const [documents, messages] = await Promise.all([prisma.document.findMany({
+  const [documents, loadedMessages] = await Promise.all([prisma.document.findMany({
     where: {
       deal: { workspaceId: input.workspaceId },
       ...(input.scopeDealId ? { dealId: input.scopeDealId } : {}),
@@ -806,7 +813,9 @@ export async function getInbox(
     include: documentInclude,
   }), input.includeMessages === false ? Promise.resolve([]) : prisma.sourceMessage.findMany({
     where: { workspaceId: input.workspaceId, ...(input.scopeDealId ? { dealId: input.scopeDealId } : {}) },
-    take: 200,
+    // Import-time window, then review/source filters. One extra row detects truncation.
+    // Documents are not capped. Display order is the source timestamp, not this key.
+    take: INBOX_MESSAGE_LIMIT + 1,
     orderBy: [{ createdAt: "desc" }, { id: "desc" }],
     include: {
       deal: { select: { id: true, name: true, company: true, property: true, propertyId: true, stage: true, status: true, estimatedValue: true } },
@@ -820,6 +829,8 @@ export async function getInbox(
       },
     },
   })]);
+  const messageWindowTruncated = input.includeMessages !== false && loadedMessages.length > INBOX_MESSAGE_LIMIT;
+  const messages = messageWindowTruncated ? loadedMessages.slice(0, INBOX_MESSAGE_LIMIT) : loadedMessages;
   const dealIds = [...new Set(documents.map((document) => document.dealId))];
   const documentIds = documents.map((document) => document.id);
   const [rounds, observations, decisions, corrections, sourceStates] = await Promise.all([
@@ -848,13 +859,6 @@ export async function getInbox(
       sourceFileState: sourceStates.get(document.id) ?? "MISSING",
     }).item
   );
-  const counts: InboxPageModel["counts"] = {
-    ALL: built.length,
-    NEEDS_REVIEW: built.filter((item) => item.requiresReview).length,
-    PROCESSING: built.filter((item) => matchesInboxFilter(item.processingStatus, item.requiresReview, "PROCESSING")).length,
-    COMPLETE: built.filter((item) => item.processingStatus === "REVIEWED").length,
-    FAILED: built.filter((item) => item.processingStatus === "FAILED").length,
-  };
   const facets = {
     deals: [...new Map([
       ...built.map((item) => [item.deal.id, { id: item.deal.id, name: item.deal.name }] as const),
@@ -864,11 +868,10 @@ export async function getInbox(
     sides: [...new Set(built.map((item) => item.document.negotiationSide).filter((side): side is string => Boolean(side)))].sort(),
   };
   const needle = input.q?.trim().toLowerCase() ?? "";
-  const items = built.filter((item) => {
-    if (!matchesInboxFilter(item.processingStatus, item.requiresReview, input.filter ?? "ALL")) return false;
+  const filter = input.filter ?? "ALL";
+  const activeSource = input.source ?? "ALL";
+  const candidateDocuments = built.filter((item) => {
     if (input.dealId && item.deal.id !== input.dealId) return false;
-    if (input.documentType && item.document.documentType !== input.documentType) return false;
-    if (input.negotiationSide && item.document.negotiationSide !== input.negotiationSide) return false;
     if (!needle) return true;
     const haystack = [
       item.document.originalFilename,
@@ -876,62 +879,121 @@ export async function getInbox(
       item.deal.name,
       item.deal.company,
       item.deal.property,
-    ]
-      .join("\n")
-      .toLowerCase();
+    ].join("\n").toLowerCase();
     return haystack.includes(needle);
   });
-  const messageItems = messages.map((message) => {
-    const facts = factsFromLatestRun(message.facts);
-    const lifecycle = deriveMessageLifecycle({
-      runs: message.extractionRuns,
-      decisions: message.reviewDecisions,
-      currentFactIds: facts.map((fact) => fact.id),
-      facts,
-    });
-    return {
-      id: message.id,
-      subject: message.subject || "Email",
-      sender: message.senderName || message.senderAddress || "Unknown sender",
-      occurredAt: (message.sentAt ?? message.receivedAt ?? message.createdAt).toISOString(),
-      sourceType: message.sourceType,
-      ...lifecycle,
-      factCount: facts.length,
-      failureReason: lifecycle.failureReason,
-      deal: message.deal,
-      href: `/messages/${message.id}`,
-    };
-  }).filter((message) => {
+  const projectedMessages = messages.map((message) => projectInboxMessage(message));
+  const candidateMessages = projectedMessages.filter((message) => {
     if (input.dealId && message.deal.id !== input.dealId) return false;
-    if (needle && ![message.subject, message.sender, message.deal.name, message.deal.company, message.deal.property].join("\n").toLowerCase().includes(needle)) return false;
-    const filter = input.filter ?? "ALL";
-    if (filter === "NEEDS_REVIEW") return !message.evidenceSettled;
-    if (filter === "PROCESSING") return message.analysisState === "ANALYZING";
-    if (filter === "COMPLETE") return message.evidenceSettled;
-    if (filter === "FAILED") return message.analysisState === "ANALYSIS_FAILED";
+    if (!needle) return true;
+    const haystack = [message.subject, message.sender, message.deal.name, message.deal.company, message.deal.property].join("\n").toLowerCase();
+    return haystack.includes(needle);
+  });
+  const includeDocuments = activeSource !== "MESSAGES";
+  const includeMessagesInCounts = activeSource !== "DOCUMENTS";
+  const countStatus = (statusFilter: InboxFilter) => {
+    const documentCount = includeDocuments
+      ? candidateDocuments.filter((item) => matchesInboxFilter(item.processingStatus, item.requiresReview, statusFilter)).length
+      : 0;
+    const messageCount = includeMessagesInCounts
+      ? candidateMessages.filter((item) => matchesMessageInboxFilter(item, statusFilter)).length
+      : 0;
+    return documentCount + messageCount;
+  };
+  const counts: InboxPageModel["counts"] = {
+    ALL: countStatus("ALL"),
+    NEEDS_REVIEW: countStatus("NEEDS_REVIEW"),
+    PROCESSING: countStatus("PROCESSING"),
+    COMPLETE: countStatus("COMPLETE"),
+    FAILED: countStatus("FAILED"),
+  };
+  const items = candidateDocuments.filter((item) => {
+    if (!matchesInboxFilter(item.processingStatus, item.requiresReview, filter)) return false;
+    if (input.documentType && item.document.documentType !== input.documentType) return false;
+    if (input.negotiationSide && item.document.negotiationSide !== input.negotiationSide) return false;
     return true;
   });
-  const allSources = [
-    ...items.map((document) => ({ kind: "DOCUMENT" as const, occurredAt: document.documentDate ?? document.uploadedAt, document })),
-    ...messageItems.map((message) => ({ kind: "MESSAGE" as const, occurredAt: message.occurredAt, message })),
-  ].filter((item) => input.source === "DOCUMENTS" ? item.kind === "DOCUMENT" : input.source === "MESSAGES" ? item.kind === "MESSAGE" : true)
-    .sort((left, right) => right.occurredAt.localeCompare(left.occurredAt));
-  const allMessageStates = messages.map((message) => {
-    const facts = factsFromLatestRun(message.facts);
-    return deriveMessageLifecycle({
-      runs: message.extractionRuns,
-      decisions: message.reviewDecisions,
-      currentFactIds: facts.map((fact) => fact.id),
-      facts,
-    });
+  const visibleMessages = candidateMessages.filter((message) => matchesMessageInboxFilter(message, filter));
+  const sourceItems = [
+    ...(includeDocuments ? items.map((document) => ({ kind: "DOCUMENT" as const, occurredAt: document.documentDate ?? document.uploadedAt, document })) : []),
+    ...(includeMessagesInCounts ? visibleMessages.map((message) => ({ kind: "MESSAGE" as const, occurredAt: message.occurredAt, message })) : []),
+  ].sort(compareInboxSources);
+  const sourceCounts = {
+    ALL: candidateDocuments.length + candidateMessages.length,
+    DOCUMENTS: candidateDocuments.length,
+    MESSAGES: candidateMessages.length,
+  };
+  return {
+    workspaceId: input.workspaceId,
+    items,
+    sourceItems,
+    facets,
+    counts,
+    sourceCounts,
+    messageWindow: {
+      limit: INBOX_MESSAGE_LIMIT,
+      loaded: messages.length,
+      truncated: messageWindowTruncated,
+    },
+  };
+}
+
+export function compareInboxSources(left: InboxSourceItem, right: InboxSourceItem): number {
+  const byTime = right.occurredAt.localeCompare(left.occurredAt);
+  if (byTime !== 0) return byTime;
+  const leftId = left.kind === "DOCUMENT" ? left.document.document.id : left.message.id;
+  const rightId = right.kind === "DOCUMENT" ? right.document.document.id : right.message.id;
+  return rightId.localeCompare(leftId);
+}
+
+function projectInboxMessage(message: {
+  id: string;
+  subject: string | null;
+  senderName: string | null;
+  senderAddress: string | null;
+  sourceType: string;
+  sentAt: Date | null;
+  receivedAt: Date | null;
+  createdAt: Date;
+  deal: InboxItem["deal"];
+  extractionRuns: Parameters<typeof deriveMessageLifecycle>[0]["runs"];
+  reviewDecisions: Parameters<typeof deriveMessageLifecycle>[0]["decisions"];
+  facts: Array<{
+    id: string;
+    structuredPayload: unknown;
+    reviews?: Array<{ id: string }>;
+    activityExtractionRun: {
+      id: string;
+      status: string;
+      completedAt: Date | null;
+      createdAt: Date;
+    } | null;
+  }>;
+}): InboxMessageItem {
+  const facts = factsFromLatestRun(message.facts);
+  const lifecycle = deriveMessageLifecycle({
+    runs: message.extractionRuns,
+    decisions: message.reviewDecisions,
+    currentFactIds: facts.map((fact) => fact.id),
+    facts,
   });
-  counts.ALL += messages.length;
-  counts.NEEDS_REVIEW += allMessageStates.filter((state) => !state.evidenceSettled).length;
-  counts.PROCESSING += allMessageStates.filter((state) => state.analysisState === "ANALYZING").length;
-  counts.COMPLETE += allMessageStates.filter((state) => state.evidenceSettled).length;
-  counts.FAILED += allMessageStates.filter((state) => state.analysisState === "ANALYSIS_FAILED").length;
-  const sourceCounts = { ALL: built.length + messages.length, DOCUMENTS: built.length, MESSAGES: messages.length };
-  return { workspaceId: input.workspaceId, items, sourceItems: allSources, facets, counts, sourceCounts };
+  const href = `/messages/${message.id}`;
+  return {
+    id: message.id,
+    subject: message.subject || "Email",
+    sender: message.senderName || message.senderAddress || "Unknown sender",
+    occurredAt: (message.sentAt ?? message.receivedAt ?? message.createdAt).toISOString(),
+    sourceType: message.sourceType,
+    ...lifecycle,
+    factCount: facts.length,
+    failureReason: lifecycle.failureReason,
+    analysisLabel: messageAnalysisLabel(lifecycle.analysisState),
+    reviewLabel: messageReviewLabel(lifecycle.reviewState),
+    importedAt: message.createdAt.toISOString(),
+    deal: message.deal,
+    href,
+    nextAction: messageNextAction({ ...lifecycle, href }),
+  };
 }
 
 function evidenceFor(

@@ -321,7 +321,7 @@ export async function getDealBrief(
     getInbox(db, {
       workspaceId: scopedDeal.workspaceId,
       scopeDealId: scopedDeal.id,
-      includeMessages: false,
+      includeMessages: true,
     }),
     db.sourceMessage.findMany({
       where: communicationWhere(scopedDeal),
@@ -531,21 +531,23 @@ export async function getDealBrief(
   // attention and are not presented as negotiation issues.
   const productAttention: DealBriefAttentionItem[] = [];
   const systemAttention: DealBriefAttentionItem[] = [];
+  for (const source of inbox.sourceItems) {
+    if (source.kind !== "MESSAGE" || source.message.analysisState !== "ANALYSIS_FAILED") continue;
+    systemAttention.push({
+      id: `message-failed:${source.message.id}`,
+      type: "MESSAGE_ANALYSIS_FAILED",
+      sourceId: source.message.id,
+      sourceKind: "COMMUNICATION_EVIDENCE",
+      label: "Message analysis failed",
+      description: source.message.failureReason ?? source.message.subject,
+      href: source.message.href,
+      timestamp: source.message.importedAt,
+      category: "SYSTEM_REVIEW",
+      priority: 5,
+    });
+  }
   for (const communication of allCommunications) {
-    if (communication.analysisState === "ANALYSIS_FAILED") {
-      systemAttention.push({
-        id: `message-failed:${communication.id}`,
-        type: "MESSAGE_ANALYSIS_FAILED",
-        sourceId: communication.id,
-        sourceKind: "COMMUNICATION_EVIDENCE",
-        label: "Message analysis failed",
-        description: communication.failureReason ?? communication.subject,
-        href: communication.source.href!,
-        timestamp: communication.importedAt,
-        category: "SYSTEM_REVIEW",
-        priority: 5,
-      });
-    } else if (communication.reviewState === "NEEDS_FOLLOW_UP") {
+    if (communication.reviewState === "NEEDS_FOLLOW_UP") {
       productAttention.push({
         id: `message-follow-up:${communication.id}`,
         type: "MESSAGE_FOLLOW_UP",

@@ -7,6 +7,9 @@ export const dynamic = "force-dynamic";
 
 export async function GET(request: NextRequest) {
   try {
+    if (request.nextUrl.searchParams.has("workspaceId")) {
+      return NextResponse.json({ error: "workspaceId is server-controlled" }, { status: 400 });
+    }
     const { q } = parseDealSearchRequest(request.nextUrl.searchParams);
     const result = await searchDeals(prisma, { q });
     return NextResponse.json(result);

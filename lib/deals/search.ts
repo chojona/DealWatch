@@ -93,6 +93,9 @@ export async function searchDeals(
     return { workspaceId: null, query, results: [], truncated: false };
   }
 
+  // name, company, and property are unindexed. The workspaceId index bounds the
+  // scan to one firm. A leading-wildcard match would not use a btree index on
+  // those text columns, so no extra index is added for the current dataset.
   const rows = await db.deal.findMany({
     where: {
       workspaceId,

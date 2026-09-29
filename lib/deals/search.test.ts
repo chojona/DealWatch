@@ -209,5 +209,7 @@ describe("deal search", () => {
     assert.equal(service.includes("getDealBrief"), false);
     assert.equal(service.includes("searchCanonicalEntities"), false);
     assert.equal(route.includes("searchCanonicalEntities"), false);
+    assert.equal(page.includes("getDealBrief"), false);
+    assert.equal(page.includes("formalReview"), false);
   });
 });

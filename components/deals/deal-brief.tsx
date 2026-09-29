@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { SourceLink } from "@/components/ui/source-link";
 import { ActionEvidenceReview } from "@/components/deals/action-evidence-review";
 import type { ActionEvidenceReviewItem } from "@/lib/deals/actions/evidenceReviewView";
 import type { DealActionState, DealCourt } from "@/lib/deals/actions/types";
@@ -57,11 +58,6 @@ function SourcePill({ kind }: { kind: DealBriefSourceKind }) {
       {sourceLabel(kind)}
     </span>
   );
-}
-
-function SourceLink({ href, label = "View evidence" }: { href: string | null; label?: string }) {
-  if (!href) return <span className="text-[11px] text-zinc-400">Source link unavailable</span>;
-  return <Link href={href} className="text-[11px] font-medium text-zinc-700 underline decoration-zinc-300 underline-offset-2">{label}</Link>;
 }
 
 function Section({ title, eyebrow, children, className = "" }: {

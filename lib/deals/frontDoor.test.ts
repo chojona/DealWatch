@@ -193,7 +193,7 @@ describe("front door", () => {
     assert.equal(dashboard.includes("obligation"), false);
     assert.equal(dashboard.includes("dealEvent"), false);
     assert.match(dashboard, /getModernDashboard/);
-    assert.match(header, /href=\{`\/deals\/\$\{dealId\}#actions`\}/);
+    assert.match(header, /\/deals\/\$\{dealId\}#actions/);
     assert.match(header, /Documents/);
     assert.match(header, /Messages/);
     assert.match(header, /Negotiation/);

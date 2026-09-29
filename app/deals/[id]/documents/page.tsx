@@ -1,5 +1,4 @@
 import { notFound } from "next/navigation";
-import { Nav } from "@/components/nav";
 import { DealHeader } from "@/components/deals/deal-header";
 import { InboxView } from "@/components/inbox/inbox-view";
 import { UploadNegotiationDocument } from "@/components/negotiation/upload-document-form";
@@ -51,7 +50,6 @@ export default async function DealDocumentsPage({
 
   return (
     <div className="min-h-screen">
-      <Nav />
       <DealHeader
         dealId={deal.id}
         activeSection="documents"
@@ -64,7 +62,7 @@ export default async function DealDocumentsPage({
         estimatedValue={deal.estimatedValue}
         createdAt={deal.createdAt}
       />
-      <main className="mx-auto max-w-5xl px-6 py-6">
+      <main className="page-frame">
         <div className="mb-4">
           <UploadNegotiationDocument dealId={deal.id} surface="documents" />
         </div>

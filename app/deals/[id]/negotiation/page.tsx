@@ -1,6 +1,5 @@
 import { notFound } from "next/navigation";
 import { DealHeader } from "@/components/deals/deal-header";
-import { Nav } from "@/components/nav";
 import { AddRoundForm } from "@/components/negotiation/add-round-form";
 import { NegotiationWorkspaceView } from "@/components/negotiation/negotiation-workspace";
 import { UploadNegotiationDocument } from "@/components/negotiation/upload-document-form";
@@ -27,7 +26,6 @@ export default async function NegotiationPage({
 
   return (
     <div className="min-h-screen">
-      <Nav />
       <DealHeader
         dealId={workspace.deal.id}
         activeSection="negotiation"

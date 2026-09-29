@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Badge } from "@/components/ui/badge";
+import { Status } from "@/components/ui/status";
 import { formatCurrency, formatDate } from "@/lib/formatters";
 
 interface DealHeaderProps {
@@ -16,16 +16,6 @@ interface DealHeaderProps {
   createdAt: Date;
 }
 
-const stageColors: Record<string, string> = {
-  Prospect: "border-zinc-200 bg-zinc-50 text-zinc-600",
-  "Market Survey": "border-blue-200 bg-blue-50 text-blue-700",
-  Tour: "border-blue-200 bg-blue-50 text-blue-700",
-  LOI: "border-purple-200 bg-purple-50 text-purple-700",
-  Negotiation: "border-amber-200 bg-amber-50 text-amber-700",
-  "Lease Execution": "border-green-200 bg-green-50 text-green-700",
-  Closed: "border-green-200 bg-green-50 text-green-700",
-};
-
 export function DealHeader({
   dealId,
   activeSection = "overview",
@@ -39,105 +29,75 @@ export function DealHeader({
   estimatedValue,
   createdAt,
 }: DealHeaderProps) {
-  const stageClass =
-    stageColors[stage] ?? "border-zinc-200 bg-zinc-50 text-zinc-600";
-
   return (
-    <div className="border-b border-zinc-200 bg-white">
-      <div className="mx-auto max-w-7xl px-6 py-4">
-        <div className="flex items-start justify-between">
-          <div className="flex flex-col gap-1">
-            <div className="flex items-center gap-2 text-xs text-zinc-400">
-              <Link href="/deals" className="hover:text-zinc-600">
+    <div className="border-b border-line bg-surface">
+      <div className="page-gutter py-6">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 text-xs font-medium text-ink-muted">
+              <Link href="/deals" className="hover:text-ink">
                 Deals
               </Link>
-              <span>/</span>
-              <span className="text-zinc-600">{company}</span>
+              <span aria-hidden="true">/</span>
+              <span className="truncate text-ink-secondary">{company || "Deal"}</span>
             </div>
-            <h1 className="text-xl font-semibold text-zinc-900">{name}</h1>
-            {company ? <p className="text-sm text-zinc-600">{company}</p> : null}
+            <h1 className="page-title mt-2">{name}</h1>
+            {company ? <p className="mt-1 text-sm text-ink-secondary">{company}</p> : null}
             {property ? (
-              <div className="flex items-center gap-2 mt-0.5">
-                {propertyHref ? <Link href={propertyHref} className="text-sm text-zinc-500 underline decoration-zinc-300 underline-offset-2 hover:text-zinc-800">{property}</Link> : <span className="text-sm text-zinc-500">{property}</span>}
+              <div className="mt-1">
+                {propertyHref ? (
+                  <Link href={propertyHref} className="text-sm text-ink-secondary underline decoration-line underline-offset-2 hover:text-ink">
+                    {property}
+                  </Link>
+                ) : (
+                  <span className="text-sm text-ink-secondary">{property}</span>
+                )}
               </div>
             ) : null}
           </div>
-          <div className="flex flex-col items-end gap-1.5">
-            <div className="flex items-center gap-2">
-              <span
-                className={`inline-flex items-center rounded-sm border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider ${stageClass}`}
-              >
-                {stage}
-              </span>
-              {intelligenceStatus ? (
-                <Badge variant="default">{intelligenceStatus}</Badge>
-              ) : null}
-              <Badge variant={status === "ACTIVE" ? "default" : "secondary"}>
-                {intelligenceStatus ? `Record ${status}` : status}
-              </Badge>
+          <div className="flex flex-col items-start gap-2 sm:items-end">
+            <div className="flex flex-wrap items-center gap-2">
+              <Status tone={stage === "Closed" ? "success" : "neutral"}>{stage}</Status>
+              {intelligenceStatus ? <Status tone="neutral">{intelligenceStatus}</Status> : null}
+              <Status tone="neutral">{intelligenceStatus ? `Record ${status}` : status}</Status>
             </div>
-            {estimatedValue && (
-              <span className="text-sm font-medium text-zinc-500 tabular-nums">
+            {estimatedValue ? (
+              <span className="text-lg font-semibold tabular-nums text-ink">
                 {formatCurrency(estimatedValue)}
               </span>
-            )}
-            <span className="text-[10px] text-zinc-400">
-              Since {formatDate(createdAt)}
-            </span>
+            ) : null}
+            <span className="text-xs font-medium text-ink-muted">Since {formatDate(createdAt)}</span>
           </div>
         </div>
-        {dealId && (
-          <nav className="mt-4 -mb-4 flex gap-4 overflow-x-auto border-t border-zinc-100 pt-3 [&_a]:shrink-0 [&_a]:whitespace-nowrap" aria-label="Deal">
-            <Link
-              href={`/deals/${dealId}`}
-              className={`border-b-2 pb-2.5 text-xs font-medium ${activeSection === "overview" ? "border-zinc-900 text-zinc-900" : "border-transparent text-zinc-400 hover:text-zinc-700"}`}
-            >
-              Overview
-            </Link>
-            <Link
-              href={`/deals/${dealId}/documents`}
-              className={`border-b-2 pb-2.5 text-xs font-medium ${activeSection === "documents" ? "border-zinc-900 text-zinc-900" : "border-transparent text-zinc-400 hover:text-zinc-700"}`}
-            >
-              Documents
-            </Link>
-            <Link
-              href={`/deals/${dealId}/messages`}
-              className={`border-b-2 pb-2.5 text-xs font-medium ${activeSection === "messages" ? "border-zinc-900 text-zinc-900" : "border-transparent text-zinc-400 hover:text-zinc-700"}`}
-            >
-              Messages
-            </Link>
-            <Link
-              href={`/deals/${dealId}#actions`}
-              className={`border-b-2 pb-2.5 text-xs font-medium ${activeSection === "actions" ? "border-zinc-900 text-zinc-900" : "border-transparent text-zinc-400 hover:text-zinc-700"}`}
-            >
-              Actions
-            </Link>
-            <Link
-              href={`/deals/${dealId}/negotiation`}
-              className={`border-b-2 pb-2.5 text-xs font-medium ${activeSection === "negotiation" ? "border-zinc-900 text-zinc-900" : "border-transparent text-zinc-400 hover:text-zinc-700"}`}
-            >
-              Negotiation
-            </Link>
-            <Link
-              href={`/deals/${dealId}/knowledge`}
-              className={`border-b-2 pb-2.5 text-xs font-medium ${activeSection === "knowledge" ? "border-zinc-900 text-zinc-900" : "border-transparent text-zinc-400 hover:text-zinc-700"}`}
-            >
-              Knowledge
-            </Link>
-            <Link
-              href={`/deals/${dealId}/connections`}
-              className={`border-b-2 pb-2.5 text-xs font-medium ${activeSection === "connections" ? "border-zinc-900 text-zinc-900" : "border-transparent text-zinc-400 hover:text-zinc-700"}`}
-            >
-              Connections
-            </Link>
-            <Link
-              href={`/deals/${dealId}/activity`}
-              className={`border-b-2 pb-2.5 text-xs font-medium ${activeSection === "activity" ? "border-zinc-900 text-zinc-900" : "border-transparent text-zinc-400 hover:text-zinc-700"}`}
-            >
-              Activity
-            </Link>
+        {dealId ? (
+          <nav aria-label="Deal" className="-mb-6 mt-6 flex gap-5 overflow-x-auto">
+            {(
+              [
+                ["overview", "Overview", `/deals/${dealId}`],
+                ["documents", "Documents", `/deals/${dealId}/documents`],
+                ["messages", "Messages", `/deals/${dealId}/messages`],
+                ["actions", "Actions", `/deals/${dealId}#actions`],
+                ["negotiation", "Negotiation", `/deals/${dealId}/negotiation`],
+                ["knowledge", "Knowledge", `/deals/${dealId}/knowledge`],
+                ["connections", "Connections", `/deals/${dealId}/connections`],
+                ["activity", "Activity", `/deals/${dealId}/activity`],
+              ] as const
+            ).map(([id, label, href]) => (
+              <Link
+                key={id}
+                href={href}
+                aria-current={activeSection === id ? "page" : undefined}
+                className={`shrink-0 border-b-2 pb-3 text-sm font-medium ${
+                  activeSection === id
+                    ? "border-brand text-ink"
+                    : "border-transparent text-ink-secondary hover:text-ink"
+                }`}
+              >
+                {label}
+              </Link>
+            ))}
           </nav>
-        )}
+        ) : null}
       </div>
     </div>
   );

@@ -60,16 +60,18 @@ export function DealSearch({ children }: { children: ReactNode }) {
 
   return (
     <div>
-      <label htmlFor="deal-search" className="sr-only">Search deals</label>
-      <input
-        id="deal-search"
-        type="search"
-        value={query}
-        placeholder="Search deals..."
-        autoComplete="off"
-        onChange={(event) => setQuery(event.target.value)}
-        className="mb-4 h-9 w-full max-w-md rounded-sm border border-zinc-300 bg-white px-3 text-sm text-zinc-900 outline-none placeholder:text-zinc-400 focus:border-zinc-500"
-      />
+      <label htmlFor="deal-search" className="field-label mb-4 block max-w-md">
+        Search deals
+        <input
+          id="deal-search"
+          type="search"
+          value={query}
+          placeholder="Name, company, or property"
+          autoComplete="off"
+          onChange={(event) => setQuery(event.target.value)}
+          className="field mt-1"
+        />
+      </label>
       {active ? (
         <div aria-live="polite">
           {loading && <p className="text-xs text-zinc-500">Searching deals…</p>}

@@ -1,5 +1,4 @@
 import { notFound } from "next/navigation";
-import { Nav } from "@/components/nav";
 import { MessageSourceView } from "@/components/messages/message-source-view";
 import { getActionEvidenceReview } from "@/lib/deals/actions/evidenceReview";
 import { prisma } from "@/lib/db";
@@ -17,8 +16,7 @@ export default async function MessagePage({ params }: { params: Promise<{ id: st
   const actionEvidence = queue?.items.filter((item) => item.messageId === message.id) ?? [];
   return (
     <div className="min-h-screen">
-      <Nav />
-      <main className="mx-auto max-w-3xl px-6 py-8">
+      <main className="page-frame page-reading">
         <MessageSourceView message={message} actionEvidence={actionEvidence} />
       </main>
     </div>

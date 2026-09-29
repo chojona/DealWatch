@@ -3,6 +3,7 @@
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
+import { ErrorState } from "@/components/ui/error-state";
 
 const STAGES = [
   "Prospect",
@@ -57,35 +58,31 @@ export function CreateDealForm() {
     }
   }
 
-  const field = "mt-1 h-8 w-full rounded-sm border border-zinc-200 bg-white px-2 text-xs text-zinc-900 outline-none focus:border-zinc-400";
-
   return (
-    <form onSubmit={submit} className="space-y-4 rounded-sm border border-zinc-200 bg-white p-4">
-      <label className="block text-[11px] font-medium text-zinc-600">
+    <form onSubmit={submit} className="space-y-5">
+      <label className="field-label">
         Deal name
-        <input name="name" required maxLength={200} autoFocus placeholder="Acme Acquisition" className={field} />
+        <input name="name" required maxLength={200} autoFocus placeholder="Acme Acquisition" className="field mt-1" />
       </label>
-      <div className="grid gap-3 sm:grid-cols-2">
-        <label className="block text-[11px] font-medium text-zinc-600">
+      <div className="grid gap-4 sm:grid-cols-2">
+        <label className="field-label">
           Company
-          <input name="company" maxLength={200} placeholder="Optional" className={field} />
+          <input name="company" maxLength={200} placeholder="Optional" className="field mt-1" />
         </label>
-        <label className="block text-[11px] font-medium text-zinc-600">
+        <label className="field-label">
           Property
-          <input name="property" maxLength={200} placeholder="Optional" className={field} />
+          <input name="property" maxLength={200} placeholder="Optional" className="field mt-1" />
         </label>
       </div>
-      <label className="block text-[11px] font-medium text-zinc-600">
+      <label className="field-label">
         Stage
-        <select name="stage" defaultValue="Prospect" className={field}>
+        <select name="stage" defaultValue="Prospect" className="field mt-1">
           {STAGES.map((stage) => (
             <option key={stage} value={stage}>{stage}</option>
           ))}
         </select>
       </label>
-      {error ? (
-        <p className="rounded-sm border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">{error}</p>
-      ) : null}
+      {error ? <ErrorState title="Deal was not created" description={error} /> : null}
       <div className="flex justify-end">
         <Button type="submit" disabled={busy}>
           {busy ? "Creating…" : "Create deal"}

@@ -1,5 +1,5 @@
-import { Nav } from "@/components/nav";
 import { InboxView } from "@/components/inbox/inbox-view";
+import { ErrorState } from "@/components/ui/error-state";
 import { prisma } from "@/lib/db";
 import { ensureDefaultWorkspace } from "@/lib/entities/workspace";
 import { getInbox } from "@/lib/inbox/service";
@@ -31,10 +31,9 @@ export default async function InboxPage({
 
   return (
     <div className="min-h-screen">
-      <Nav active="/inbox" />
-      <main className="mx-auto max-w-5xl px-6 py-6">
+      <main className="page-frame">
         {queryError || !page ? (
-          <p className="rounded-sm border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">{queryError}</p>
+          <ErrorState title="Inbox could not be opened" description={queryError ?? "The inbox query was not valid."} />
         ) : (
           <InboxView page={page} basePath="/inbox" query={params} />
         )}

@@ -100,14 +100,14 @@ function Pending({ count, hrefs }: { count: number; hrefs: string[] }) {
 function Header({ type, name, subtitle, details, connectionsHref }: { type: string; name: string; subtitle?: string | null; details: string[]; connectionsHref: string }) {
   return (
     <div className="border-b border-zinc-200 bg-white">
-      <div className="mx-auto flex max-w-6xl items-start justify-between gap-6 px-6 py-5">
+      <div className="page-gutter flex flex-wrap items-start justify-between gap-4 py-6">
         <div>
-          <p className="text-[10px] font-semibold uppercase tracking-widest text-zinc-400">Confirmed canonical {type}</p>
-          <h1 className="mt-1 text-2xl font-semibold tracking-tight text-zinc-950">{name}</h1>
+          <p className="text-xs font-medium text-ink-muted">Confirmed {type}</p>
+          <h1 className="page-title mt-2">{name}</h1>
           {subtitle && <p className="mt-1 text-sm text-zinc-600">{subtitle}</p>}
           {details.length > 0 && <p className="mt-2 text-xs text-zinc-500">{details.join(" · ")}</p>}
         </div>
-        <Link href={connectionsHref} className="shrink-0 rounded-sm border border-zinc-900 px-3 py-1.5 text-xs font-medium text-zinc-900 hover:bg-zinc-50">
+        <Link href={connectionsHref} className="inline-flex h-9 shrink-0 items-center rounded-lg border border-line-strong bg-surface px-3 text-sm font-medium text-ink hover:bg-surface-subtle">
           View connections
         </Link>
       </div>
@@ -120,7 +120,7 @@ export function PersonIntelligencePage({ data, activity }: { data: PersonIntelli
   return (
     <>
       <Header type="person" name={data.person.name} subtitle={data.person.primaryTitle} details={identifiers} connectionsHref={data.connectionsHref} />
-      <main className="mx-auto grid max-w-6xl gap-6 px-6 py-6 lg:grid-cols-[minmax(0,1fr)_300px]">
+      <main className="page-frame grid gap-8 lg:grid-cols-[minmax(0,1fr)_300px]">
         <div className="space-y-6">
           <Section title="Companies" rows={data.employments} empty="No confirmed company affiliations yet." />
           <Section title="Deals" rows={data.deals} empty="No confirmed deal participation yet." />
@@ -150,7 +150,7 @@ export function CompanyIntelligencePage({ data, activity }: { data: CompanyIntel
   return (
     <>
       <Header type="company" name={data.company.name} subtitle={data.company.website} details={details} connectionsHref={data.connectionsHref} />
-      <main className="mx-auto grid max-w-6xl gap-6 px-6 py-6 lg:grid-cols-[minmax(0,1fr)_300px]">
+      <main className="page-frame grid gap-8 lg:grid-cols-[minmax(0,1fr)_300px]">
         <div className="space-y-6">
           <Section title="People" rows={data.people} empty="No confirmed people affiliations yet." />
           <Section title="Deals" rows={data.deals} empty="No confirmed deal participation yet." />
@@ -170,7 +170,7 @@ export function PropertyIntelligencePage({ data, activity }: { data: PropertyInt
   return (
     <>
       <Header type="property" name={data.property.name} subtitle={data.property.address || null} details={details} connectionsHref={data.connectionsHref} />
-      <main className="mx-auto grid max-w-6xl gap-6 px-6 py-6 lg:grid-cols-[minmax(0,1fr)_300px]">
+      <main className="page-frame grid gap-8 lg:grid-cols-[minmax(0,1fr)_300px]">
         <div className="space-y-6">
           <Section title="Ownership / Management" rows={data.stakes} empty="No confirmed ownership or management relationships yet." />
           <Section title="Deals" rows={data.deals} empty="No confirmed deals point to this property yet." />

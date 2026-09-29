@@ -1,33 +1,28 @@
 import Link from "next/link";
 import type { DashboardDealCard, ModernDashboard } from "@/lib/deals/dashboard";
+import { Button } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/empty-state";
 
 function Metric({ label, value, urgent = false }: { label: string; value: number; urgent?: boolean }) {
   return (
-    <div className="flex flex-col gap-0.5">
-      <span className={`text-2xl font-semibold tabular-nums ${urgent ? "text-red-600" : "text-zinc-900"}`}>
+    <div className="flex flex-col gap-1">
+      <span className={`text-[22px] font-semibold tabular-nums ${urgent ? "text-warning" : "text-ink"}`}>
         {value}
       </span>
-      <span className="text-xs text-zinc-500">{label}</span>
+      <span className="text-[13px] text-ink-secondary">{label}</span>
     </div>
   );
 }
 
 export function EmptyDeals({ compact = false }: { compact?: boolean }) {
   return (
-    <div className="rounded-sm border border-zinc-200 bg-white px-6 py-10 text-center">
-      <h2 className="text-sm font-semibold text-zinc-900">No deals yet</h2>
-      <p className="mx-auto mt-1 max-w-md text-xs leading-5 text-zinc-500">
-        Create a deal, then add a document or an email. DealWatch will show what needs you, what the paper says, and what changed.
-      </p>
-      <Link
-        href="/deals/new"
-        className="mt-4 inline-flex h-8 items-center rounded-sm bg-zinc-900 px-3 text-xs font-medium text-white"
-      >
-        New deal
-      </Link>
-      {compact ? null : (
-        <p className="mt-3 text-[11px] text-zinc-400">No seed data is required.</p>
-      )}
+    <div>
+      <EmptyState
+        title="No deals yet"
+        description="Create a deal, then add a document or an email. DealWatch will show what needs you, what the paper says, and what changed."
+        actions={<Button asChild><Link href="/deals/new">New deal</Link></Button>}
+      />
+      {compact ? null : <p className="text-[13px] text-ink-muted">No seed data is required.</p>}
     </div>
   );
 }
@@ -93,17 +88,14 @@ export function ModernHome({
   return (
     <div>
       {showHeader ? (
-        <div className="mb-6 flex items-start justify-between gap-4">
+        <div className="mb-8 flex flex-wrap items-start justify-between gap-4">
           <div>
-            <h1 className="text-xl font-semibold text-zinc-900">{heading}</h1>
-            {subheading ? <p className="mt-0.5 text-sm text-zinc-500">{subheading}</p> : null}
+            <h1 className="page-title">{heading}</h1>
+            {subheading ? <p className="mt-1 text-sm text-ink-secondary">{subheading}</p> : null}
           </div>
-          <Link
-            href="/deals/new"
-            className="inline-flex h-8 items-center rounded-md bg-[#16323a] px-3 text-xs font-medium text-white"
-          >
-            New deal
-          </Link>
+          <Button asChild>
+            <Link href="/deals/new">New deal</Link>
+          </Button>
         </div>
       ) : null}
 
@@ -111,27 +103,27 @@ export function ModernHome({
         <EmptyDeals />
       ) : (
         <>
-          <div className="mb-6 grid grid-cols-2 gap-3 rounded-lg border border-[#d7e0e4] bg-white px-4 py-4 sm:grid-cols-4 sm:gap-6 sm:px-6">
+          <div className="mb-8 grid grid-cols-2 gap-6 border-b border-line pb-6 sm:grid-cols-4">
             <Metric label="Active deals" value={dashboard.metrics.activeDeals} />
             <Metric label="Needs you" value={dashboard.metrics.needsYou} urgent={dashboard.metrics.needsYou > 0} />
-            <Metric label="Open requests" value={dashboard.metrics.openActions} urgent={dashboard.metrics.openActions > 0} />
+            <Metric label="Open requests" value={dashboard.metrics.openActions} />
             <Metric label="Waiting on them" value={dashboard.metrics.waitingOnCounterparty} />
           </div>
           {needsAttention.length > 0 ? (
             <section className="mb-8">
-              <h2 className="mb-3 text-sm font-semibold text-zinc-900">Needs your attention</h2>
+              <h2 className="section-title mb-4">Needs your attention</h2>
               <div className="flex flex-col gap-2">
                 {needsAttention.map((deal) => <DealCard key={deal.id} deal={deal} />)}
               </div>
             </section>
           ) : (
-            <p className="mb-8 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
+            <p className="mb-8 text-sm text-success">
               Nothing across the portfolio is waiting on you right now.
             </p>
           )}
           {rest.length > 0 ? (
             <section>
-              <h2 className="mb-3 text-sm font-semibold text-zinc-900">Other active deals</h2>
+              <h2 className="section-title mb-4">Other active deals</h2>
               <div className="flex flex-col gap-2">
                 {rest.map((deal) => <DealCard key={deal.id} deal={deal} />)}
               </div>

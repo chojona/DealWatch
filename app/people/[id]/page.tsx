@@ -1,5 +1,4 @@
 import { notFound } from "next/navigation";
-import { Nav } from "@/components/nav";
 import { PersonIntelligencePage } from "@/components/intelligence/intelligence-page";
 import { prisma } from "@/lib/db";
 import { getPersonIntelligence } from "@/lib/intelligence/service";
@@ -14,5 +13,5 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
     getActivityPage(prisma, { rootType: "PERSON", rootId: id, limit: 25 }),
   ]);
   if (!data || !activity) notFound();
-  return <div className="min-h-screen"><Nav /><PersonIntelligencePage data={data} activity={activity} /></div>;
+  return <div className="min-h-screen"><PersonIntelligencePage data={data} activity={activity} /></div>;
 }

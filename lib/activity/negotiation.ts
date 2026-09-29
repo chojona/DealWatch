@@ -1,7 +1,9 @@
 import type { Prisma } from "@prisma/client";
 import { parseStructuredPayload } from "@/lib/ai/negotiation/payloads";
-import type { CanonicalTermType } from "@/lib/ai/negotiation/schemas";
+import type { CanonicalTermType, NegotiationSide, NegotiationTermStatus } from "@/lib/ai/negotiation/schemas";
+import { effectiveFormalTerm, type FormalReviewSnapshot } from "@/lib/negotiation/formalReview";
 import { chronologicalRounds, currentPositionForSide } from "@/lib/negotiation/resolveCurrentState";
+import type { TermWithPayload } from "@/lib/negotiation/resolveStructuredState";
 import { TERM_LABELS } from "@/lib/negotiation/termCatalog";
 import type { NegotiationRoundRecord } from "@/lib/negotiation/types";
 import { activityEvidenceSupport, type ActivityEvidenceObservation } from "./documents";
@@ -84,6 +86,52 @@ function structuredDetail(term: ActivityNegotiationTerm): ActivityStructuredDeta
   return undefined;
 }
 
+function asTerm(term: ActivityNegotiationTerm): TermWithPayload {
+  return {
+    id: term.id,
+    canonicalType: term.canonicalType as CanonicalTermType,
+    normalizedValue: term.normalizedValue,
+    normalizedNumeric: term.normalizedNumeric,
+    normalizedUnit: term.normalizedUnit,
+    rawValue: term.rawValue,
+    status: term.status as NegotiationTermStatus,
+    side: term.side as NegotiationSide,
+    roundNumber: term.roundNumber,
+    confidence: term.confidence,
+    evidenceQuote: term.evidenceQuote,
+    sourceLocation: term.sourceLocation,
+    structuredPayload: parseStructuredPayload(term.structuredPayload, term.canonicalType as CanonicalTermType),
+  };
+}
+
+/**
+ * Chronology shows effective formal truth. Rejected extractions drop out.
+ * Corrected extractions display the reviewed value. Raw NegotiationTerm rows
+ * are not modified; reconciliation continues to read those raw rows.
+ * A round whose every term was rejected is not formal movement.
+ */
+export function projectActivityNegotiationRounds(
+  rows: ActivityNegotiationRound[],
+  reviews: ReadonlyMap<string, FormalReviewSnapshot>
+): ActivityNegotiationRound[] {
+  return rows.flatMap((row) => {
+    const terms = row.terms.flatMap((term) => {
+      const effective = effectiveFormalTerm(asTerm(term), reviews.get(term.id));
+      if (!effective) return [];
+      return [{
+        ...term,
+        normalizedValue: effective.normalizedValue,
+        normalizedNumeric: effective.normalizedNumeric,
+        normalizedUnit: effective.normalizedUnit,
+        rawValue: effective.rawValue,
+        structuredPayload: (effective.structuredPayload ?? null) as Prisma.JsonValue,
+      }];
+    });
+    if (row.terms.length > 0 && terms.length === 0) return [];
+    return [{ ...row, terms }];
+  });
+}
+
 function asRoundRecord(round: ActivityNegotiationRound): NegotiationRoundRecord {
   return {
     id: round.id,
@@ -160,7 +208,10 @@ export function buildNegotiationEvents(
       entityRefs: refsForDeal(row.dealId),
       dealId: row.dealId,
       negotiationHref: `/deals/${row.dealId}/negotiation?round=${row.id}`,
-      ...(row.documentId ? { documentId: row.documentId } : {}),
+      ...(row.documentId ? {
+        documentId: row.documentId,
+        sourceHref: `/documents/${row.documentId}/review?section=negotiation`,
+      } : {}),
       ...(exactPageIds.length === 1 ? { documentPageId: exactPageIds[0] } : {}),
       evidence: { title: `Terms recorded in ${row.document?.originalFilename ?? row.documentName}`, supportCount: supports.length, supports },
       details,

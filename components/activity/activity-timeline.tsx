@@ -32,6 +32,17 @@ function dateLabel(value: string): string {
   return new Intl.DateTimeFormat("en-US", { dateStyle: "long", timeZone: "UTC" }).format(new Date(value));
 }
 
+function instantLabel(value: string): string {
+  return new Intl.DateTimeFormat("en-US", { dateStyle: "medium", timeStyle: "short", timeZone: "UTC" }).format(new Date(value));
+}
+
+function sourceAction(event: ActivityEvent): { href: string; label: string } | null {
+  if (!event.sourceHref) return null;
+  if (event.sourceType === "SOURCE_MESSAGE") return { href: event.sourceHref, label: "View message" };
+  if (event.sourceType === "DOCUMENT" || event.sourceType === "NEGOTIATION_ROUND") return { href: event.sourceHref, label: "Review document" };
+  return { href: event.sourceHref, label: "Open source" };
+}
+
 function groupEvents(events: ActivityEvent[]) {
   const groups = new Map<string, ActivityEvent[]>();
   for (const event of events) {
@@ -51,6 +62,7 @@ function statusClass(status: string): string {
 }
 
 function EventCard({ event }: { event: ActivityEvent }) {
+  const source = sourceAction(event);
   return (
     <article className="relative border-l border-zinc-200 pb-5 pl-5 last:pb-1">
       <span className="absolute -left-1 top-1.5 h-2 w-2 rounded-full bg-zinc-400 ring-4 ring-white" />
@@ -63,6 +75,12 @@ function EventCard({ event }: { event: ActivityEvent }) {
           </div>
           <h4 className="mt-0.5 text-sm font-semibold text-zinc-900">{event.title}</h4>
           {event.description && <p className="mt-0.5 text-xs leading-5 text-zinc-600">{event.description}</p>}
+          {event.eventType === "DOCUMENT" && (
+            <p className="mt-0.5 text-[11px] text-zinc-500">
+              {event.occurredAt ? `Document dated ${dateLabel(event.occurredAt)}` : "Document date unknown"}
+              {event.recordedAt ? ` · Received ${instantLabel(event.recordedAt)}` : ""}
+            </p>
+          )}
         </div>
         {event.documentId && (
           <a href={`/api/documents/${event.documentId}/file${event.documentPageId ? "" : ""}`} target="_blank" rel="noreferrer" className="shrink-0 text-[11px] font-medium text-zinc-600 underline">
@@ -74,9 +92,9 @@ function EventCard({ event }: { event: ActivityEvent }) {
             Open negotiation round
           </Link>
         )}
-        {event.sourceHref && (
-          <Link href={event.sourceHref} className="shrink-0 text-[11px] font-medium text-zinc-700 underline">
-            View message
+        {source && (
+          <Link href={source.href} className="shrink-0 text-[11px] font-medium text-zinc-700 underline">
+            {source.label}
           </Link>
         )}
       </div>

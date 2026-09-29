@@ -21,3 +21,9 @@ export function speakerSideLabel(side: string | null): string {
   if (side === "UNKNOWN") return "Unknown";
   return "Not recorded";
 }
+
+export function extractionSourceLabel(method: string): string {
+  if (method === "DETERMINISTIC") return "Deterministic extraction";
+  if (method === "MODEL") return "Model extraction";
+  return "Extraction";
+}

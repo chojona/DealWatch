@@ -329,6 +329,7 @@ export interface MessageFactView {
   reviewState: string | null;
   reviewedReconciliation: ReconciliationLink | null;
   hasAction: boolean;
+  extractionMethod: string;
 }
 
 export interface MessageSourceView {
@@ -500,6 +501,7 @@ export async function getMessageSource(db: PrismaClient, sourceMessageId: string
         reviewState: effective.review?.state ?? null,
         reviewedReconciliation,
         hasAction: Boolean(storedActionDirective(fact.structuredPayload)),
+        extractionMethod: fact.extractionMethod,
       };
     }),
   };

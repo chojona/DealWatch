@@ -1,5 +1,7 @@
 import { CREStructuredPayloadSchema, type CREStructuredPayload } from "@/lib/ai/negotiation/payloads";
 import type { CanonicalTermType } from "@/lib/ai/negotiation/schemas";
+import { readActionDirective, type ActionSpeakerSide } from "./actionDirectives";
+import { applyTemporalNormalization } from "./temporal";
 import { locateEvidence, type LocatedEvidence } from "./evidence";
 import {
   ACTIVITY_CONTRACT_VERSION,
@@ -13,6 +15,7 @@ import {
   ActivityStructuredPayloadSchema,
   type ActivityFactCandidate,
   type ActivityStructuredPayload,
+  type StructuredActionDirective,
 } from "./schema";
 
 export interface ActivityExtractionMessage {
@@ -23,9 +26,16 @@ export interface ActivityExtractionMessage {
    * speaker's side. An email address alone is never a side.
    */
   participationSide?: "TENANT" | "LANDLORD" | null;
+  /**
+   * Explicit speaker direction already established outside this reader.
+   * Sender address alone must not be passed here.
+   */
+  speakerSide?: ActionSpeakerSide | null;
 }
 
-export interface ExtractedActivityFact extends ActivityFactCandidate, LocatedEvidence {}
+export interface ExtractedActivityFact extends ActivityFactCandidate, LocatedEvidence {
+  action?: StructuredActionDirective;
+}
 
 export interface ActivityExtractorIdentity {
   extractor: string;
@@ -220,6 +230,7 @@ function attachLocation(body: string, fact: ExtractedActivityFact): ExtractedAct
     unit: payload.unit,
     negotiation: payload.negotiation,
     ...located,
+    ...(fact.action ? { action: fact.action } : {}),
   };
 }
 
@@ -259,6 +270,27 @@ export function extractActivityFacts(message: ActivityExtractionMessage): Extrac
       if (fact) facts.push(fact);
     }
   }
+  for (const sentence of sentences(message.bodyText)) {
+    if (INJECTION.test(sentence) || isSignature(sentence)) continue;
+    const directive = readActionDirective(sentence, { speakerSide: message.speakerSide ?? null });
+    if (!directive) continue;
+    const fact = attachLocation(message.bodyText, {
+      factType: "OTHER",
+      canonicalType: null,
+      side: sideOf(sentence, message.participationSide ?? null),
+      assertionStatus: "PROPOSED",
+      evidenceQuote: sentence,
+      display: directive.display,
+      numeric: null,
+      unit: null,
+      negotiation: null,
+      action: applyTemporalNormalization(directive.action, sentence),
+      provenanceStatus: "UNLOCATED",
+      evidenceStartOffset: null,
+      evidenceEndOffset: null,
+    });
+    if (fact) facts.push(fact);
+  }
   return facts;
 }
 
@@ -281,7 +313,14 @@ export function validateActivityFacts(body: string, facts: ActivityFactCandidate
       unit: fact.unit,
       negotiation: fact.negotiation,
     });
-    accepted.push({ ...fact, ...payload, ...located });
+    accepted.push({
+      ...fact,
+      display: payload.display,
+      numeric: payload.numeric,
+      unit: payload.unit,
+      negotiation: payload.negotiation,
+      ...located,
+    });
   }
   return accepted;
 }
@@ -301,10 +340,11 @@ export async function extractActivityFactsWithModel(
 }
 
 export function payloadFromFact(fact: ExtractedActivityFact): ActivityStructuredPayload {
-  return envelope({
+  return ActivityStructuredPayloadSchema.parse({
     display: fact.display,
     numeric: fact.numeric,
     unit: fact.unit,
     negotiation: fact.negotiation,
+    ...(fact.action ? { action: fact.action } : {}),
   });
 }

@@ -30,8 +30,9 @@ export const ActivityAssertionStatusSchema = z.enum(ACTIVITY_ASSERTION_STATUSES)
 
 /**
  * Optional normalized action directive.
- * Action intelligence reads this only when it is already present and valid.
- * Message prose is not parsed into this object, and model extraction does not copy it.
+ * The deterministic activity reader may propose one from explicit sentence language.
+ * Model extraction does not copy this object.
+ * Action intelligence consumes it only after the fact review boundary accepts it.
  */
 export const STRUCTURED_ACTION_KINDS = [
   "RESPONSE_REQUESTED",

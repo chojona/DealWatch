@@ -171,8 +171,13 @@ describe("Phase 11 deterministic action intelligence", { concurrency: 1 }, () =>
     });
   }
 
-  test("B/U prose and model output do not create action directives", async () => {
-    assert.deepEqual(extractActivityFacts({ bodyText: "Please send the revised proposal by Friday." }), []);
+  test("B/U model output does not create action directives", async () => {
+    const proposed = extractActivityFacts({ bodyText: "Please send the revised proposal by Friday." });
+    assert.equal(proposed.length, 1);
+    assert.equal(proposed[0]?.action?.kind, "DOCUMENT_REQUESTED");
+    assert.equal(proposed[0]?.action?.dueText, "by Friday");
+    assert.equal(proposed[0]?.action?.dueAt, null);
+    assert.equal(proposed[0]?.action?.responsibleSide, "UNKNOWN");
     const facts = await extractActivityFactsWithModel(
       { bodyText: "Please send the revised proposal." },
       async () => JSON.stringify({

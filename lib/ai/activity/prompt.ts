@@ -1,5 +1,5 @@
 export const ACTIVITY_EXTRACTOR = "dealwatch-activity-facts";
-export const ACTIVITY_EXTRACTOR_VERSION = "phase9c.1";
+export const ACTIVITY_EXTRACTOR_VERSION = "phase12b.1";
 export const ACTIVITY_CONTRACT_VERSION = "phase9c.1";
 export const DETERMINISTIC_ACTIVITY_MODEL = "deterministic-fixture";
 
@@ -33,6 +33,7 @@ PREMISES_RSF, BASE_RENT, RENT_STRUCTURE, ANNUAL_ESCALATION, LEASE_TERM, COMMENCE
 Do not invent a parallel ontology. There is no ESCALATION or OPTION_RIGHTS type; use ANNUAL_ESCALATION, RENEWAL_OPTIONS, or EXPANSION_RIGHTS.
 
 These facts are activity evidence. They are not negotiation terms and they do not accept, reject, or update a deal.
+Do not return an action object. Action directives are outside this model contract.
 
 Return JSON only: { "facts": [ ... ] }.
 `;

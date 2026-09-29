@@ -1,4 +1,5 @@
 import { Prisma, type PrismaClient } from "@prisma/client";
+import type { ActionSpeakerSide } from "@/lib/ai/activity/actionDirectives";
 import {
   deterministicExtractorIdentity,
   extractActivityFacts,
@@ -29,6 +30,11 @@ export interface AnalyzeSourceMessageOptions {
   expectedWorkspaceId?: string;
   /** Explicit opt-in. Sender address alone never selects a side. */
   allowParticipationSideLookup?: boolean;
+  /**
+   * Explicit opt-in for whose side is speaking. Sender address, latest sender,
+   * and negotiation state never select this value.
+   */
+  speakerSide?: ActionSpeakerSide | null;
 }
 
 const factInclude = {
@@ -100,6 +106,7 @@ async function extractFacts(
       bodyText: bounded.bodyText,
       subject: bounded.subject,
       participationSide: side,
+      speakerSide: options.speakerSide ?? null,
     }),
   };
 }

@@ -362,8 +362,9 @@ describe("Phase 10A deterministic Deal Brief", { concurrency: 1 }, () => {
     assert.ok(brief.systemAttention.some((item) => item.type === "MESSAGE_REVIEW_REQUIRED" && item.sourceKind === "COMMUNICATION_EVIDENCE"));
     assert.ok(brief.productAttention.some((item) => item.type === "MESSAGE_FOLLOW_UP"));
     assert.ok(brief.productAttention.some((item) => item.type === "NEW_COMMERCIAL_EVIDENCE" && item.href.includes("/documents/")));
-    assert.ok(brief.productAttention.some((item) => item.type === "MESSAGE_ANALYSIS_FAILED" && item.description === "Fixture extraction failure"));
-    assert.ok(brief.productAttention.some((item) => item.type === "DOCUMENT_ANALYSIS_FAILED"));
+    assert.equal(brief.productAttention.some((item) => item.type === "MESSAGE_ANALYSIS_FAILED" || item.type === "DOCUMENT_ANALYSIS_FAILED"), false);
+    assert.ok(brief.systemAttention.some((item) => item.type === "MESSAGE_ANALYSIS_FAILED" && item.description === "Fixture extraction failure"));
+    assert.ok(brief.systemAttention.some((item) => item.type === "DOCUMENT_ANALYSIS_FAILED"));
     assert.equal(brief.productAttention[0]?.priority, 1);
     assert.equal(brief.productAttention.every((item) => item.category === "PRODUCT"), true);
     assert.equal(brief.systemAttention.every((item) => item.category === "SYSTEM_REVIEW"), true);

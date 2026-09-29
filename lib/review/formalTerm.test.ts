@@ -245,6 +245,11 @@ describe("formal negotiation truth", () => {
     const brief = await getDealBrief(prisma, deal.id, { expectedWorkspaceId: deal.workspaceId });
     const briefRent = brief?.negotiation.terms.find((term) => term.canonicalType === "BASE_RENT");
     assert.equal(briefRent?.landlordPosition, null);
+    assert.equal(briefRent?.status, "NOT_MENTIONED");
+    assert.equal(briefRent?.briefStatus, "REJECTED");
+    assert.equal(briefRent?.statusLabel, "Rejected");
+    assert.equal(brief?.negotiation.summary.openCount, 0);
+    assert.equal(brief?.productAttention.some((item) => item.label === "Base rent was rejected"), true);
   });
 
   test("an activity-fact correction cannot change the formal term", async () => {

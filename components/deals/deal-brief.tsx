@@ -2,11 +2,19 @@ import Link from "next/link";
 import { ActionEvidenceReview } from "@/components/deals/action-evidence-review";
 import type { ActionEvidenceReviewItem } from "@/lib/deals/actions/evidenceReviewView";
 import type { DealActionState, DealCourt } from "@/lib/deals/actions/types";
+import type { DealBriefFormalStatus } from "@/lib/deals/brief/formalStatus";
+import {
+  BRIEF_SECTION_CAPS,
+  comparisonOutcomeLabel,
+  displayedComparisons,
+  hiddenCount,
+  isOperationalAnalysisAttention,
+  remainderLabel,
+} from "@/lib/deals/brief/presentation";
 import type {
   DealBrief,
   DealBriefAttentionItem,
   DealBriefSourceKind,
-  DealEvidenceComparison,
 } from "@/lib/deals/brief/types";
 import type { NegotiationPositionView } from "@/lib/negotiation/intelligence/types";
 import { briefHasTrackedEvidence, snapshotFromBrief } from "@/lib/deals/dashboard";
@@ -244,9 +252,18 @@ export function DealBriefView({
             <p className="text-sm text-zinc-500">Attention appears after documents or messages are added.</p>
           )
         ) : (
-          <ul className="grid divide-y divide-zinc-100 lg:grid-cols-2 lg:divide-y-0 lg:gap-x-8">
-            {brief.productAttention.slice(0, 6).map((item) => <AttentionItem key={item.id} item={item} />)}
-          </ul>
+          <>
+            <ul className="grid divide-y divide-zinc-100 lg:grid-cols-2 lg:divide-y-0 lg:gap-x-8">
+              {brief.productAttention.slice(0, BRIEF_SECTION_CAPS.attention).map((item) => <AttentionItem key={item.id} item={item} />)}
+            </ul>
+            {hiddenCount(brief.preview.attention.total, BRIEF_SECTION_CAPS.attention) > 0 ? (
+              <ExpandableRemainder label={remainderLabel("attention", hiddenCount(brief.preview.attention.total, BRIEF_SECTION_CAPS.attention))}>
+                <ul className="grid divide-y divide-zinc-100 lg:grid-cols-2 lg:divide-y-0 lg:gap-x-8">
+                  {brief.productAttention.slice(BRIEF_SECTION_CAPS.attention).map((item) => <AttentionItem key={item.id} item={item} />)}
+                </ul>
+              </ExpandableRemainder>
+            ) : null}
+          </>
         )}
       </Section>
 
@@ -259,6 +276,18 @@ export function DealBriefView({
             <span>{brief.negotiation.summary.agreedCount} agreed</span>
             <span className="text-zinc-300">•</span>
             <span className={brief.negotiation.summary.conflictCount ? "font-semibold text-red-700" : ""}>{brief.negotiation.summary.conflictCount} conflicts</span>
+            {brief.negotiation.summary.rejectedCount > 0 ? (
+              <>
+                <span className="text-zinc-300">•</span>
+                <span>{brief.negotiation.summary.rejectedCount} rejected</span>
+              </>
+            ) : null}
+            {brief.negotiation.summary.withdrawnCount > 0 ? (
+              <>
+                <span className="text-zinc-300">•</span>
+                <span>{brief.negotiation.summary.withdrawnCount} withdrawn</span>
+              </>
+            ) : null}
           </div>
           {displayedTerms.length === 0 ? (
             <p className="text-sm text-zinc-500">No formal negotiation positions are stored yet.</p>
@@ -278,8 +307,8 @@ export function DealBriefView({
                         </div>
                       )}
                     </div>
-                    <span className={`shrink-0 rounded-sm border px-1.5 py-0.5 text-[9px] font-semibold uppercase ${term.conflict ? "border-red-200 bg-red-50 text-red-700" : term.status === "AGREED" ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-amber-200 bg-amber-50 text-amber-800"}`}>
-                      {term.conflict ? "Conflict" : term.status === "AGREED" ? "Agreed" : "Open"}
+                    <span className={`shrink-0 rounded-sm border px-1.5 py-0.5 text-[9px] font-semibold uppercase ${formalStatusClass(term.briefStatus)}`}>
+                      {term.statusLabel}
                     </span>
                   </div>
                   <div className="mt-1.5 flex items-center justify-between gap-3">
@@ -301,7 +330,7 @@ export function DealBriefView({
             <p className="text-sm text-zinc-500">{brief.changeSummary.emptyState ?? "No recent meaningful deal changes."}</p>
           ) : (
             <ul className="divide-y divide-zinc-100">
-              {brief.recentChanges.slice(0, 7).map((change) => (
+              {brief.recentChanges.slice(0, BRIEF_SECTION_CAPS.changes).map((change) => (
                 <li key={change.id} className="py-3 first:pt-0 last:pb-0">
                   <div className="flex items-center gap-2"><SourcePill kind={change.sourceKind} /><span className="text-[10px] text-zinc-400">{timestamp(change.timestamp)}</span></div>
                   <p className="mt-1.5 text-xs font-semibold text-zinc-900">{change.label}</p>
@@ -310,20 +339,39 @@ export function DealBriefView({
                 </li>
               ))}
             </ul>
+            {hiddenCount(brief.preview.changes.total, BRIEF_SECTION_CAPS.changes) > 0 ? (
+              <ExpandableRemainder label={remainderLabel("changes", hiddenCount(brief.preview.changes.total, BRIEF_SECTION_CAPS.changes))}>
+                <ul className="divide-y divide-zinc-100">
+                  {brief.recentChanges.slice(BRIEF_SECTION_CAPS.changes).map((change) => (
+                    <li key={change.id} className="py-3 first:pt-0 last:pb-0">
+                      <div className="flex items-center gap-2"><SourcePill kind={change.sourceKind} /><span className="text-[10px] text-zinc-400">{timestamp(change.timestamp)}</span></div>
+                      <p className="mt-1.5 text-xs font-semibold text-zinc-900">{change.label}</p>
+                      {change.description ? <p className="mt-0.5 text-[11px] leading-4 text-zinc-500">{change.description}</p> : null}
+                      <div className="mt-1"><SourceLink href={change.source.href} /></div>
+                    </li>
+                  ))}
+                </ul>
+                {brief.preview.changes.total > brief.preview.changes.returned ? (
+                  <p className="mt-2 text-[11px] text-zinc-500">
+                    {brief.preview.changes.total - brief.preview.changes.returned} additional {brief.preview.changes.total - brief.preview.changes.returned === 1 ? "change is" : "changes are"} outside this preview.
+                  </p>
+                ) : null}
+              </ExpandableRemainder>
+            ) : null}
           )}
         </Section>
       </div>
 
-      {comparisons.length > 0 ? (
+      {visibleComparisons.length > 0 ? (
         <Section title="Paper vs communication" eyebrow="Reviewed, comparable evidence">
           <p className="mb-4 text-xs text-zinc-500">This comparison does not choose which source is correct or change the formal negotiation.</p>
           <div className="grid gap-3 lg:grid-cols-2">
-            {comparisons.map((comparison) => (
+            {visibleComparisons.map((comparison) => (
               <article key={comparison.id} className={`rounded-sm border p-3 ${comparison.outcome === "DIFFERS" ? "border-amber-200 bg-amber-50/40" : "border-zinc-200"}`}>
                 <div className="flex items-center justify-between gap-3">
                   <h3 className="text-sm font-semibold text-zinc-900">{comparison.label}</h3>
                   <span className={`rounded-sm px-1.5 py-0.5 text-[9px] font-semibold uppercase ${comparison.outcome === "DIFFERS" ? "bg-amber-100 text-amber-900" : "bg-emerald-100 text-emerald-800"}`}>
-                    {comparison.outcome === "DIFFERS" ? "Potential discrepancy" : "Match"}
+                    {comparisonOutcomeLabel(comparison.outcome)}
                   </span>
                 </div>
                 <p className="mt-0.5 text-[10px] uppercase tracking-wide text-zinc-400">{comparison.side.toLowerCase()} position</p>
@@ -343,6 +391,21 @@ export function DealBriefView({
               </article>
             ))}
           </div>
+          {hiddenComparisons > 0 ? (
+            <ExpandableRemainder label={remainderLabel("comparisons", hiddenComparisons)}>
+              <div className="grid gap-3 lg:grid-cols-2">
+                {comparisons.slice(BRIEF_SECTION_CAPS.comparisons).map((comparison) => (
+                  <article key={comparison.id} className="rounded-sm border border-zinc-200 p-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <h3 className="text-sm font-semibold text-zinc-900">{comparison.label}</h3>
+                      <span className="rounded-sm bg-zinc-100 px-1.5 py-0.5 text-[9px] font-semibold uppercase text-zinc-700">{comparisonOutcomeLabel(comparison.outcome)}</span>
+                    </div>
+                    <p className="mt-2 text-[11px] text-zinc-500">{comparison.formal.value} on the paper · {comparison.communication.value} in communication</p>
+                  </article>
+                ))}
+              </div>
+            </ExpandableRemainder>
+          ) : null}
         </Section>
       ) : null}
 
@@ -354,8 +417,9 @@ export function DealBriefView({
         {brief.communications.length === 0 ? (
           <p className="text-sm text-zinc-500">No communications in the current view.</p>
         ) : (
+          <>
           <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-            {brief.communications.slice(0, 6).map((communication) => (
+            {brief.communications.slice(0, BRIEF_SECTION_CAPS.communications).map((communication) => (
               <article key={communication.id} className="rounded-sm border border-zinc-200 p-3">
                 <div className="flex items-center justify-between gap-2"><SourcePill kind="COMMUNICATION_EVIDENCE" /><span className="text-[10px] text-zinc-400">{timestamp(communication.timestamp)}</span></div>
                 <h3 className="mt-2 truncate text-sm font-semibold text-zinc-900">{communication.subject}</h3>
@@ -375,6 +439,14 @@ export function DealBriefView({
               </article>
             ))}
           </div>
+          {hiddenCount(brief.preview.communications.total, BRIEF_SECTION_CAPS.communications) > 0 ? (
+            <p className="mt-3 text-[11px] font-semibold text-zinc-800">
+              <Link href={`/deals/${brief.deal.id}/messages`} className="underline decoration-zinc-300 underline-offset-2">
+                {remainderLabel("communications", hiddenCount(brief.preview.communications.total, BRIEF_SECTION_CAPS.communications))}
+              </Link>
+            </p>
+          ) : null}
+          </>
         )}
       </Section>
 
@@ -382,9 +454,25 @@ export function DealBriefView({
         {brief.systemAttention.length === 0 ? (
           <p className="text-sm text-zinc-500">No internal review work is outstanding.</p>
         ) : (
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <p className="text-sm text-zinc-600">{brief.systemAttention.length} internal review {brief.systemAttention.length === 1 ? "item is" : "items are"} available without displacing deal attention.</p>
-            <Link href={`/inbox?dealId=${brief.deal.id}`} className="text-xs font-semibold text-zinc-800 underline decoration-zinc-300 underline-offset-2">Open review queue</Link>
+          <div className="space-y-4">
+            {brief.systemAttention.some((item) => isOperationalAnalysisAttention(item.type)) ? (
+              <div>
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-400">Processing issues</p>
+                <ul className="mt-2 divide-y divide-zinc-100">
+                  {brief.systemAttention.filter((item) => isOperationalAnalysisAttention(item.type)).map((item) => (
+                    <li key={item.id} className="py-2">
+                      <p className="text-xs font-semibold text-zinc-900">{item.label}</p>
+                      {item.description ? <p className="mt-0.5 text-[11px] text-zinc-500">{item.description}</p> : null}
+                      <SourceLink href={item.href} label="View source" />
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <p className="text-sm text-zinc-600">{brief.systemAttention.length} internal review {brief.systemAttention.length === 1 ? "item is" : "items are"} available without displacing deal attention.</p>
+              <Link href={`/inbox?dealId=${brief.deal.id}`} className="text-xs font-semibold text-zinc-800 underline decoration-zinc-300 underline-offset-2">Open review queue</Link>
+            </div>
           </div>
         )}
       </Section>
@@ -394,7 +482,7 @@ export function DealBriefView({
           <p className="text-sm text-zinc-500">No source chronology in the current view.</p>
         ) : (
           <ol className="grid gap-x-6 gap-y-0 md:grid-cols-2">
-            {brief.timeline.slice(0, 10).map((item) => (
+            {brief.timeline.slice(0, BRIEF_SECTION_CAPS.timeline).map((item) => (
               <li key={item.id} className="relative border-l border-zinc-200 pb-4 pl-4">
                 <span className="absolute -left-1 top-1 h-2 w-2 rounded-full bg-zinc-400 ring-2 ring-white" />
                 <div className="flex items-center gap-2"><SourcePill kind={item.sourceKind} /><span className="text-[10px] text-zinc-400">{timestamp(item.occurredAt ?? item.recordedAt)}</span></div>
@@ -405,6 +493,13 @@ export function DealBriefView({
             ))}
           </ol>
         )}
+        {hiddenCount(brief.preview.timeline.total, BRIEF_SECTION_CAPS.timeline) > 0 ? (
+          <p className="mt-3 text-[11px] font-semibold text-zinc-800">
+            <Link href={`/deals/${brief.deal.id}/activity`} className="underline decoration-zinc-300 underline-offset-2">
+              {remainderLabel("timeline", hiddenCount(brief.preview.timeline.total, BRIEF_SECTION_CAPS.timeline))}
+            </Link>
+          </p>
+        ) : null}
       </Section>
     </div>
   );

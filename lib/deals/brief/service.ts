@@ -7,6 +7,13 @@ import { factsFromLatestRun } from "@/lib/messages/latestRun";
 import { deriveMessageLifecycle } from "@/lib/messages/state";
 import { currentFormalObservation, getNegotiationWorkspace } from "@/lib/negotiation/intelligence/service";
 import type { NegotiationRoundView } from "@/lib/negotiation/intelligence/types";
+import { buildDealEvidenceComparisons } from "./comparison";
+import {
+  countOpenFormalTerms,
+  formalPositionFullyRejected,
+  projectFormalBriefStatus,
+} from "./formalStatus";
+import { displayedComparisons } from "./presentation";
 import type {
   DealBrief,
   DealBriefAttentionItem,
@@ -16,7 +23,6 @@ import type {
   DealBriefSourceRef,
   DealBriefTimelineItem,
 } from "./types";
-import { buildDealEvidenceComparisons } from "./comparison";
 
 const DEFAULT_COMMUNICATION_LIMIT = 12;
 const DEFAULT_CHANGE_LIMIT = 16;
@@ -122,6 +128,25 @@ function afterSince(value: string | null, since?: Date): boolean {
 
 function occurredAt(message: BriefMessageRow): Date {
   return message.sentAt ?? message.receivedAt ?? message.createdAt;
+}
+
+function communicationWhere(
+  deal: { id: string; workspaceId: string },
+  since?: Date
+): Prisma.SourceMessageWhereInput {
+  const scope: Prisma.SourceMessageWhereInput = {
+    workspaceId: deal.workspaceId,
+    dealId: deal.id,
+  };
+  if (!since) return scope;
+  return {
+    ...scope,
+    OR: [
+      { sentAt: { gte: since } },
+      { sentAt: null, receivedAt: { gte: since } },
+      { sentAt: null, receivedAt: null, createdAt: { gte: since } },
+    ],
+  };
 }
 
 function presentCommunication(message: BriefMessageRow): DealBriefCommunication {
@@ -275,7 +300,22 @@ export async function getDealBrief(
     return null;
   }
 
-  const [negotiation, inbox, messageRows, milestones, legacyEvents, corrections, unpromotedAttachments, actions] = await Promise.all([
+  const milestoneWhere = {
+    document: { dealId: scopedDeal.id, deal: { workspaceId: scopedDeal.workspaceId } },
+    ...(options.since ? { occurredAt: { gte: options.since } } : {}),
+  };
+  const legacyWhere = {
+    dealId: scopedDeal.id,
+    deal: { workspaceId: scopedDeal.workspaceId },
+    linkedSourceMessages: { none: {} },
+    ...(options.since ? { occurredAt: { gte: options.since } } : {}),
+  };
+  const correctionWhere = {
+    workspaceId: scopedDeal.workspaceId,
+    sourceMessage: { dealId: scopedDeal.id, workspaceId: scopedDeal.workspaceId },
+    ...(options.since ? { createdAt: { gte: options.since } } : {}),
+  };
+  const [negotiation, inbox, messageRows, communicationTotal, milestones, milestoneTotal, nonAnalyzedMilestoneTotal, legacyEvents, legacyTotal, corrections, correctionTotal, unpromotedAttachments, actions] = await Promise.all([
     getNegotiationWorkspace(db, scopedDeal.id),
     getInbox(db, {
       workspaceId: scopedDeal.workspaceId,
@@ -283,10 +323,7 @@ export async function getDealBrief(
       includeMessages: false,
     }),
     db.sourceMessage.findMany({
-      where: {
-        workspaceId: scopedDeal.workspaceId,
-        dealId: scopedDeal.id,
-      },
+      where: communicationWhere(scopedDeal),
       take: sourceLimit,
       orderBy: [
         { sentAt: "desc" },
@@ -296,11 +333,9 @@ export async function getDealBrief(
       ],
       select: messageSelect,
     }),
+    db.sourceMessage.count({ where: communicationWhere(scopedDeal, options.since) }),
     db.documentMilestone.findMany({
-      where: {
-        document: { dealId: scopedDeal.id, deal: { workspaceId: scopedDeal.workspaceId } },
-        ...(options.since ? { occurredAt: { gte: options.since } } : {}),
-      },
+      where: milestoneWhere,
       take: sourceLimit,
       orderBy: [{ occurredAt: "desc" }, { id: "desc" }],
       select: {
@@ -310,13 +345,10 @@ export async function getDealBrief(
         document: { select: { id: true, originalFilename: true } },
       },
     }),
+    db.documentMilestone.count({ where: milestoneWhere }),
+    db.documentMilestone.count({ where: { ...milestoneWhere, kind: { not: "ANALYZED" } } }),
     db.dealEvent.findMany({
-      where: {
-        dealId: scopedDeal.id,
-        deal: { workspaceId: scopedDeal.workspaceId },
-        linkedSourceMessages: { none: {} },
-        ...(options.since ? { occurredAt: { gte: options.since } } : {}),
-      },
+      where: legacyWhere,
       take: sourceLimit,
       orderBy: [{ occurredAt: "desc" }, { id: "desc" }],
       select: {
@@ -328,12 +360,9 @@ export async function getDealBrief(
         message: { select: { sender: true, sentAt: true } },
       },
     }),
+    db.dealEvent.count({ where: legacyWhere }),
     db.activityFactCorrection.findMany({
-      where: {
-        workspaceId: scopedDeal.workspaceId,
-        sourceMessage: { dealId: scopedDeal.id, workspaceId: scopedDeal.workspaceId },
-        ...(options.since ? { createdAt: { gte: options.since } } : {}),
-      },
+      where: correctionWhere,
       take: changeLimit,
       orderBy: [{ createdAt: "desc" }, { id: "desc" }],
       select: {
@@ -346,6 +375,7 @@ export async function getDealBrief(
         sourceMessage: { select: { id: true, subject: true } },
       },
     }),
+    db.activityFactCorrection.count({ where: correctionWhere }),
     db.sourceMessageAttachment.findMany({
       where: {
         contentType: "application/pdf",
@@ -472,6 +502,12 @@ export async function getDealBrief(
     ...documentChanges,
   ].sort(compareRecent).slice(0, changeLimit);
 
+  // Commercial attention is deal work: open or unresolved terms, conflicts,
+  // rejected and withdrawn positions, deadlines, follow-ups, new commercial
+  // evidence, and paper/communication differences.
+  // Operational attention is DealWatch remediation: analysis or extraction
+  // failure, plus review-queue debt. Failures stay visible under system
+  // attention and are not presented as negotiation issues.
   const productAttention: DealBriefAttentionItem[] = [];
   const systemAttention: DealBriefAttentionItem[] = [];
   for (const communication of allCommunications) {

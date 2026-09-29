@@ -20,6 +20,21 @@ This section is an explicit standing request. For every task that changes files,
 
 One task is one branch and one pull request. Questions and reviews that do not change files skip this sequence. Do not force-push. Do not skip git hooks. GitHub deletes the branch when the pull request is merged.
 
+# Track bugs in Linear
+
+This section is an explicit standing request. When you encounter a bug, error, or unexpected problem, create a Linear issue on the DealWatch team before moving on. Do not ask for confirmation.
+
+Search open DealWatch issues first. If the same problem already has an open issue, add a comment with the new context instead of creating a second issue.
+
+Each issue includes:
+
+- What went wrong
+- Where it showed up (file, command, page, or step)
+- How to reproduce it, if known
+- What was already tried, if anything
+
+File the issue even when you fix the problem in the same change, and mention the fix or pull request on the issue. Skip this only when no defect occurred.
+
 ## Cursor Cloud specific instructions
 
 Dealwatch is a Next.js app backed by a local SQLite database through Prisma. Node.js 22 and the `sqlite3` CLI are required. `scripts/prepare-phase6b-workspace.ts` shells out to `sqlite3` during `npm run db:push`.

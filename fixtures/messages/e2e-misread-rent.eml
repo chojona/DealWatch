@@ -1,0 +1,10 @@
+From: Derek Hollis <derek.hollis@harborrealty.example>
+To: Sarah Chen <sarah.chen@acme.example>
+Message-ID: <e2e-misread-rent@example.test>
+Subject: Revised rent misread
+Date: Tue, 22 Sep 2026 16:00:00 +0000
+MIME-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+
+The landlord can do $72.00 per RSF per year.
+E2E_MISREAD_BASE_RENT:27

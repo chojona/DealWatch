@@ -22,6 +22,7 @@ import { recordedSpeakerSide, type AnalyzeSpeakerChoice } from "./speakerSide";
 import { deriveMessageLifecycle, latestMessageRun, storedActionDirective } from "./state";
 import { effectiveActivityFact } from "./effective";
 import { reviewedReconciliationForFact } from "./reviewedReconciliation";
+import { applyE2EActivityGate, rewriteE2EMisread } from "@/lib/e2e/activity";
 
 export type SourceParticipantInput = NormalizedParticipantInput;
 export type IngestSourceMessageInput = NormalizedSourceMessageInput;
@@ -171,13 +172,14 @@ async function extractFacts(
     return { identity, facts };
   }
   const identity = options.extractor ?? deterministicExtractorIdentity();
+  applyE2EActivityGate(bounded.bodyText);
   const side = options.allowParticipationSideLookup
     ? await participationSide(db, message.workspaceId, message.dealId, message.senderAddress)
     : null;
   const targets = await earlierFulfillmentTargets(db, message);
   return {
     identity,
-    facts: extractActivityFacts({
+    facts: rewriteE2EMisread(bounded.bodyText, extractActivityFacts({
       bodyText: bounded.bodyText,
       subject: bounded.subject,
       participationSide: side,
@@ -188,7 +190,7 @@ async function extractFacts(
         timestamp: messageTimestamp(message),
         targets,
       },
-    }),
+    })),
   };
 }
 

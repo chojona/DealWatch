@@ -11,6 +11,8 @@ export interface DealMessageListItem {
   sourceType: string;
   analysisState: string;
   reviewState: string;
+  actionReviewState: string;
+  evidenceSettled: boolean;
   lifecycleState: string;
   factCount: number;
   negotiationFactCount: number;
@@ -31,13 +33,23 @@ export async function listDealMessages(db: PrismaClient, dealId: string, limit =
     include: {
       extractionRuns: { orderBy: [{ createdAt: "asc" }, { id: "asc" }] },
       reviewDecisions: { orderBy: [{ createdAt: "asc" }, { id: "asc" }] },
-      facts: { include: { activityExtractionRun: { select: { id: true, status: true, completedAt: true, createdAt: true } } } },
+      facts: {
+        include: {
+          activityExtractionRun: { select: { id: true, status: true, completedAt: true, createdAt: true } },
+          reviews: { select: { id: true } },
+        },
+      },
     },
   });
   const reconciliation = await getDealReconciliation(db, deal.id);
   const items: DealMessageListItem[] = messages.map((message) => {
     const facts = factsFromLatestRun(message.facts);
-    const lifecycle = deriveMessageLifecycle({ runs: message.extractionRuns, decisions: message.reviewDecisions, currentFactIds: facts.map((fact) => fact.id) });
+    const lifecycle = deriveMessageLifecycle({
+      runs: message.extractionRuns,
+      decisions: message.reviewDecisions,
+      currentFactIds: facts.map((fact) => fact.id),
+      facts,
+    });
     const links = reconciliation?.links.filter((link) => link.activityEventId === `source-message:${message.id}`) ?? [];
     return {
       id: message.id,
@@ -63,17 +75,29 @@ export async function messageRollupForDeals(db: PrismaClient, workspaceId: strin
       id: true, dealId: true,
       extractionRuns: { orderBy: [{ createdAt: "asc" }, { id: "asc" }] },
       reviewDecisions: { orderBy: [{ createdAt: "asc" }, { id: "asc" }] },
-      facts: { select: { id: true, activityExtractionRun: { select: { id: true, status: true, completedAt: true, createdAt: true } } } },
+      facts: {
+        select: {
+          id: true,
+          structuredPayload: true,
+          activityExtractionRun: { select: { id: true, status: true, completedAt: true, createdAt: true } },
+          reviews: { select: { id: true } },
+        },
+      },
     },
   });
   const result = new Map<string, { total: number; needsReview: number; failed: number }>();
   for (const message of messages) {
     const current = result.get(message.dealId) ?? { total: 0, needsReview: 0, failed: 0 };
     const facts = factsFromLatestRun(message.facts);
-    const state = deriveMessageLifecycle({ runs: message.extractionRuns, decisions: message.reviewDecisions, currentFactIds: facts.map((fact) => fact.id) });
+    const state = deriveMessageLifecycle({
+      runs: message.extractionRuns,
+      decisions: message.reviewDecisions,
+      currentFactIds: facts.map((fact) => fact.id),
+      facts,
+    });
     current.total += 1;
     if (state.analysisState === "ANALYSIS_FAILED") current.failed += 1;
-    if (state.reviewState !== "REVIEWED") current.needsReview += 1;
+    if (!state.evidenceSettled) current.needsReview += 1;
     result.set(message.dealId, current);
   }
   return result;

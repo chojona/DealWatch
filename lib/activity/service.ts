@@ -326,6 +326,7 @@ function sourceMessageEvent(
       assertionStatus: string;
       evidenceQuote: string;
       structuredPayload: unknown;
+      reviews?: Array<{ id: string }>;
       activityExtractionRun: { id: string; status: string; completedAt: Date | null; createdAt: Date } | null;
     }>;
     extractionRuns: Array<{ id: string; status: string; factCount: number; createdAt: Date; completedAt: Date | null; failureCode: string | null; failureReason: string | null }>;
@@ -336,7 +337,12 @@ function sourceMessageEvent(
 ): ActivityEvent {
   const facts = factsFromLatestRun(message.facts);
   const negotiationCount = facts.filter((fact) => fact.factType === "NEGOTIATION_VALUE").length;
-  const lifecycle = deriveMessageLifecycle({ runs: message.extractionRuns, decisions: message.reviewDecisions, currentFactIds: facts.map((fact) => fact.id) });
+  const lifecycle = deriveMessageLifecycle({
+    runs: message.extractionRuns,
+    decisions: message.reviewDecisions,
+    currentFactIds: facts.map((fact) => fact.id),
+    facts,
+  });
   const factDescription = facts.length > 0 ? `${facts.length} commercial fact${facts.length === 1 ? "" : "s"}` : "No commercial facts";
   const analyzedDescription = negotiationCount > 0
     ? `${factDescription} · ${negotiationCount} negotiation fact${negotiationCount === 1 ? "" : "s"}`
@@ -348,7 +354,15 @@ function sourceMessageEvent(
     recordedAt: message.createdAt.toISOString(),
     eventType: "DEAL_ACTIVITY",
     title: message.subject?.trim() || "Email",
-    description: lifecycle.analysisState === "NOT_ANALYZED" ? "Not analyzed" : lifecycle.reviewState === "REVIEWED" ? `${analyzedDescription} · Reviewed` : lifecycle.analysisState === "ANALYSIS_FAILED" ? "Analysis failed" : analyzedDescription,
+    description: lifecycle.analysisState === "NOT_ANALYZED"
+      ? "Not analyzed"
+      : lifecycle.evidenceSettled
+        ? `${analyzedDescription} · Message reviewed`
+        : lifecycle.reviewState === "REVIEWED" && lifecycle.actionReviewState === "PENDING"
+          ? `${analyzedDescription} · Message reviewed · Action evidence pending`
+          : lifecycle.analysisState === "ANALYSIS_FAILED"
+            ? "Analysis failed"
+            : analyzedDescription,
     entityRefs: refs,
     dealId: message.dealId,
     sourceType: "SOURCE_MESSAGE",

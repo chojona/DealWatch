@@ -147,6 +147,8 @@ export interface InboxMessageItem {
   sourceType: string;
   analysisState: string;
   reviewState: string;
+  actionReviewState: string;
+  evidenceSettled: boolean;
   lifecycleState: string;
   factCount: number;
   failureReason: string | null;

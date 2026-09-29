@@ -90,6 +90,8 @@ export interface DealBriefCommunication {
   sourceType: string;
   analysisState: string;
   reviewState: string;
+  actionReviewState: string;
+  evidenceSettled: boolean;
   lifecycleState: string;
   failureReason: string | null;
   facts: DealBriefCommunicationFact[];
@@ -121,6 +123,7 @@ export type DealBriefAttentionType =
   | "COMMUNICATION_FORMAL_DIFFERENCE"
   | "NEW_COMMERCIAL_EVIDENCE"
   | "MESSAGE_REVIEW_REQUIRED"
+  | "MESSAGE_ACTION_EVIDENCE_PENDING"
   | "MESSAGE_FOLLOW_UP"
   | "MESSAGE_ANALYSIS_FAILED"
   | "DOCUMENT_REVIEW_REQUIRED"

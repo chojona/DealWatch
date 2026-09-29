@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { Nav } from "@/components/nav";
 import { MessageSourceView } from "@/components/messages/message-source-view";
+import { getActionEvidenceReview } from "@/lib/deals/actions/evidenceReview";
 import { prisma } from "@/lib/db";
 import { getMessageSource } from "@/lib/messages/service";
 import { messageRequestWorkspaceId } from "@/lib/messages/workspace";
@@ -12,11 +13,13 @@ export default async function MessagePage({ params }: { params: Promise<{ id: st
   const workspaceId = await messageRequestWorkspaceId(prisma);
   const message = workspaceId ? await getMessageSource(prisma, id, { expectedWorkspaceId: workspaceId }) : null;
   if (!message) notFound();
+  const queue = await getActionEvidenceReview(prisma, message.deal.id, { expectedWorkspaceId: workspaceId ?? undefined });
+  const actionEvidence = queue?.items.filter((item) => item.messageId === message.id) ?? [];
   return (
     <div className="min-h-screen">
       <Nav />
       <main className="mx-auto max-w-3xl px-6 py-8">
-        <MessageSourceView message={message} />
+        <MessageSourceView message={message} actionEvidence={actionEvidence} />
       </main>
     </div>
   );

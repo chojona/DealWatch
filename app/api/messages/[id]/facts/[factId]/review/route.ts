@@ -11,7 +11,7 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
     const { id, factId } = await context.params;
     const workspaceId = await messageRequestWorkspaceId(prisma);
     if (!workspaceId) return NextResponse.json({ error: "Message not found" }, { status: 404 });
-    const result = await reviewActivityFact(prisma, { sourceMessageId: id, activityFactId: factId, state: body.state, correctedPayload: body.correctedPayload, note: typeof body.note === "string" ? body.note : null, expectedWorkspaceId: workspaceId });
+    const result = await reviewActivityFact(prisma, { sourceMessageId: id, activityFactId: factId, state: body.state, correctedPayload: body.correctedPayload, note: typeof body.note === "string" ? body.note : null, expectedWorkspaceId: workspaceId, commercialReview: true });
     return NextResponse.json(result);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Fact review could not be saved";

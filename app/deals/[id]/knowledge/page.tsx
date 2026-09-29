@@ -1,5 +1,4 @@
 import { notFound } from "next/navigation";
-import { Nav } from "@/components/nav";
 import { DealHeader } from "@/components/deals/deal-header";
 import { DealKnowledgeView } from "@/components/knowledge/deal-knowledge";
 import { prisma } from "@/lib/db";
@@ -20,7 +19,6 @@ export default async function DealKnowledgePage({
 
   return (
     <div className="min-h-screen">
-      <Nav />
       <DealHeader
         dealId={deal.id}
         activeSection="knowledge"
@@ -33,7 +31,7 @@ export default async function DealKnowledgePage({
         estimatedValue={deal.estimatedValue}
         createdAt={deal.createdAt}
       />
-      <main className="mx-auto max-w-5xl px-6 py-6">
+      <main className="page-frame page-reading">
         <DealKnowledgeView knowledge={knowledge} />
       </main>
     </div>

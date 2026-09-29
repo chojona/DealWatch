@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
-import { Nav } from "@/components/nav";
 import { DealHeader } from "@/components/deals/deal-header";
 import { DealBriefView } from "@/components/deals/deal-brief";
+import { ErrorState } from "@/components/ui/error-state";
 import { prisma } from "@/lib/db";
 import { parseDealBriefPageQuery } from "@/lib/deals/brief/query";
 import { getActionEvidenceReview } from "@/lib/deals/actions/evidenceReview";
@@ -23,12 +23,11 @@ export default async function DealPage({
   if (parsed.error !== null) {
     return (
       <div className="min-h-screen">
-        <Nav />
-        <main className="mx-auto max-w-3xl px-6 py-10">
-          <div className="rounded-sm border border-red-200 bg-red-50 px-5 py-4 text-red-900" role="alert">
-            <h1 className="text-sm font-semibold">Invalid catch-up timestamp</h1>
-            <p className="mt-1 text-sm text-red-800">{parsed.error}. Use an offset-aware value such as 2026-09-29T12:00:00Z.</p>
-          </div>
+        <main className="page-frame page-reading">
+          <ErrorState
+            title="Invalid catch-up timestamp"
+            description={`${parsed.error}. Use an offset-aware value such as 2026-09-29T12:00:00Z.`}
+          />
         </main>
       </div>
     );
@@ -42,7 +41,6 @@ export default async function DealPage({
 
   return (
     <div className="min-h-screen">
-      <Nav />
       <DealHeader
         dealId={brief.deal.id}
         activeSection="overview"
@@ -55,7 +53,7 @@ export default async function DealPage({
         estimatedValue={brief.deal.estimatedValue}
         createdAt={new Date(brief.deal.createdAt)}
       />
-      <main className="mx-auto max-w-7xl px-6 py-6">
+      <main className="page-frame">
         <DealBriefView brief={brief} actionEvidence={actionEvidence?.items ?? []} />
       </main>
     </div>

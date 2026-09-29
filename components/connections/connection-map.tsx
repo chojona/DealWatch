@@ -8,7 +8,7 @@ const GraphCanvas = dynamic(
   () => import("@/components/connections/graph-canvas").then((mod) => mod.GraphCanvas),
   {
     ssr: false,
-    loading: () => <div className="h-full w-full bg-[#f3f1ec]" />,
+    loading: () => <div className="h-full w-full bg-canvas" />,
   }
 );
 import { assertionNoun } from "@/lib/graph/labels";
@@ -208,7 +208,7 @@ export function ConnectionMap({
   }
 
   return (
-    <div className="flex h-[calc(100dvh-11.25rem)] min-h-[520px] flex-col">
+    <div className="flex h-[calc(100dvh-18rem)] min-h-[520px] flex-col lg:h-[calc(100dvh-14rem)]">
       <div className="flex flex-wrap items-center gap-2 border-b border-zinc-200 bg-[#f7f6f3] px-4 py-2">
         <div className="flex items-center gap-1">
           <FilterChip pressed={mode === "explore"} label="Explore" onClick={() => setMode("explore")} />

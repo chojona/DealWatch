@@ -1,4 +1,3 @@
-import { Nav } from "@/components/nav";
 import { ModernHome } from "@/components/dashboard/modern-home";
 import { prisma } from "@/lib/db";
 import { getModernDashboard } from "@/lib/deals/dashboard";
@@ -12,8 +11,7 @@ export default async function DashboardPage() {
 
   return (
     <div className="min-h-screen">
-      <Nav active="/dashboard" />
-      <main className="mx-auto max-w-7xl px-6 py-6">
+      <main className="page-frame">
         <ModernHome
           dashboard={dashboard}
           heading="Home"

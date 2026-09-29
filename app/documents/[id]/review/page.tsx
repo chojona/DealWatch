@@ -1,5 +1,4 @@
 import { notFound } from "next/navigation";
-import { Nav } from "@/components/nav";
 import { DocumentReviewWorkspace } from "@/components/documents/document-review-workspace";
 import { readDocumentObservations } from "@/lib/ai/graph/readObservations";
 import { prisma } from "@/lib/db";
@@ -63,8 +62,7 @@ export default async function DocumentReviewPage({
 
   return (
     <div className="min-h-screen">
-      <Nav />
-      <main className="mx-auto max-w-3xl px-6 py-6">
+      <main className="page-frame page-reading">
         <DocumentReviewWorkspace
           review={review}
           observations={observations}

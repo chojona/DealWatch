@@ -290,10 +290,10 @@ function RoundDetail({ round }: { round: NegotiationRoundView }) {
       </div>
       <div className="divide-y divide-zinc-100">
         {round.changes.map((change) => (
-          <div key={change.canonicalType} className="grid gap-1 px-4 py-2.5 text-xs sm:grid-cols-[150px_minmax(0,1fr)_85px] sm:items-start">
+          <div key={change.canonicalType} className="grid gap-1 px-4 py-2.5 text-xs sm:grid-cols-[150px_minmax(0,1fr)_minmax(6.5rem,auto)] sm:items-start">
             <span className="font-medium text-zinc-800">{change.label}</span>
             <span className="text-zinc-600">{change.previousValue && change.previousValue !== change.currentValue ? <><span className="text-zinc-400 line-through">{change.previousValue}</span><span className="mx-1.5">→</span></> : null}{change.currentValue}</span>
-            <span className={`text-right text-[9px] font-semibold ${change.kind === "AGREED" ? "text-emerald-700" : change.kind === "UNCHANGED" ? "text-zinc-400" : "text-blue-700"}`}>{change.kind}</span>
+            <span className={`text-right text-xs font-medium ${change.kind === "AGREED" ? "text-success" : change.kind === "UNCHANGED" ? "text-ink-muted" : "text-info"}`}>{change.kind}</span>
           </div>
         ))}
         {round.changes.length === 0 && <p className="px-4 py-4 text-xs text-zinc-500">No stored term observations in this round.</p>}

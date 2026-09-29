@@ -7,7 +7,7 @@ import { canonicalEntityHref } from "@/lib/intelligence/routes";
 
 const labels = { PERSON: "People", COMPANY: "Companies", PROPERTY: "Properties", DEAL: "Deals" } as const;
 
-export function GlobalSearch() {
+export function GlobalSearch({ variant = "default", id = "global-search" }: { variant?: "default" | "sidebar"; id?: string }) {
   const router = useRouter();
   const root = useRef<HTMLDivElement>(null);
   const [query, setQuery] = useState("");
@@ -46,12 +46,13 @@ export function GlobalSearch() {
   const selected = results[active];
   const choose = (hit: CanonicalSearchHit) => { setOpen(false); setQuery(""); router.push(canonicalEntityHref(hit.entityType, hit.entityId)); };
 
+  const sidebar = variant === "sidebar";
   return (
-    <div ref={root} className="relative w-full min-w-0 md:w-full">
-      <label htmlFor="global-search" className="sr-only">Search DealWatch people, companies, properties, and deals</label>
+    <div ref={root} className={sidebar ? "relative w-full" : "relative w-full max-w-xs"}>
+      <label htmlFor={id} className="sr-only">Search DealWatch people, companies, properties, and deals</label>
       <input
-        id="global-search" type="search" role="combobox" aria-expanded={open} aria-controls="global-search-results" aria-activedescendant={selected ? `global-result-${selected.nodeId}` : undefined}
-        value={query} placeholder="Search deals, people, companies"
+        id={id} type="search" role="combobox" aria-expanded={open} aria-controls={`${id}-results`} aria-activedescendant={selected ? `${id}-result-${selected.nodeId}` : undefined}
+        value={query} placeholder="Search"
         onFocus={() => setOpen(true)}
         onChange={(event) => {
           const value = event.target.value;
@@ -68,21 +69,23 @@ export function GlobalSearch() {
           if (event.key === "ArrowUp" && results.length) { event.preventDefault(); setActive((value) => (value - 1 + results.length) % results.length); }
           if (event.key === "Enter" && selected) { event.preventDefault(); choose(selected); }
         }}
-        className="h-8 w-full rounded-md border border-white/20 bg-white/10 px-2.5 text-xs text-white outline-none placeholder:text-white/50 focus:border-white/40 focus:bg-white/15"
+        className={sidebar
+          ? "h-9 w-full rounded-lg border border-white/15 bg-white/10 px-3 text-sm text-sidebar-text outline-none placeholder:text-sidebar-muted focus:border-white/40"
+          : "field"}
       />
       {open && query.trim().length >= 2 && (
-        <div id="global-search-results" role="listbox" className="absolute left-0 top-9 z-50 max-h-[70vh] w-80 overflow-y-auto rounded-md border border-zinc-300 bg-white py-1 text-zinc-900 shadow-lg">
-          {loading && <p className="px-3 py-2 text-xs text-zinc-500">Searching deals, people, companies, and properties…</p>}
-          {!loading && !results.length && <p className="px-3 py-4 text-center text-xs text-zinc-500">No matching deals, people, companies, or properties.</p>}
+        <div id={`${id}-results`} role="listbox" className="absolute left-0 top-10 z-50 max-h-[70vh] w-[min(24rem,calc(100vw-2rem))] overflow-y-auto rounded-lg border border-line bg-surface py-1 text-ink">
+          {loading && <p className="px-3 py-2 text-[13px] text-ink-secondary">Searching deals, people, companies, and properties…</p>}
+          {!loading && !results.length && <p className="px-3 py-4 text-center text-[13px] text-ink-secondary">No matching deals, people, companies, or properties.</p>}
           {!loading && grouped.map((group) => (
             <section key={group.type} aria-label={group.label}>
-              <h2 className="border-t border-zinc-100 bg-zinc-50 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-zinc-400 first:border-t-0">{group.label}</h2>
+              <h2 className="border-t border-line bg-surface-subtle px-3 py-1.5 text-xs font-medium text-ink-muted first:border-t-0">{group.label}</h2>
               {group.rows.map((hit) => {
                 const index = results.findIndex((row) => row.nodeId === hit.nodeId);
                 return (
-                  <button key={hit.nodeId} id={`global-result-${hit.nodeId}`} type="button" role="option" aria-selected={index === active} onMouseEnter={() => setActive(index)} onClick={() => choose(hit)} className={`block w-full px-3 py-2 text-left ${index === active ? "bg-zinc-100" : "hover:bg-zinc-50"}`}>
-                    <span className="block text-sm font-medium text-zinc-950">{hit.label}</span>
-                    {hit.subtitle && <span className="block text-[11px] text-zinc-500">{hit.subtitle}</span>}
+                  <button key={hit.nodeId} id={`${id}-result-${hit.nodeId}`} type="button" role="option" aria-selected={index === active} onMouseEnter={() => setActive(index)} onClick={() => choose(hit)} className={`block w-full px-3 py-2 text-left ${index === active ? "bg-brand-subtle" : "hover:bg-surface-subtle"}`}>
+                    <span className="block text-sm font-medium text-ink">{hit.label}</span>
+                    {hit.subtitle && <span className="block text-[13px] text-ink-secondary">{hit.subtitle}</span>}
                   </button>
                 );
               })}

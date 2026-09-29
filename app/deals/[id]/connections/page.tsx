@@ -1,5 +1,4 @@
 import { notFound } from "next/navigation";
-import { Nav } from "@/components/nav";
 import { DealHeader } from "@/components/deals/deal-header";
 import { ConnectionMap } from "@/components/connections/connection-map";
 import { prisma } from "@/lib/db";
@@ -37,7 +36,6 @@ export default async function DealConnectionsPage({
 
   return (
     <div className="flex min-h-screen flex-col">
-      <Nav />
       <DealHeader
         dealId={deal.id}
         activeSection="connections"

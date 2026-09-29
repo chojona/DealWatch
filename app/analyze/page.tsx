@@ -1,12 +1,10 @@
-import { Nav } from "@/components/nav";
 import { ThreadAnalyzer } from "@/components/analyze/thread-analyzer";
 
 export default function AnalyzePage() {
   return (
     <div className="min-h-screen">
-      <Nav active="/analyze" />
 
-      <main className="mx-auto max-w-4xl px-6 py-6">
+      <main className="page-frame page-reading">
         <div className="mb-6">
           <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-zinc-400">
             Legacy workflow

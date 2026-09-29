@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { FileUp, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -27,17 +27,28 @@ interface DocumentResponse {
   error?: string;
 }
 
-export function UploadNegotiationDocument({ dealId }: { dealId: string }) {
+export function UploadNegotiationDocument({
+  dealId,
+  surface = "negotiation",
+}: {
+  dealId: string;
+  surface?: "negotiation" | "documents";
+}) {
   const router = useRouter();
+  const submitting = useRef(false);
   const [open, setOpen] = useState(false);
   const [phase, setPhase] = useState<Phase | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [summary, setSummary] = useState<DocumentResponse["document"] | null>(
     null
   );
+  const busy = phase === "Uploading" || phase === "Extracting" || phase === "Analyzing";
+  const documentsSurface = surface === "documents";
 
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (submitting.current || busy) return;
+    submitting.current = true;
     setError(null);
     setSummary(null);
     const form = event.currentTarget;
@@ -84,6 +95,8 @@ export function UploadNegotiationDocument({ dealId }: { dealId: string }) {
     } catch (cause) {
       setPhase("Failed");
       setError(cause instanceof Error ? cause.message : "Upload failed");
+    } finally {
+      submitting.current = false;
     }
   }
 
@@ -92,15 +105,17 @@ export function UploadNegotiationDocument({ dealId }: { dealId: string }) {
       <div className="flex items-start justify-between gap-4">
         <div>
           <h2 className="text-xs font-semibold uppercase tracking-wider text-zinc-400">
-            Documents
+            {documentsSurface ? "Upload PDF" : "Documents"}
           </h2>
           <p className="mt-1 text-xs text-zinc-500">
-            Upload one text-based negotiation PDF. The deal is the one open on this page.
+            {documentsSurface
+              ? "Add a source PDF to this deal. Upload, extraction, and analysis use the existing document pipeline."
+              : "Upload one text-based negotiation PDF. The deal is the one open on this page."}
           </p>
         </div>
         {!open && (
           <Button type="button" onClick={() => setOpen(true)}>
-            <FileUp className="h-3.5 w-3.5" /> Upload negotiation document
+            <FileUp className="h-3.5 w-3.5" /> {documentsSurface ? "Upload PDF" : "Upload negotiation document"}
           </Button>
         )}
       </div>
@@ -166,6 +181,7 @@ export function UploadNegotiationDocument({ dealId }: { dealId: string }) {
           )}
           {summary && phase === "Complete" && (
             <p className="text-xs text-zinc-600">
+              {documentsSurface ? "Source added. " : null}
               {summary.originalFilename}
               {" · "}
               {DOCUMENT_TYPE_LABELS[summary.documentType] ?? summary.documentType}
@@ -193,15 +209,15 @@ export function UploadNegotiationDocument({ dealId }: { dealId: string }) {
               type="button"
               variant="outline"
               onClick={() => setOpen(false)}
-              disabled={phase === "Uploading" || phase === "Extracting" || phase === "Analyzing"}
+              disabled={busy}
             >
               Close
             </Button>
             <Button
-              disabled={phase === "Uploading" || phase === "Extracting" || phase === "Analyzing"}
+              disabled={busy}
               type="submit"
             >
-              {phase === "Uploading" || phase === "Extracting" || phase === "Analyzing"
+              {busy
                 ? phase
                 : "Upload and analyze"}
             </Button>

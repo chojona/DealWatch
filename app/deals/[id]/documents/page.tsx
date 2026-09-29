@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { Nav } from "@/components/nav";
 import { DealHeader } from "@/components/deals/deal-header";
 import { InboxView } from "@/components/inbox/inbox-view";
+import { UploadNegotiationDocument } from "@/components/negotiation/upload-document-form";
 import { prisma } from "@/lib/db";
 import { ensureDefaultWorkspace } from "@/lib/entities/workspace";
 import { getInbox } from "@/lib/inbox/service";
@@ -64,6 +65,9 @@ export default async function DealDocumentsPage({
         createdAt={deal.createdAt}
       />
       <main className="mx-auto max-w-5xl px-6 py-6">
+        <div className="mb-4">
+          <UploadNegotiationDocument dealId={deal.id} surface="documents" />
+        </div>
         {queryError || !page ? (
           <p className="text-sm text-red-800">{queryError}</p>
         ) : (

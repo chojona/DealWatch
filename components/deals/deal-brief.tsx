@@ -9,6 +9,7 @@ import type {
   DealEvidenceComparison,
 } from "@/lib/deals/brief/types";
 import type { NegotiationPositionView } from "@/lib/negotiation/intelligence/types";
+import { briefHasTrackedEvidence, snapshotFromBrief } from "@/lib/deals/dashboard";
 
 function timestamp(value: string | null): string {
   if (!value) return "Date unavailable";
@@ -112,7 +113,7 @@ function courtLabel(value: DealCourt): string {
 function ActionPanel({ actions }: { actions: DealActionState }) {
   const courtEvidence = actions.court.evidence[0] ?? null;
   return (
-    <section className="rounded-sm border border-zinc-200 bg-white">
+    <section id="actions" className="rounded-sm border border-zinc-200 bg-white">
       <header className="border-b border-zinc-100 px-4 py-3">
         <p className="text-[9px] font-semibold uppercase tracking-[0.18em] text-zinc-400">Follow-up</p>
         <h2 className="mt-0.5 text-sm font-semibold text-zinc-900">What to do next</h2>
@@ -205,6 +206,7 @@ export function DealBriefView({
       || left.label.localeCompare(right.label))
     .slice(0, 8);
   const comparisons = meaningfulComparisons(brief.comparisons).slice(0, 6);
+  const hasEvidence = briefHasTrackedEvidence(snapshotFromBrief(brief));
   const hiddenTerms = Math.max(0, brief.negotiation.terms.length - displayedTerms.length);
 
   return (
@@ -215,15 +217,32 @@ export function DealBriefView({
         </div>
       ) : null}
 
+      {hasEvidence ? null : (
+        <div className="rounded-sm border border-zinc-200 bg-white px-4 py-5">
+          <h2 className="text-sm font-semibold text-zinc-900">Add your first source</h2>
+          <p className="mt-1 max-w-xl text-xs leading-5 text-zinc-500">
+            Upload a document or add messages to start building the deal record. Brief, actions, and negotiation update from that evidence.
+          </p>
+          <div className="mt-3 flex gap-2">
+            <Link href={`/deals/${brief.deal.id}/documents`} className="inline-flex h-8 items-center rounded-sm bg-zinc-900 px-3 text-xs font-medium text-white">Upload a document</Link>
+            <Link href={`/deals/${brief.deal.id}/messages`} className="inline-flex h-8 items-center rounded-sm border border-zinc-200 px-3 text-xs font-medium text-zinc-800">Add messages</Link>
+          </div>
+        </div>
+      )}
+
       <ActionPanel actions={brief.actions} />
 
       <ActionEvidenceReview dealId={brief.deal.id} items={actionEvidence} />
 
       <Section title="Deal attention" eyebrow="Review and commercial signals">
         {brief.productAttention.length === 0 ? (
-          <div className="rounded-sm border border-emerald-100 bg-emerald-50 px-3 py-3 text-sm text-emerald-800">
-            Nothing in the current deal evidence requires action.
-          </div>
+          hasEvidence ? (
+            <div className="rounded-sm border border-emerald-100 bg-emerald-50 px-3 py-3 text-sm text-emerald-800">
+              Nothing in the current deal evidence requires action.
+            </div>
+          ) : (
+            <p className="text-sm text-zinc-500">Attention appears after documents or messages are added.</p>
+          )
         ) : (
           <ul className="grid divide-y divide-zinc-100 lg:grid-cols-2 lg:divide-y-0 lg:gap-x-8">
             {brief.productAttention.slice(0, 6).map((item) => <AttentionItem key={item.id} item={item} />)}

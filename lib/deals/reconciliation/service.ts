@@ -1,8 +1,10 @@
 import type { PrismaClient } from "@prisma/client";
+import type { CanonicalTermType, NegotiationSide, NegotiationTermStatus } from "@/lib/ai/negotiation/schemas";
 import { eventFactsByEventId, linkedLegacyEventIds, loadDealMessageSources, messageActivities, structuredFactsForEvent } from "@/lib/messages/load";
 import { linksByActivityEventId } from "./reconcile";
 import type { DealReconciliation, ReconciliationRound, ReconciliationTerm } from "./types";
 import { factsFromLatestRun } from "@/lib/messages/latestRun";
+import { effectiveFormalTerm, type FormalReviewSnapshot } from "@/lib/negotiation/formalReview";
 import { effectiveActivityFact } from "@/lib/messages/effective";
 import { reviewedReconciliationForFact } from "@/lib/messages/reviewedReconciliation";
 
@@ -26,7 +28,10 @@ export async function getDealReconciliation(
       where: { dealId: deal.id, deal: { workspaceId: deal.workspaceId } },
       include: {
         terms: {
-          include: { documentPage: { select: { pageNumber: true } } },
+          include: {
+            documentPage: { select: { pageNumber: true } },
+            formalTermReview: true,
+          },
           orderBy: [{ canonicalType: "asc" }, { id: "asc" }],
         },
       },
@@ -47,19 +52,41 @@ export async function getDealReconciliation(
     createdAt: round.createdAt,
     sourceType: round.sourceType,
     documentId: round.documentId,
-    terms: round.terms.map((term): ReconciliationTerm => ({
-      id: term.id,
-      canonicalType: term.canonicalType,
-      normalizedValue: term.normalizedValue,
-      normalizedNumeric: term.normalizedNumeric,
-      normalizedUnit: term.normalizedUnit,
-      rawValue: term.rawValue,
-      status: term.status,
-      side: term.side,
-      evidenceQuote: term.evidenceQuote,
-      structuredPayload: term.structuredPayload,
-      pageNumber: term.documentPage?.pageNumber ?? null,
-    })),
+    terms: round.terms.flatMap((term): ReconciliationTerm[] => {
+      const review = formalReviewSnapshot(term.formalTermReview);
+      const effective = effectiveFormalTerm(
+        {
+          id: term.id,
+          canonicalType: term.canonicalType as CanonicalTermType,
+          normalizedValue: term.normalizedValue,
+          normalizedNumeric: term.normalizedNumeric,
+          normalizedUnit: term.normalizedUnit,
+          rawValue: term.rawValue,
+          status: term.status as NegotiationTermStatus,
+          side: (term.side === "LANDLORD" ? "LANDLORD" : "TENANT") as NegotiationSide,
+          roundNumber: term.roundNumber,
+          confidence: term.confidence,
+          evidenceQuote: term.evidenceQuote,
+          sourceLocation: term.sourceLocation,
+          structuredPayload: null,
+        },
+        review
+      );
+      if (!effective) return [];
+      return [{
+        id: term.id,
+        canonicalType: term.canonicalType,
+        normalizedValue: effective.normalizedValue,
+        normalizedNumeric: effective.normalizedNumeric,
+        normalizedUnit: effective.normalizedUnit,
+        rawValue: effective.rawValue,
+        status: term.status,
+        side: term.side,
+        evidenceQuote: term.evidenceQuote,
+        structuredPayload: review?.state === "CORRECTED" ? review.structuredPayload : term.structuredPayload,
+        pageNumber: term.documentPage?.pageNumber ?? null,
+      }];
+    }),
   }));
 
   const grouped = linksByActivityEventId({
@@ -101,4 +128,21 @@ export async function getDealReconciliation(
     workspaceId: deal.workspaceId,
     links,
   };
+}
+
+function formalReviewSnapshot(
+  review: {
+    state: FormalReviewSnapshot["state"];
+    normalizedValue: string | null;
+    normalizedNumeric: number | null;
+    normalizedUnit: string | null;
+    rawValue: string | null;
+    structuredPayload: unknown;
+    note: string | null;
+    reviewedAt: Date;
+    actor: FormalReviewSnapshot["actor"];
+    reviewerUserId: string | null;
+  } | null
+): FormalReviewSnapshot | null {
+  return review;
 }

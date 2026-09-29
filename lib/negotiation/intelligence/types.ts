@@ -26,6 +26,8 @@ export interface FormattedTermValue {
 export interface NegotiationEvidenceView {
   observationId: string;
   quote: string;
+  originalQuote: string;
+  spanCorrected: boolean;
   confidence: number;
   sourceKind: string;
   sourceLabel: string;
@@ -38,6 +40,16 @@ export interface NegotiationEvidenceView {
   modelDerived: true;
 }
 
+export interface FormalObservationReview {
+  state: "ACCEPTED" | "CORRECTED" | "REJECTED";
+  extractedSummary: string;
+  effectiveSummary: string | null;
+  note: string | null;
+  reviewedAt: string;
+  actor: "MANUAL_REVIEW" | "SYSTEM";
+  reviewerUserId: string | null;
+}
+
 export interface NegotiationObservationView {
   id: string;
   roundId: string;
@@ -47,6 +59,7 @@ export interface NegotiationObservationView {
   status: NegotiationTermStatus;
   value: FormattedTermValue;
   evidence: NegotiationEvidenceView;
+  formalReview: FormalObservationReview | null;
 }
 
 export interface NegotiationPositionCandidateView {

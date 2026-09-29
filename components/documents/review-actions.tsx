@@ -178,6 +178,144 @@ export function ReviewDecisionButtons({
   );
 }
 
+export function FormalTermReviewControls({
+  documentId,
+  finding,
+}: {
+  documentId: string;
+  finding: NegotiationFinding;
+}) {
+  const router = useRouter();
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [open, setOpen] = useState(false);
+  const [amount, setAmount] = useState("");
+  const [rawValue, setRawValue] = useState("");
+  const [normalizedValue, setNormalizedValue] = useState("");
+  const [normalizedNumeric, setNormalizedNumeric] = useState("");
+  const [normalizedUnit, setNormalizedUnit] = useState("");
+  const [structuredText, setStructuredText] = useState("");
+  const [note, setNote] = useState("");
+
+  async function submit(body: Record<string, unknown>) {
+    setPending(true);
+    setError(null);
+    try {
+      await postJson(`/api/documents/${documentId}/formal-review`, {
+        negotiationTermId: finding.termId,
+        note: note.trim() || null,
+        ...body,
+      });
+      setOpen(false);
+      router.refresh();
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Formal review could not be saved.");
+    } finally {
+      setPending(false);
+    }
+  }
+
+  function correct() {
+    if (finding.formalCorrectionMode === "BASE_RENT_SIMPLE") {
+      const parsed = Number(amount);
+      if (!Number.isFinite(parsed) || parsed <= 0) {
+        setError("Enter a positive base rent amount.");
+        return;
+      }
+      void submit({ action: "CORRECT", amountPerRSFYear: parsed, rawValue: rawValue.trim() || null });
+      return;
+    }
+    if (finding.formalCorrectionMode === "LEGACY") {
+      const numeric = normalizedNumeric.trim() === "" ? null : Number(normalizedNumeric);
+      if (numeric != null && !Number.isFinite(numeric)) {
+        setError("The corrected number is not finite.");
+        return;
+      }
+      void submit({
+        action: "CORRECT",
+        rawValue: rawValue.trim() || null,
+        normalizedValue: normalizedValue.trim() || null,
+        normalizedNumeric: numeric,
+        normalizedUnit: normalizedUnit.trim() || null,
+      });
+      return;
+    }
+    let structuredPayload: unknown;
+    try {
+      structuredPayload = JSON.parse(structuredText);
+    } catch {
+      setError("The replacement structured value must be JSON.");
+      return;
+    }
+    void submit({ action: "CORRECT", structuredPayload, rawValue: rawValue.trim() || null });
+  }
+
+  const stateLabel = finding.formalReviewState === "UNREVIEWED"
+    ? "Unreviewed extraction"
+    : finding.formalReviewState === "ACCEPTED"
+      ? "Accepted extraction"
+      : finding.formalReviewState === "CORRECTED"
+        ? "Reviewed correction"
+        : "Rejected extraction";
+
+  return (
+    <div className="mt-3 rounded-sm border border-zinc-200 bg-zinc-50 px-3 py-2">
+      <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-400">Formal value · {stateLabel}</p>
+      <p className="mt-1 text-xs text-zinc-800">Extracted value {finding.formalExtractedSummary}</p>
+      {finding.formalReviewState === "CORRECTED" && finding.formalEffectiveSummary && (
+        <p className="mt-1 text-xs text-zinc-800">
+          Current formal value {finding.formalEffectiveSummary}
+          <span className="text-zinc-500"> · {finding.formalExtractedSummary} → {finding.formalEffectiveSummary}</span>
+        </p>
+      )}
+      {finding.formalReviewState === "REJECTED" && (
+        <p className="mt-1 text-xs text-red-800">This extraction is excluded from the formal position.</p>
+      )}
+      {finding.formalReviewNote && <p className="mt-1 text-[11px] text-zinc-600">Note: {finding.formalReviewNote}</p>}
+      <div className="mt-2 flex flex-wrap items-center gap-2">
+        <button type="button" disabled={pending} onClick={() => void submit({ action: "ACCEPT" })} className="h-7 rounded-sm border border-zinc-300 bg-white px-2 text-[11px] text-zinc-800 disabled:opacity-50">Accept value</button>
+        <button type="button" disabled={pending} onClick={() => setOpen((value) => !value)} className="h-7 rounded-sm border border-zinc-300 bg-white px-2 text-[11px] text-zinc-800 disabled:opacity-50">Correct value</button>
+        <button type="button" disabled={pending} onClick={() => void submit({ action: "REJECT" })} className="h-7 rounded-sm border border-zinc-300 bg-white px-2 text-[11px] text-zinc-800 disabled:opacity-50">Reject extraction</button>
+      </div>
+      {open && (
+        <div className="mt-2 grid gap-2">
+          {finding.formalCorrectionMode === "BASE_RENT_SIMPLE" && (
+            <label className="grid gap-1 text-[11px] text-zinc-500">
+              Corrected base rent ($ / RSF / year)
+              <input value={amount} onChange={(event) => setAmount(event.target.value)} className="h-8 rounded-sm border border-zinc-200 bg-white px-2 text-xs text-zinc-900" />
+            </label>
+          )}
+          {finding.formalCorrectionMode === "LEGACY" && (
+            <>
+              <label className="grid gap-1 text-[11px] text-zinc-500">Corrected display value<input value={normalizedValue} onChange={(event) => setNormalizedValue(event.target.value)} className="h-8 rounded-sm border border-zinc-200 bg-white px-2 text-xs" /></label>
+              <div className="grid grid-cols-2 gap-2">
+                <label className="grid gap-1 text-[11px] text-zinc-500">Number<input value={normalizedNumeric} onChange={(event) => setNormalizedNumeric(event.target.value)} className="h-8 rounded-sm border border-zinc-200 bg-white px-2 text-xs" /></label>
+                <label className="grid gap-1 text-[11px] text-zinc-500">Unit<input value={normalizedUnit} onChange={(event) => setNormalizedUnit(event.target.value)} className="h-8 rounded-sm border border-zinc-200 bg-white px-2 text-xs" /></label>
+              </div>
+            </>
+          )}
+          {finding.formalCorrectionMode === "STRUCTURED" && (
+            <label className="grid gap-1 text-[11px] text-zinc-500">
+              Replacement structured value
+              <textarea value={structuredText} onChange={(event) => setStructuredText(event.target.value)} className="min-h-20 rounded-sm border border-zinc-200 bg-white px-2 py-1 text-xs" />
+            </label>
+          )}
+          <label className="grid gap-1 text-[11px] text-zinc-500">
+            Reviewed text
+            <input value={rawValue} onChange={(event) => setRawValue(event.target.value)} className="h-8 rounded-sm border border-zinc-200 bg-white px-2 text-xs" />
+          </label>
+          <label className="grid gap-1 text-[11px] text-zinc-500">
+            Note
+            <input value={note} onChange={(event) => setNote(event.target.value)} className="h-8 rounded-sm border border-zinc-200 bg-white px-2 text-xs" />
+          </label>
+          <button type="button" disabled={pending} onClick={correct} className="h-7 w-fit rounded-sm bg-zinc-900 px-2 text-[11px] text-white disabled:opacity-50">Save correction</button>
+        </div>
+      )}
+      {error && <p className="mt-1 text-[11px] text-red-700">{error}</p>}
+    </div>
+  );
+}
+
 export function EvidenceCorrectionForm({
   documentId,
   termId,

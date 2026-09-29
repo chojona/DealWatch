@@ -16,9 +16,9 @@ export function DealKnowledgeView({ knowledge }: { knowledge: DealKnowledge }) {
   return (
     <div className="space-y-8">
       <section>
-        <h2 className="text-sm font-semibold text-zinc-900">Canonical knowledge</h2>
+        <h2 className="text-sm font-semibold text-zinc-900">Confirmed on this deal</h2>
         <p className="mt-1 max-w-2xl text-xs text-zinc-500">
-          These assertions were approved by a reviewer. Confidence alone does not add them.
+          People, companies, and relationships you have confirmed. DealWatch does not add them from a guess.
         </p>
         <div className="mt-4 rounded-sm border border-zinc-200 bg-white px-4 py-4">
           <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-400">Property</p>
@@ -107,8 +107,8 @@ export function DealKnowledgeView({ knowledge }: { knowledge: DealKnowledge }) {
       </section>
 
       <section>
-        <h2 className="text-sm font-semibold text-zinc-900">Pending observations</h2>
-        <p className="mt-1 text-xs text-zinc-500">These mentions are not canonical until a reviewer promotes them.</p>
+        <h2 className="text-sm font-semibold text-zinc-900">Needs review</h2>
+        <p className="mt-1 text-xs text-zinc-500">Mentions DealWatch noticed. They stay here until you confirm the person, company, or relationship.</p>
         <div className="mt-3 grid gap-4 md:grid-cols-2">
           <ul className="rounded-sm border border-dashed border-zinc-300 bg-white px-4 py-3">
             {knowledge.pending.entities.map((entity) => (
@@ -127,7 +127,7 @@ export function DealKnowledgeView({ knowledge }: { knowledge: DealKnowledge }) {
               </li>
             ))}
             {knowledge.pending.entities.length === 0 && (
-              <li className="text-xs text-zinc-500">No unresolved entity observations on this deal.</li>
+              <li className="text-xs text-zinc-500">No people or companies are waiting for review.</li>
             )}
           </ul>
           <ul className="rounded-sm border border-dashed border-zinc-300 bg-white px-4 py-3">
@@ -149,7 +149,7 @@ export function DealKnowledgeView({ knowledge }: { knowledge: DealKnowledge }) {
               </li>
             ))}
             {knowledge.pending.relationships.length === 0 && (
-              <li className="text-xs text-zinc-500">No pending relationship observations on this deal.</li>
+              <li className="text-xs text-zinc-500">No relationships are waiting for review.</li>
             )}
           </ul>
         </div>

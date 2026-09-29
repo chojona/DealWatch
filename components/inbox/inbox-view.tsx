@@ -45,12 +45,11 @@ export function InboxView({
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <p className="text-[11px] font-medium uppercase tracking-wider text-zinc-400">Deal inbox</p>
-          <h1 className="mt-1 text-lg font-semibold text-zinc-900">
-            {lockedDealName ? `${lockedDealName} documents` : "Documents & messages"}
+          <h1 className="text-lg font-semibold text-zinc-900">
+            {lockedDealName ? `${lockedDealName} documents` : "Inbox"}
           </h1>
-          <p className="mt-1 max-w-2xl text-xs text-zinc-500">
-            Source evidence that needs processing, review, or no further action. Pasted negotiation rounds stay on the negotiation workspace.
+          <p className="mt-1 max-w-2xl text-sm text-zinc-500">
+            Documents and emails that still need preparation, analysis, or review. This is source work, not the portfolio dashboard.
           </p>
         </div>
         <p className="text-xs tabular-nums text-zinc-500">{documentsOnly ? page.items.length : page.sourceCounts.ALL} sources</p>
@@ -205,7 +204,7 @@ function InboxCard({ item }: { item: InboxItem }) {
         <div>
           <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-400">Knowledge</p>
           {entities.found === 0 && relationships.found === 0 ? (
-            <p className="mt-1 text-xs text-zinc-500">No graph observations</p>
+            <p className="mt-1 text-xs text-zinc-500">No people or companies noted</p>
           ) : (
             <p className="mt-1 text-xs text-zinc-700">
               {entities.found} {entities.found === 1 ? "entity" : "entities"} found

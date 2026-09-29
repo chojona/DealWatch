@@ -1,5 +1,5 @@
 export const ACTIVITY_EXTRACTOR = "dealwatch-activity-facts";
-export const ACTIVITY_EXTRACTOR_VERSION = "phase12b.1";
+export const ACTIVITY_EXTRACTOR_VERSION = "phase12c.1";
 export const ACTIVITY_CONTRACT_VERSION = "phase9c.1";
 export const DETERMINISTIC_ACTIVITY_MODEL = "deterministic-fixture";
 

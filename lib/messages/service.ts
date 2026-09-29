@@ -8,6 +8,7 @@ import {
   type ActivityExtractorIdentity,
   type ExtractedActivityFact,
 } from "@/lib/ai/activity/extractActivityFacts";
+import { fulfillmentTargetFromPayload, type FulfillmentTarget } from "@/lib/ai/activity/fulfillment";
 import type { ReconciliationLink } from "@/lib/deals/reconciliation/types";
 import { getDealReconciliation } from "@/lib/deals/reconciliation/service";
 import { activitySideLabel, canonicalLabel, storedFactValue } from "./facts";
@@ -79,8 +80,78 @@ async function participationSide(
 
 export const ingestSourceMessage = ingestSourceMessageBoundary;
 
+function messageTimestamp(message: { sentAt: Date | null; receivedAt: Date | null; createdAt: Date }): string {
+  return (message.sentAt ?? message.receivedAt ?? message.createdAt).toISOString();
+}
+
+async function earlierFulfillmentTargets(
+  db: PrismaClient,
+  message: { id: string; workspaceId: string; dealId: string }
+): Promise<FulfillmentTarget[]> {
+  const rows = await db.sourceMessage.findMany({
+    where: { workspaceId: message.workspaceId, dealId: message.dealId, NOT: { id: message.id } },
+    select: {
+      id: true,
+      workspaceId: true,
+      dealId: true,
+      sentAt: true,
+      receivedAt: true,
+      createdAt: true,
+      facts: {
+        select: {
+          id: true,
+          assertionStatus: true,
+          evidenceQuote: true,
+          provenanceStatus: true,
+          structuredPayload: true,
+          activityExtractionRun: { select: { id: true, status: true, completedAt: true, createdAt: true } },
+          reviews: {
+            select: {
+              id: true,
+              state: true,
+              createdAt: true,
+              correction: { select: { id: true, structuredPayload: true, note: true, createdAt: true } },
+            },
+          },
+        },
+      },
+    },
+  });
+  const targets: FulfillmentTarget[] = [];
+  for (const row of rows) {
+    const timestamp = messageTimestamp(row);
+    for (const fact of factsFromLatestRun(row.facts)) {
+      const effective = effectiveActivityFact(fact);
+      const reviewed = effective.review?.state === "CONFIRMED"
+        || (effective.review?.state === "INCORRECT" && Boolean(effective.correction));
+      targets.push(fulfillmentTargetFromPayload({
+        id: fact.id,
+        workspaceId: row.workspaceId,
+        dealId: row.dealId,
+        timestamp,
+        assertionStatus: fact.assertionStatus,
+        evidenceQuote: fact.evidenceQuote,
+        provenanceStatus: fact.provenanceStatus,
+        reviewed,
+        payload: effective.presentationPayload,
+      }));
+    }
+  }
+  return targets;
+}
+
 async function extractFacts(
-  message: { bodyText: string; subject: string | null; senderAddress: string | null; workspaceId: string; dealId: string },
+  message: {
+    id: string;
+    bodyText: string;
+    subject: string | null;
+    senderAddress: string | null;
+    workspaceId: string;
+    dealId: string;
+    sentAt: Date | null;
+    receivedAt: Date | null;
+    createdAt: Date;
+  },
   db: PrismaClient,
   options: AnalyzeSourceMessageOptions
 ): Promise<{ identity: ActivityExtractorIdentity; facts: ExtractedActivityFact[] }> {
@@ -100,6 +171,7 @@ async function extractFacts(
   const side = options.allowParticipationSideLookup
     ? await participationSide(db, message.workspaceId, message.dealId, message.senderAddress)
     : null;
+  const targets = await earlierFulfillmentTargets(db, message);
   return {
     identity,
     facts: extractActivityFacts({
@@ -107,6 +179,12 @@ async function extractFacts(
       subject: bounded.subject,
       participationSide: side,
       speakerSide: options.speakerSide ?? null,
+      fulfillment: {
+        workspaceId: message.workspaceId,
+        dealId: message.dealId,
+        timestamp: messageTimestamp(message),
+        targets,
+      },
     }),
   };
 }
@@ -125,6 +203,9 @@ export async function analyzeSourceMessage(
       bodyText: true,
       subject: true,
       senderAddress: true,
+      sentAt: true,
+      receivedAt: true,
+      createdAt: true,
       deal: { select: { workspaceId: true } },
     },
   });

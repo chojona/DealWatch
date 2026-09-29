@@ -1,6 +1,11 @@
 import { CREStructuredPayloadSchema, type CREStructuredPayload } from "@/lib/ai/negotiation/payloads";
 import type { CanonicalTermType } from "@/lib/ai/negotiation/schemas";
 import { readActionDirective, type ActionSpeakerSide } from "./actionDirectives";
+import {
+  readExplicitFulfillment,
+  resolveFulfillmentTarget,
+  type FulfillmentTarget,
+} from "./fulfillment";
 import { applyTemporalNormalization } from "./temporal";
 import { locateEvidence, type LocatedEvidence } from "./evidence";
 import {
@@ -31,6 +36,16 @@ export interface ActivityExtractionMessage {
    * Sender address alone must not be passed here.
    */
   speakerSide?: ActionSpeakerSide | null;
+  /**
+   * Earlier reviewed facts in this deal. Used only to set fulfillsFactId
+   * when the sentence explicitly identifies one of them.
+   */
+  fulfillment?: {
+    workspaceId: string;
+    dealId: string;
+    timestamp: string;
+    targets: FulfillmentTarget[];
+  } | null;
 }
 
 export interface ExtractedActivityFact extends ActivityFactCandidate, LocatedEvidence {
@@ -270,10 +285,12 @@ export function extractActivityFacts(message: ActivityExtractionMessage): Extrac
       if (fact) facts.push(fact);
     }
   }
+  const directedSentences = new Set<string>();
   for (const sentence of sentences(message.bodyText)) {
     if (INJECTION.test(sentence) || isSignature(sentence)) continue;
     const directive = readActionDirective(sentence, { speakerSide: message.speakerSide ?? null });
     if (!directive) continue;
+    directedSentences.add(sentence);
     const fact = attachLocation(message.bodyText, {
       factType: "OTHER",
       canonicalType: null,
@@ -285,6 +302,46 @@ export function extractActivityFacts(message: ActivityExtractionMessage): Extrac
       unit: null,
       negotiation: null,
       action: applyTemporalNormalization(directive.action, sentence),
+      provenanceStatus: "UNLOCATED",
+      evidenceStartOffset: null,
+      evidenceEndOffset: null,
+    });
+    if (fact) facts.push(fact);
+  }
+  const linkScope = message.fulfillment ?? null;
+  for (const sentence of sentences(message.bodyText)) {
+    if (directedSentences.has(sentence) || INJECTION.test(sentence) || isSignature(sentence)) continue;
+    const explicit = readExplicitFulfillment(sentence);
+    if (!explicit) continue;
+    const speakerSide = message.speakerSide === "OUR_SIDE" || message.speakerSide === "COUNTERPARTY"
+      ? message.speakerSide
+      : "UNKNOWN";
+    const fact = attachLocation(message.bodyText, {
+      factType: explicit.factType,
+      canonicalType: null,
+      side: sideOf(sentence, participationSide),
+      assertionStatus: "ACCEPTED",
+      evidenceQuote: sentence,
+      display: explicit.display,
+      numeric: null,
+      unit: null,
+      negotiation: null,
+      action: {
+        kind: "FULFILLMENT",
+        responsibleSide: speakerSide,
+        responsibleLabel: null,
+        counterpartyLabel: null,
+        dueAt: null,
+        dueText: null,
+        occursAt: null,
+        fulfillsFactId: linkScope
+          ? resolveFulfillmentTarget(explicit, linkScope.targets, {
+            workspaceId: linkScope.workspaceId,
+            dealId: linkScope.dealId,
+            timestamp: linkScope.timestamp,
+          })
+          : null,
+      },
       provenanceStatus: "UNLOCATED",
       evidenceStartOffset: null,
       evidenceEndOffset: null,

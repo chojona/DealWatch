@@ -3,7 +3,7 @@ import { Nav } from "@/components/nav";
 import { DealHeader } from "@/components/deals/deal-header";
 import { DealBriefView } from "@/components/deals/deal-brief";
 import { prisma } from "@/lib/db";
-import { parseDealBriefQuery } from "@/lib/deals/brief/query";
+import { parseDealBriefPageQuery } from "@/lib/deals/brief/query";
 import { getActionEvidenceReview } from "@/lib/deals/actions/evidenceReview";
 import { getDealBrief } from "@/lib/deals/brief/service";
 import { messageRequestWorkspaceId } from "@/lib/messages/workspace";
@@ -19,14 +19,21 @@ export default async function DealPage({
 }) {
   const { id } = await params;
   const requested = await searchParams;
-  const briefSearch = new URLSearchParams();
-  if (typeof requested.since === "string") briefSearch.set("since", requested.since);
-  let query: { since?: Date } = {};
-  try {
-    query = parseDealBriefQuery(briefSearch);
-  } catch {
-    query = {};
+  const parsed = parseDealBriefPageQuery(requested);
+  if (parsed.error !== null) {
+    return (
+      <div className="min-h-screen">
+        <Nav />
+        <main className="mx-auto max-w-3xl px-6 py-10">
+          <div className="rounded-sm border border-red-200 bg-red-50 px-5 py-4 text-red-900" role="alert">
+            <h1 className="text-sm font-semibold">Invalid catch-up timestamp</h1>
+            <p className="mt-1 text-sm text-red-800">{parsed.error}. Use an offset-aware value such as 2026-09-29T12:00:00Z.</p>
+          </div>
+        </main>
+      </div>
+    );
   }
+  const query = parsed.query;
   const workspaceId = await messageRequestWorkspaceId(prisma);
   if (!workspaceId) notFound();
   const brief = await getDealBrief(prisma, id, { ...query, expectedWorkspaceId: workspaceId });

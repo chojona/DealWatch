@@ -16,6 +16,13 @@ interface DealHeaderProps {
   createdAt: Date;
 }
 
+function displayStatus(status: string): string {
+  if (/^[A-Z][A-Z\s]+$/.test(status) && status.length > 3) {
+    return status.charAt(0) + status.slice(1).toLowerCase();
+  }
+  return status;
+}
+
 export function DealHeader({
   dealId,
   activeSection = "overview",
@@ -29,48 +36,59 @@ export function DealHeader({
   estimatedValue,
   createdAt,
 }: DealHeaderProps) {
+  const breadcrumb = company.trim();
+  const breadcrumbIsProperty = Boolean(propertyHref && property && property === breadcrumb);
+  const showProperty = Boolean(property && property !== breadcrumb && property !== name);
+
   return (
     <div className="border-b border-line bg-surface">
-      <div className="page-gutter py-6">
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div className="min-w-0">
-            <div className="flex items-center gap-2 text-xs font-medium text-ink-muted">
+      <div className="page-gutter py-5 sm:py-6">
+        <nav aria-label="Breadcrumb" className="text-sm text-ink-muted">
+          <ol className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+            <li>
               <Link href="/deals" className="hover:text-ink">
                 Deals
               </Link>
-              <span aria-hidden="true">/</span>
-              <span className="truncate text-ink-secondary">{company || "Deal"}</span>
-            </div>
-            <h1 className="page-title mt-2">{name}</h1>
-            {company ? <p className="mt-1 text-sm text-ink-secondary">{company}</p> : null}
-            {property ? (
-              <div className="mt-1">
-                {propertyHref ? (
-                  <Link href={propertyHref} className="text-sm text-ink-secondary underline decoration-line underline-offset-2 hover:text-ink">
-                    {property}
-                  </Link>
-                ) : (
-                  <span className="text-sm text-ink-secondary">{property}</span>
-                )}
-              </div>
+            </li>
+            {breadcrumb ? (
+              <>
+                <li aria-hidden="true">/</li>
+                <li className="min-w-0 text-ink-secondary">
+                  {breadcrumbIsProperty ? (
+                    <Link href={propertyHref!} className="break-words underline decoration-line underline-offset-2 hover:text-ink">
+                      {breadcrumb}
+                    </Link>
+                  ) : (
+                    <span className="break-words">{breadcrumb}</span>
+                  )}
+                </li>
+              </>
             ) : null}
-          </div>
-          <div className="flex flex-col items-start gap-2 sm:items-end">
-            <div className="flex flex-wrap items-center gap-2">
-              <Status tone={stage === "Closed" ? "success" : "neutral"}>{stage}</Status>
-              {intelligenceStatus ? <Status tone="neutral">{intelligenceStatus}</Status> : null}
-              <Status tone="neutral">{intelligenceStatus ? `Record ${status}` : status}</Status>
-            </div>
+          </ol>
+        </nav>
+        <div className="mt-3 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+          <h1 className="page-title max-w-3xl text-balance break-words">{name}</h1>
+          <div className="flex max-w-xl flex-wrap items-center gap-x-3 gap-y-2 text-sm text-ink-secondary">
+            {showProperty ? (
+              propertyHref ? (
+                <Link href={propertyHref} className="break-words underline decoration-line underline-offset-2 hover:text-ink">
+                  {property}
+                </Link>
+              ) : (
+                <span className="break-words">{property}</span>
+              )
+            ) : null}
+            <Status tone={stage === "Closed" ? "success" : "neutral"}>{stage}</Status>
+            {intelligenceStatus ? <Status tone="neutral">{intelligenceStatus}</Status> : null}
+            <Status tone="neutral">{intelligenceStatus ? `Record ${displayStatus(status)}` : displayStatus(status)}</Status>
             {estimatedValue ? (
-              <span className="text-lg font-semibold tabular-nums text-ink">
-                {formatCurrency(estimatedValue)}
-              </span>
+              <span className="tabular-nums text-ink">{formatCurrency(estimatedValue)}</span>
             ) : null}
-            <span className="text-xs font-medium text-ink-muted">Since {formatDate(createdAt)}</span>
+            <span className="text-ink-muted">Since {formatDate(createdAt)}</span>
           </div>
         </div>
         {dealId ? (
-          <nav aria-label="Deal" className="-mb-6 mt-6 flex gap-5 overflow-x-auto">
+          <nav aria-label="Deal" className="mt-5 flex gap-5 overflow-x-auto">
             {(
               [
                 ["overview", "Overview", `/deals/${dealId}`],

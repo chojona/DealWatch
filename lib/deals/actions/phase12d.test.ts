@@ -425,7 +425,8 @@ describe("Phase 12D action evidence review", { concurrency: 1 }, () => {
     assert.equal(reviewSource.includes("openai"), false);
     assert.equal(reviewSource.includes("extractActivityFacts"), false);
     assert.equal(reviewSource.includes("reviewActivityFact"), true);
-    assert.match(brief, /<ActionPanel actions=\{brief\.actions\} \/>\s*<ActionEvidenceReview/);
+    assert.match(brief, /<ActionPanel actions=\{brief\.actions\} \/>/);
+    assert.match(brief, /<ActionEvidenceReview/);
     const deal = await createTestDeal(db);
     const before = {
       terms: await db.negotiationTerm.count(),

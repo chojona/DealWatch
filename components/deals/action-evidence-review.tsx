@@ -107,7 +107,7 @@ function EvidenceCard({
 
   return (
     <article className="border-t border-zinc-100 py-4 first:border-t-0 first:pt-0" aria-busy={pending}>
-      <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-zinc-500">{item.headline}</p>
+      <p className="text-[13px] text-ink-muted">{item.headline}</p>
       <h3 className="mt-1 text-sm font-semibold text-zinc-900">{item.title}</h3>
       <p className="mt-1 text-[11px] leading-4 text-zinc-500">
         DealWatch read this from a message and is asking you to review it before it affects follow-up.
@@ -315,9 +315,11 @@ function EvidenceCard({
 export function ActionEvidenceReviewList({
   items,
   submit,
+  headingLevel = "h2",
 }: {
   items: ActionEvidenceReviewItem[];
   submit: (submission: ActionEvidenceSubmission) => Promise<void>;
+  headingLevel?: "h2" | "h3";
 }) {
   const [pendingId, setPendingId] = useState<string | null>(null);
   const lock = useRef(false);
@@ -335,12 +337,16 @@ export function ActionEvidenceReviewList({
   }
 
   return (
-    <section className="rounded-sm border border-zinc-200 bg-white" aria-labelledby="action-evidence-review-heading">
-      <header className="border-b border-zinc-100 px-4 py-3">
-        <p className="text-[9px] font-semibold uppercase tracking-[0.18em] text-zinc-400">Evidence review</p>
-        <h2 id="action-evidence-review-heading" className="mt-0.5 text-sm font-semibold text-zinc-900">Action evidence</h2>
+    <section aria-labelledby="action-evidence-review-heading">
+      <header className="mb-3">
+        {headingLevel === "h3" ? (
+          <h3 id="action-evidence-review-heading" className="text-[15px] font-semibold text-ink">Action evidence</h3>
+        ) : (
+          <h2 id="action-evidence-review-heading" className="text-[15px] font-semibold text-ink">Action evidence</h2>
+        )}
+        <p className="mt-1 text-[13px] leading-5 text-ink-secondary">Review a message before it affects follow-up.</p>
       </header>
-      <div className="px-4 py-4">
+      <div>
         {items.length === 0 ? (
           <p className="text-sm text-zinc-600">No action evidence needs review.</p>
         ) : (
@@ -358,15 +364,18 @@ export function ActionEvidenceReviewList({
 export function ActionEvidenceReview({
   dealId,
   items,
+  headingLevel = "h2",
 }: {
   dealId: string;
   items: ActionEvidenceReviewItem[];
+  headingLevel?: "h2" | "h3";
 }) {
   const router = useRouter();
 
   return (
     <ActionEvidenceReviewList
       items={items}
+      headingLevel={headingLevel}
       submit={async (submission) => {
         const response = await fetch(`/api/deals/${dealId}/actions/evidence`, {
           method: "POST",

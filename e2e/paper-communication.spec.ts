@@ -26,14 +26,14 @@ test("the brief shows paper and a corrected communication without moving formal 
 
   await openDeal(page);
   const comparison = page.getByRole("heading", { name: "Paper and email" }).locator("xpath=ancestor::section[1]");
-  await expect(comparison.getByText("Paper and communication differ")).toBeVisible();
+  await expect(comparison.getByText("Different", { exact: true })).toBeVisible();
   await expect(comparison.getByText("On the paper")).toBeVisible();
   await expect(comparison.getByText("In the latest reviewed email")).toBeVisible();
   await expect(comparison.getByText(/\$67/).first()).toBeVisible();
   await expect(comparison.getByText(/\$72/).first()).toBeVisible();
 
   const document = comparison.getByRole("link", { name: "View document" });
-  const message = comparison.getByRole("link", { name: "View message" });
+  const message = comparison.getByRole("link", { name: "View email" });
   await expect(document).toHaveAttribute("href", /\/documents\/.+\/review/);
   await expect(message).toHaveAttribute("href", /\/messages\//);
   await document.click();

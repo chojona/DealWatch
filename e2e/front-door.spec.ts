@@ -14,7 +14,7 @@ test("a fresh workspace shows the modern empty state and creates a deal in the b
     property: "1 Acme Plaza",
   });
   await expect(page.getByRole("heading", { name: "Acme Acquisition" })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Add your first source" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "No sources yet" })).toBeVisible();
   expect(dealPath).toMatch(/^\/deals\/[^/]+$/);
 });
 

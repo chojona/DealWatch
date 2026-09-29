@@ -1,3 +1,4 @@
+import type { DealActionState } from "@/lib/deals/actions/types";
 import type {
   FormattedTermValue,
   NegotiationMovementView,
@@ -234,6 +235,7 @@ export interface DealBrief {
   /** Phase 10A-compatible combined attention list. */
   attention: DealBriefAttentionItem[];
   timeline: DealBriefTimelineItem[];
+  actions: DealActionState;
   since: string | null;
   generatedAt: string;
 }

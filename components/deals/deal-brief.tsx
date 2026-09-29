@@ -1,4 +1,5 @@
 import Link from "next/link";
+import type { DealActionState, DealCourt } from "@/lib/deals/actions/types";
 import type {
   DealBrief,
   DealBriefAttentionItem,
@@ -98,6 +99,86 @@ function meaningfulComparisons(comparisons: DealEvidenceComparison[]): DealEvide
   });
 }
 
+function courtLabel(value: DealCourt): string {
+  if (value === "OUR_SIDE") return "Our side";
+  if (value === "COUNTERPARTY") return "Counterparty";
+  if (value === "BOTH") return "Both";
+  if (value === "NONE") return "No outstanding response";
+  return "Unknown";
+}
+
+function ActionPanel({ actions }: { actions: DealActionState }) {
+  const courtEvidence = actions.court.evidence[0] ?? null;
+  return (
+    <section className="rounded-sm border border-zinc-200 bg-white">
+      <header className="border-b border-zinc-100 px-4 py-3">
+        <p className="text-[9px] font-semibold uppercase tracking-[0.18em] text-zinc-400">Follow-up</p>
+        <h2 className="mt-0.5 text-sm font-semibold text-zinc-900">What to do next</h2>
+      </header>
+      <div className="grid gap-px bg-zinc-100 lg:grid-cols-4">
+        <div className="bg-white p-4">
+          <p className="text-[9px] font-semibold uppercase tracking-[0.16em] text-zinc-400">Whose court</p>
+          <p className="mt-2 text-sm font-semibold text-zinc-900">{courtLabel(actions.court.value)}</p>
+          <p className="mt-1 text-[11px] leading-4 text-zinc-500">
+            {actions.court.value === "UNKNOWN"
+              ? "Reviewed evidence does not say who owes the next response."
+              : "Based on reviewed requests."}
+          </p>
+          {courtEvidence ? <div className="mt-2"><SourceLink href={courtEvidence.href} label="View source" /></div> : null}
+        </div>
+        <div className="bg-white p-4">
+          <p className="text-[9px] font-semibold uppercase tracking-[0.16em] text-zinc-400">Needs you</p>
+          {actions.needsYou.length === 0 ? (
+            <p className="mt-2 text-[11px] leading-4 text-zinc-500">No explicit action is waiting.</p>
+          ) : (
+            <ul className="mt-2 space-y-2">
+              {actions.needsYou.slice(0, 3).map((action) => (
+                <li key={action.id}>
+                  <p className="text-xs font-semibold text-zinc-900">{action.timingLabel}</p>
+                  <p className="text-[11px] leading-4 text-zinc-500">{action.description}</p>
+                  <SourceLink href={action.source.href} label="View source" />
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+        <div className="bg-white p-4">
+          <p className="text-[9px] font-semibold uppercase tracking-[0.16em] text-zinc-400">Upcoming</p>
+          {actions.upcoming.length === 0 ? (
+            <p className="mt-2 text-[11px] leading-4 text-zinc-500">No explicit deadlines or meetings.</p>
+          ) : (
+            <ul className="mt-2 space-y-2">
+              {actions.upcoming.slice(0, 3).map((item) => (
+                <li key={item.id}>
+                  <p className="text-xs font-semibold text-zinc-900">{item.label}</p>
+                  <p className="text-[11px] text-zinc-500">{item.timingLabel}{item.at ? ` · ${timestamp(item.at)}` : ""}</p>
+                  <SourceLink href={item.href} label="View source" />
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+        <div className="bg-white p-4">
+          <p className="text-[9px] font-semibold uppercase tracking-[0.16em] text-zinc-400">Outstanding</p>
+          {actions.outstandingActions.length === 0 ? (
+            <p className="mt-2 text-[11px] leading-4 text-zinc-500">No unresolved follow-ups.</p>
+          ) : (
+            <ul className="mt-2 space-y-2">
+              {actions.outstandingActions.slice(0, 3).map((action) => (
+                <li key={action.id}>
+                  <p className="text-xs font-semibold text-zinc-900">{action.timingLabel}</p>
+                  <p className="text-[11px] leading-4 text-zinc-500">{action.description}</p>
+                  <SourceLink href={action.source.href} label="View source" />
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      </div>
+    </section>
+  );
+}
+
 function communicationState(value: string): string {
   if (value === "REVIEWED") return "Reviewed";
   if (value === "NEEDS_FOLLOW_UP") return "Follow-up marked";
@@ -126,7 +207,9 @@ export function DealBriefView({ brief }: { brief: DealBrief }) {
         </div>
       ) : null}
 
-      <Section title="What needs you" eyebrow="Deal attention">
+      <ActionPanel actions={brief.actions} />
+
+      <Section title="Deal attention" eyebrow="Review and commercial signals">
         {brief.productAttention.length === 0 ? (
           <div className="rounded-sm border border-emerald-100 bg-emerald-50 px-3 py-3 text-sm text-emerald-800">
             Nothing in the current deal evidence requires action.

@@ -1,4 +1,5 @@
 import type { Prisma, PrismaClient } from "@prisma/client";
+import { getDealActionState } from "@/lib/deals/actions/service";
 import { getInbox } from "@/lib/inbox/service";
 import { canonicalLabel } from "@/lib/messages/facts";
 import { effectiveActivityFact } from "@/lib/messages/effective";
@@ -274,7 +275,7 @@ export async function getDealBrief(
     return null;
   }
 
-  const [negotiation, inbox, messageRows, milestones, legacyEvents, corrections, unpromotedAttachments] = await Promise.all([
+  const [negotiation, inbox, messageRows, milestones, legacyEvents, corrections, unpromotedAttachments, actions] = await Promise.all([
     getNegotiationWorkspace(db, scopedDeal.id),
     getInbox(db, {
       workspaceId: scopedDeal.workspaceId,
@@ -355,8 +356,9 @@ export async function getDealBrief(
       orderBy: [{ createdAt: "desc" }, { id: "desc" }],
       select: { id: true, filename: true, sourceMessageId: true, createdAt: true },
     }),
+    getDealActionState(db, scopedDeal.id, { expectedWorkspaceId: scopedDeal.workspaceId, now }),
   ]);
-  if (!negotiation) return null;
+  if (!negotiation || !actions) return null;
 
   const allCommunications = messageRows.map(presentCommunication);
   const communications = allCommunications
@@ -791,6 +793,7 @@ export async function getDealBrief(
     systemAttention,
     attention,
     timeline,
+    actions,
     since: options.since?.toISOString() ?? null,
     generatedAt: now.toISOString(),
   };

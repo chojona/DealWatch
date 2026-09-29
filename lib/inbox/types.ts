@@ -244,12 +244,21 @@ export interface DocumentCompletionSummary {
   result: InboxProcessingStatus;
 }
 
+export interface DocumentPromotionSource {
+  messageId: string;
+  messageSubject: string | null;
+  messageHref: string;
+  attachmentId: string;
+  attachmentFilename: string;
+}
+
 export interface DocumentReviewModel {
   item: InboxItem;
   findings: NegotiationFinding[];
   conflicts: NegotiationConflictView[];
   evidence: EvidenceRecord[];
   pages: ReviewPageText[];
+  promotionSources: DocumentPromotionSource[];
   progress: ReviewProgress;
   readiness: {
     fileReady: boolean;

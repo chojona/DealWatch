@@ -105,7 +105,7 @@ async function extractNegotiationWithGeminiRequest(
   return { extraction, model };
 }
 
-/** Production extractor. The SDK's existing retry behavior is unchanged. */
+/** Gemini extractor. The SDK's existing retry behavior is unchanged. */
 export const extractNegotiationWithGemini: NegotiationExtractor = (input) =>
   extractNegotiationWithGeminiRequest(input);
 
@@ -113,19 +113,22 @@ export const extractNegotiationWithGemini: NegotiationExtractor = (input) =>
 export const extractNegotiationWithGeminiOnce: NegotiationExtractor = (input) =>
   extractNegotiationWithGeminiRequest(input, 0);
 
-/** OpenAI evaluation extractor. Production negotiation extraction stays Gemini. */
-export const extractNegotiationWithOpenAIOnce: NegotiationExtractor = async (
-  input
-) => {
+async function extractNegotiationWithOpenAIRequest(
+  input: ExtractTermsInput,
+  maxRetries?: number
+): Promise<NegotiationExtractorResult> {
   const apiKey = process.env.OPENAI_API_KEY?.trim();
   if (!apiKey) {
     throw new NegotiationExtractionConfigurationError(
-      "OPENAI_API_KEY is required for OpenAI negotiation evaluation"
+      "OPENAI_API_KEY is required for negotiation extraction"
     );
   }
 
   const model = getNegotiationModel();
-  const client = new OpenAI({ apiKey, maxRetries: 0 });
+  const client = new OpenAI({
+    apiKey,
+    ...(maxRetries === undefined ? {} : { maxRetries }),
+  });
   const completion = await client.chat.completions.parse({
     model,
     messages: [
@@ -155,7 +158,22 @@ export const extractNegotiationWithOpenAIOnce: NegotiationExtractor = async (
     );
   }
   return { extraction, model };
-};
+}
+
+/** Evaluation extractor. The runner owns visible, quota-aware retries. */
+export const extractNegotiationWithOpenAIOnce: NegotiationExtractor = (input) =>
+  extractNegotiationWithOpenAIRequest(input, 0);
+
+/**
+ * Live document analysis follows the configured model id.
+ * OpenAI ids such as gpt-5.4-mini must not be posted to the Gemini endpoint.
+ */
+function extractNegotiationWithConfiguredModel(input: ExtractTermsInput) {
+  const model = getNegotiationModel();
+  return model.toLowerCase().startsWith("gemini")
+    ? extractNegotiationWithGeminiRequest(input)
+    : extractNegotiationWithOpenAIRequest(input);
+}
 
 export function createTermExtractor(extractor: NegotiationExtractor) {
   return async (input: ExtractTermsInput): Promise<ExtractTermsOutput> => {
@@ -177,7 +195,7 @@ export function createTermExtractor(extractor: NegotiationExtractor) {
   };
 }
 
-const productionExtractor = createTermExtractor(extractNegotiationWithGemini);
+const productionExtractor = createTermExtractor(extractNegotiationWithConfiguredModel);
 
 export async function extractTerms(input: ExtractTermsInput) {
   return productionExtractor(input);

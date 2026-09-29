@@ -1,0 +1,31 @@
+From: Broker <broker@example.test>
+To: Counsel <counsel@example.test>
+Message-ID: <acme-loi-fixture@example.test>
+Subject: Acme LOI
+Date: Tue, 15 Sep 2026 15:00:00 -0400
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary="acme-loi-boundary"
+
+--acme-loi-boundary
+Content-Type: text/plain; charset=utf-8
+
+Attached is the latest Acme LOI.
+--acme-loi-boundary
+Content-Type: application/pdf; name="acme-loi.pdf"
+Content-Disposition: attachment; filename="acme-loi.pdf"
+Content-Transfer-Encoding: base64
+
+JVBERi0xLjQKMSAwIG9iago8PCAvVHlwZSAvQ2F0YWxvZyAvUGFnZXMgMiAwIFIgPj4KZW5kb2Jq
+CjIgMCBvYmoKPDwgL1R5cGUgL1BhZ2VzIC9LaWRzIFs0IDAgUl0gL0NvdW50IDEgPj4KZW5kb2Jq
+CjMgMCBvYmoKPDwgL1R5cGUgL0ZvbnQgL1N1YnR5cGUgL1R5cGUxIC9CYXNlRm9udCAvSGVsdmV0
+aWNhID4+CmVuZG9iago0IDAgb2JqCjw8IC9UeXBlIC9QYWdlIC9QYXJlbnQgMiAwIFIgL01lZGlh
+Qm94IFswIDAgNjEyIDc5Ml0gL0NvbnRlbnRzIDUgMCBSIC9SZXNvdXJjZXMgPDwgL0ZvbnQgPDwg
+L0YxIDMgMCBSID4+ID4+ID4+CmVuZG9iago1IDAgb2JqCjw8IC9MZW5ndGggMTQ0ID4+CnN0cmVh
+bQpCVAovRjEgMTIgVGYKNzIgNzIwIFRkCihBY21lIEFjcXVpc2l0aW9uKSBUagowIC0xNiBUZAoo
+TGV0dGVyIG9mIEludGVudCkgVGoKMCAtMTYgVGQKKEJhc2UgUmVudDogJDQ1LjAwIHBlciByZW50
+YWJsZSBzcXVhcmUgZm9vdCBwZXIgeWVhcikgVGoKRVQKZW5kc3RyZWFtCmVuZG9iagp4cmVmCjAg
+NgowMDAwMDAwMDAwIDY1NTM1IGYgCjAwMDAwMDAwMDkgMDAwMDAgbiAKMDAwMDAwMDA1OCAwMDAw
+MCBuIAowMDAwMDAwMTE1IDAwMDAwIG4gCjAwMDAwMDAxODUgMDAwMDAgbiAKMDAwMDAwMDMxMSAw
+MDAwMCBuIAp0cmFpbGVyCjw8IC9TaXplIDYgL1Jvb3QgMSAwIFIgPj4Kc3RhcnR4cmVmCjUwNgol
+JUVPRgo=
+--acme-loi-boundary--

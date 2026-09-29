@@ -5,6 +5,7 @@ import { AddRoundForm } from "@/components/negotiation/add-round-form";
 import { NegotiationWorkspaceView } from "@/components/negotiation/negotiation-workspace";
 import { UploadNegotiationDocument } from "@/components/negotiation/upload-document-form";
 import { prisma } from "@/lib/db";
+import { getDealReconciliation } from "@/lib/deals/reconciliation/service";
 import { getNegotiationWorkspace } from "@/lib/negotiation/intelligence/service";
 
 export const dynamic = "force-dynamic";
@@ -17,7 +18,10 @@ export default async function NegotiationPage({
   searchParams: Promise<{ round?: string | string[] }>;
 }) {
   const [{ id }, query] = await Promise.all([params, searchParams]);
-  const workspace = await getNegotiationWorkspace(prisma, id);
+  const [workspace, reconciliation] = await Promise.all([
+    getNegotiationWorkspace(prisma, id),
+    getDealReconciliation(prisma, id),
+  ]);
   if (!workspace) notFound();
   const focusedRound = typeof query.round === "string" ? query.round : null;
 
@@ -52,7 +56,7 @@ export default async function NegotiationPage({
           <UploadNegotiationDocument dealId={workspace.deal.id} />
         </div>
 
-        <NegotiationWorkspaceView workspace={workspace} initialRoundId={focusedRound} />
+        <NegotiationWorkspaceView workspace={workspace} initialRoundId={focusedRound} reconciliation={reconciliation?.links ?? []} />
       </main>
     </div>
   );

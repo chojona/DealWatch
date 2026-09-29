@@ -28,6 +28,8 @@ model Deal {
   threads           Thread[]
   obligations       Obligation[]
   events            DealEvent[]
+  sourceMessages    SourceMessage[]
+  activityFacts     ActivityFact[]
   negotiationRounds NegotiationRound[]
   documents         Document[]
   participations    DealParticipation[]
@@ -185,6 +187,8 @@ model DealEvent {
 
   deal    Deal     @relation(fields: [dealId], references: [id], onDelete: Cascade)
   message Message? @relation(fields: [messageId], references: [id])
+  linkedSourceMessages SourceMessage[]
+  activityFacts ActivityFact[]
 }
 
 model NegotiationRound {
@@ -434,6 +438,9 @@ model Workspace {
   resolutionCandidates         EntityResolutionCandidate[]
   relationshipPromotions       RelationshipPromotion[]
   relationshipPromotionEvents  RelationshipPromotionEvent[]
+  sourceMessages               SourceMessage[]
+  activityFacts                ActivityFact[]
+  activityExtractionRuns       ActivityExtractionRun[]
 
   @@index([firmCompanyId])
 }
@@ -1174,4 +1181,165 @@ model DocumentMilestone {
   document Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
 
   @@index([documentId, occurredAt])
+}
+
+// ---------------------------------------------------------------------------
+// Phase 9C — immutable message source material and structured activity facts.
+// SourceMessage is not the legacy thread Message used by analysis history.
+// ActivityFact is activity evidence. It is never a NegotiationTerm.
+// Source fields have no updatedAt: corrections are a future append-only path.
+// ---------------------------------------------------------------------------
+
+enum MessageSourceType {
+  MANUAL
+  FIXTURE
+  IMPORTED
+}
+
+enum SourceMessageParticipantRole {
+  FROM
+  TO
+  CC
+  BCC
+}
+
+enum ActivityFactType {
+  NEGOTIATION_VALUE
+  DEADLINE
+  DOCUMENT_SENT
+  DOCUMENT_RECEIVED
+  MEETING
+  CALL
+  TOUR
+  OTHER
+}
+
+enum ActivityFactSide {
+  LANDLORD
+  TENANT
+  UNKNOWN
+}
+
+enum ActivityAssertionStatus {
+  PROPOSED
+  ACCEPTED
+  REJECTED
+  WITHDRAWN
+  HISTORICAL
+  UNRESOLVED
+}
+
+enum ActivityExtractionMethod {
+  DETERMINISTIC
+  MODEL
+}
+
+enum ActivityExtractionStatus {
+  SUCCEEDED
+  FAILED
+}
+
+/// Immutable ingested source. Workspace is copied from the deal at ingestion.
+model SourceMessage {
+  id                 String            @id @default(cuid())
+  workspaceId        String
+  dealId             String
+  externalMessageId  String?
+  threadExternalId   String?
+  subject            String?
+  senderName         String?
+  senderAddress      String?
+  sentAt             DateTime?
+  receivedAt         DateTime?
+  bodyText           String
+  sourceType         MessageSourceType
+  /// Links this source to a legacy DealEvent that describes the same activity.
+  /// The event is kept. Reads show the message once.
+  legacyDealEventId  String?
+  createdAt          DateTime          @default(now())
+
+  workspace    Workspace                   @relation(fields: [workspaceId], references: [id])
+  deal         Deal                        @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  legacyDealEvent DealEvent?               @relation(fields: [legacyDealEventId], references: [id], onDelete: SetNull)
+  participants SourceMessageParticipant[]
+  extractionRuns ActivityExtractionRun[]
+  facts        ActivityFact[]
+
+  @@unique([dealId, externalMessageId])
+  @@index([workspaceId, dealId])
+  @@index([legacyDealEventId])
+}
+
+model SourceMessageParticipant {
+  id              String                       @id @default(cuid())
+  sourceMessageId String
+  role            SourceMessageParticipantRole
+  displayName     String?
+  address         String
+  createdAt       DateTime                     @default(now())
+
+  sourceMessage SourceMessage @relation(fields: [sourceMessageId], references: [id], onDelete: Cascade)
+
+  @@index([sourceMessageId, role])
+}
+
+/// One extraction of one source message. A later model or extractor version
+/// inserts another run and leaves the earlier run in place.
+model ActivityExtractionRun {
+  id               String                   @id @default(cuid())
+  workspaceId      String
+  sourceMessageId  String
+  extractor        String
+  extractorVersion String
+  contractVersion  String
+  model            String
+  status           ActivityExtractionStatus
+  failureCode      String?
+  failureReason    String?
+  factCount        Int                      @default(0)
+  createdAt        DateTime                 @default(now())
+  completedAt      DateTime?
+
+  workspace     Workspace      @relation(fields: [workspaceId], references: [id])
+  sourceMessage SourceMessage  @relation(fields: [sourceMessageId], references: [id], onDelete: Cascade)
+  facts         ActivityFact[]
+
+  @@unique([sourceMessageId, extractor, extractorVersion, contractVersion, model])
+  @@index([workspaceId])
+  @@index([sourceMessageId])
+}
+
+/// Immutable structured reading of one source. Exactly one of sourceMessageId
+/// or dealEventId is set. This row is not negotiation truth.
+model ActivityFact {
+  id                     String                    @id @default(cuid())
+  workspaceId            String
+  dealId                 String
+  sourceMessageId        String?
+  dealEventId            String?
+  activityExtractionRunId String?
+  factType               ActivityFactType
+  canonicalType          String?
+  side                   ActivityFactSide
+  assertionStatus        ActivityAssertionStatus
+  structuredPayload      Json
+  evidenceQuote          String
+  evidenceStartOffset    Int?
+  evidenceEndOffset      Int?
+  provenanceStatus       EvidenceProvenanceStatus
+  extractionMethod       ActivityExtractionMethod
+  extractorVersion       String?
+  model                  String?
+  createdAt              DateTime                  @default(now())
+
+  workspace            Workspace             @relation(fields: [workspaceId], references: [id])
+  deal                 Deal                  @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  sourceMessage        SourceMessage?        @relation(fields: [sourceMessageId], references: [id], onDelete: Cascade)
+  dealEvent            DealEvent?            @relation(fields: [dealEventId], references: [id], onDelete: Cascade)
+  activityExtractionRun ActivityExtractionRun? @relation(fields: [activityExtractionRunId], references: [id], onDelete: Restrict)
+
+  @@index([workspaceId, dealId])
+  @@index([sourceMessageId])
+  @@index([dealEventId])
+  @@index([activityExtractionRunId])
 }

@@ -408,7 +408,7 @@ async function resolveEndpoint(
   };
 }
 
-function roleLabel(role: string, custom: string | null): string {
+export function roleLabel(role: string, custom: string | null): string {
   if (role === "OTHER" && custom) return custom;
   return role
     .toLowerCase()
@@ -1335,6 +1335,123 @@ export async function getRelationshipEvidence(
   };
 }
 
+function evidenceView(
+  title: string,
+  supports: Array<{ relationshipObservation: Parameters<typeof supportView>[0] }>
+): EvidenceView {
+  return {
+    title,
+    supportCount: supports.length,
+    supports: supports.map((support) => supportView(support.relationshipObservation)),
+  };
+}
+
+async function participationEvidenceById(
+  prisma: PrismaClient,
+  dealName: string,
+  participations: Array<{
+    id: string;
+    role: string;
+    roleLabel: string | null;
+    person: { canonicalName: string } | null;
+    company: { canonicalName: string } | null;
+  }>
+) {
+  const ids = participations.map((participation) => participation.id);
+  const supports = ids.length
+    ? await prisma.dealParticipationSupport.findMany({
+        where: { dealParticipationId: { in: ids } },
+        include: { relationshipObservation: { include: evidenceInclude } },
+        orderBy: { createdAt: "asc" },
+      })
+    : [];
+  const grouped = new Map<string, typeof supports>();
+  for (const support of supports) {
+    const rows = grouped.get(support.dealParticipationId) ?? [];
+    rows.push(support);
+    grouped.set(support.dealParticipationId, rows);
+  }
+  return new Map(
+    participations.map((participation) => {
+      const actor = participation.person?.canonicalName ?? participation.company?.canonicalName ?? "Participant";
+      return [
+        participation.id,
+        evidenceView(
+          `${actor} · ${roleLabel(participation.role, participation.roleLabel)} on ${dealName}`,
+          grouped.get(participation.id) ?? []
+        ),
+      ] as const;
+    })
+  );
+}
+
+async function employmentEvidenceById(
+  prisma: PrismaClient,
+  employments: Array<{
+    id: string;
+    person: { canonicalName: string };
+    company: { canonicalName: string };
+  }>
+) {
+  const ids = employments.map((employment) => employment.id);
+  const supports = ids.length
+    ? await prisma.employmentSupport.findMany({
+        where: { employmentId: { in: ids } },
+        include: { relationshipObservation: { include: evidenceInclude } },
+        orderBy: { createdAt: "asc" },
+      })
+    : [];
+  const grouped = new Map<string, typeof supports>();
+  for (const support of supports) {
+    const rows = grouped.get(support.employmentId) ?? [];
+    rows.push(support);
+    grouped.set(support.employmentId, rows);
+  }
+  return new Map(
+    employments.map((employment) => [
+      employment.id,
+      evidenceView(
+        `${employment.person.canonicalName} works at ${employment.company.canonicalName}`,
+        grouped.get(employment.id) ?? []
+      ),
+    ] as const)
+  );
+}
+
+async function stakeEvidenceById(
+  prisma: PrismaClient,
+  stakes: Array<{
+    id: string;
+    predicate: string;
+    company: { canonicalName: string };
+    property: { canonicalName: string };
+  }>
+) {
+  const ids = stakes.map((stake) => stake.id);
+  const supports = ids.length
+    ? await prisma.propertyStakeSupport.findMany({
+        where: { propertyStakeId: { in: ids } },
+        include: { relationshipObservation: { include: evidenceInclude } },
+        orderBy: { createdAt: "asc" },
+      })
+    : [];
+  const grouped = new Map<string, typeof supports>();
+  for (const support of supports) {
+    const rows = grouped.get(support.propertyStakeId) ?? [];
+    rows.push(support);
+    grouped.set(support.propertyStakeId, rows);
+  }
+  return new Map(
+    stakes.map((stake) => [
+      stake.id,
+      evidenceView(
+        `${stake.company.canonicalName} ${stake.predicate} ${stake.property.canonicalName}`,
+        grouped.get(stake.id) ?? []
+      ),
+    ] as const)
+  );
+}
+
 function addressOf(property: {
   addressLine1: string | null;
   city: string | null;
@@ -1379,7 +1496,7 @@ export async function getDealKnowledge(prisma: PrismaClient, dealId: string): Pr
   const stakes = deal.propertyId
     ? await prisma.propertyStake.findMany({
         where: { workspaceId: deal.workspaceId, propertyId: deal.propertyId, status: "ASSERTED" },
-        include: { company: true },
+        include: { company: true, property: true },
         orderBy: { createdAt: "asc" },
       })
     : [];
@@ -1418,6 +1535,15 @@ export async function getDealKnowledge(prisma: PrismaClient, dealId: string): Pr
       headline: preview.headline,
     });
   }
+
+  const [participationEvidence, employmentEvidence, stakeEvidence, propertyEvidence] = await Promise.all([
+    participationEvidenceById(prisma, deal.name, participations),
+    employmentEvidenceById(prisma, employments),
+    stakeEvidenceById(prisma, stakes),
+    deal.canonicalProperty
+      ? getRelationshipEvidence(prisma, { dealId: deal.id })
+      : Promise.resolve(null),
+  ]);
 
   const people = new Map<string, DealKnowledge["canonical"]["people"][number]>();
   for (const participation of participations) {
@@ -1459,43 +1585,37 @@ export async function getDealKnowledge(prisma: PrismaClient, dealId: string): Pr
             id: deal.canonicalProperty.id,
             name: deal.canonicalProperty.canonicalName,
             address: addressOf(deal.canonicalProperty),
-            evidence: (await getRelationshipEvidence(prisma, { dealId: deal.id }))!,
+            evidence: propertyEvidence!,
           }
         : null,
-      stakes: await Promise.all(
-        stakes.map(async (stake) => ({
-          id: stake.id,
-          predicate: stake.predicate,
-          companyId: stake.companyId,
-          companyName: stake.company.canonicalName,
-          evidence: (await getRelationshipEvidence(prisma, { propertyStakeId: stake.id }))!,
-        }))
-      ),
-      participations: await Promise.all(
-        participations.map(async (participation) => ({
-          id: participation.id,
-          role: participation.role,
-          roleLabel: participation.roleLabel,
-          actorId: participation.personId ?? participation.companyId,
-          actorType: participation.personId ? "PERSON" as const : participation.companyId ? "COMPANY" as const : null,
-          actorName: participation.person?.canonicalName ?? participation.company?.canonicalName ?? "Unknown",
-          representsCompanyId: participation.representsCompanyId,
-          representsCompanyName: participation.represents?.canonicalName ?? null,
-          evidence: (await getRelationshipEvidence(prisma, { dealParticipationId: participation.id }))!,
-        }))
-      ),
-      employments: await Promise.all(
-        employments.map(async (employment) => ({
-          id: employment.id,
-          personId: employment.personId,
-          personName: employment.person.canonicalName,
-          companyId: employment.companyId,
-          companyName: employment.company.canonicalName,
-          affiliationKind: employment.affiliationKind,
-          titleAtTime: employment.titleAtTime,
-          evidence: (await getRelationshipEvidence(prisma, { employmentId: employment.id }))!,
-        }))
-      ),
+      stakes: stakes.map((stake) => ({
+        id: stake.id,
+        predicate: stake.predicate,
+        companyId: stake.companyId,
+        companyName: stake.company.canonicalName,
+        evidence: stakeEvidence.get(stake.id)!,
+      })),
+      participations: participations.map((participation) => ({
+        id: participation.id,
+        role: participation.role,
+        roleLabel: participation.roleLabel,
+        actorId: participation.personId ?? participation.companyId,
+        actorType: participation.personId ? "PERSON" as const : participation.companyId ? "COMPANY" as const : null,
+        actorName: participation.person?.canonicalName ?? participation.company?.canonicalName ?? "Unknown",
+        representsCompanyId: participation.representsCompanyId,
+        representsCompanyName: participation.represents?.canonicalName ?? null,
+        evidence: participationEvidence.get(participation.id)!,
+      })),
+      employments: employments.map((employment) => ({
+        id: employment.id,
+        personId: employment.personId,
+        personName: employment.person.canonicalName,
+        companyId: employment.companyId,
+        companyName: employment.company.canonicalName,
+        affiliationKind: employment.affiliationKind,
+        titleAtTime: employment.titleAtTime,
+        evidence: employmentEvidence.get(employment.id)!,
+      })),
       people: [...people.values()],
     },
     pending: {

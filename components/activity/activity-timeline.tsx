@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import { ReconciliationBadge, ReconciliationDetail } from "@/components/deals/reconciliation-context";
 import { EvidencePanel } from "@/components/knowledge/evidence-panel";
 import type { ActivityEvent, ActivityFilter, ActivityPage, ActivityRootType } from "@/lib/activity/types";
 
@@ -43,9 +44,9 @@ function groupEvents(events: ActivityEvent[]) {
 }
 
 function statusClass(status: string): string {
-  if (status === "AGREED") return "bg-green-50 text-green-700";
+  if (status === "AGREED" || status === "ACCEPTED") return "bg-green-50 text-green-700";
   if (status === "REJECTED") return "bg-red-50 text-red-700";
-  if (status === "WITHDRAWN") return "bg-zinc-100 text-zinc-600";
+  if (status === "WITHDRAWN" || status === "HISTORICAL") return "bg-zinc-100 text-zinc-600";
   return "bg-blue-50 text-blue-700";
 }
 
@@ -57,6 +58,7 @@ function EventCard({ event }: { event: ActivityEvent }) {
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
             <span className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500">{eventLabels[event.eventType]}</span>
+            <ReconciliationBadge links={event.reconciliation} />
             {event.resolutionState === "PENDING" && <span className="rounded-sm bg-amber-50 px-1.5 py-0.5 text-[9px] font-semibold uppercase text-amber-700">Pending / unresolved</span>}
           </div>
           <h4 className="mt-0.5 text-sm font-semibold text-zinc-900">{event.title}</h4>
@@ -72,18 +74,25 @@ function EventCard({ event }: { event: ActivityEvent }) {
             Open negotiation round
           </Link>
         )}
+        {event.sourceHref && (
+          <Link href={event.sourceHref} className="shrink-0 text-[11px] font-medium text-zinc-700 underline">
+            View message
+          </Link>
+        )}
       </div>
       {event.details && event.details.length > 0 && (
         <div className="mt-3 divide-y divide-zinc-100 rounded-sm border border-zinc-200 bg-zinc-50/60">
           {event.details.map((detail, index) => (
             <div key={`${detail.canonicalType}:${detail.status}:${index}`} className="px-3 py-2">
               <div className="flex flex-wrap items-start justify-between gap-2 text-xs">
-                <span className="font-medium text-zinc-700">{detail.label}</span>
+                <span className="font-medium text-zinc-700">{detail.label}{detail.side ? <span className="ml-2 font-normal text-zinc-500">{detail.side}</span> : null}</span>
                 <div className="text-right">
                   <span className="text-zinc-900">{detail.previousValue ? <><span className="text-zinc-400 line-through">{detail.previousValue}</span><span className="mx-1.5 text-zinc-400">→</span></> : null}{detail.value}</span>
                   <span className={`ml-2 rounded-sm px-1.5 py-0.5 text-[9px] font-semibold ${statusClass(detail.status)}`}>{detail.status}</span>
                 </div>
               </div>
+              {detail.reconciliation && <div className="mt-1"><ReconciliationBadge links={[detail.reconciliation]} /></div>}
+              {detail.evidenceQuote && <p className="mt-1 text-[11px] text-zinc-500">“{detail.evidenceQuote}”</p>}
               {detail.structured && (
                 <dl className="mt-2 grid gap-1 border-l-2 border-zinc-200 pl-2 sm:grid-cols-2">
                   {detail.structured.rows.map((row, rowIndex) => (
@@ -100,6 +109,7 @@ function EventCard({ event }: { event: ActivityEvent }) {
           {event.entityRefs.map((ref) => <Link key={`${ref.type}:${ref.id}`} href={ref.href} className="underline decoration-zinc-300 underline-offset-2 hover:text-zinc-900">{ref.name}</Link>)}
         </div>
       )}
+      <ReconciliationDetail links={event.reconciliation} dealId={event.dealId} />
       {event.evidence && <EvidencePanel evidence={event.evidence} />}
     </article>
   );

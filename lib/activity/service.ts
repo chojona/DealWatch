@@ -1,5 +1,10 @@
 import type { Prisma } from "@prisma/client";
+import { linksByActivityEventId } from "@/lib/deals/reconciliation/reconcile";
+import type { ReconciliationLink } from "@/lib/deals/reconciliation/types";
 import type { GraphDb } from "@/lib/entities/workspace";
+import { activitySideLabel, canonicalLabel, storedFactValue } from "@/lib/messages/facts";
+import { factsFromLatestRun } from "@/lib/messages/latestRun";
+import { eventFactsByEventId, linkedLegacyEventIds, loadDealMessageSources, messageActivities, structuredFactsForEvent } from "@/lib/messages/load";
 import { canonicalEntityHref } from "@/lib/intelligence/routes";
 import { buildDocumentEvent, sentence, type ActivityEvidenceObservation } from "./documents";
 import {
@@ -291,8 +296,88 @@ function milestoneTitle(kind: string): string {
 function filterEvents(events: ActivityEvent[], filter: ActivityFilter): ActivityEvent[] {
   if (filter === "ALL") return events;
   if (filter === "DOCUMENTS") return events.filter((event) => event.eventType === "DOCUMENT" || event.eventType === "DOCUMENT_REVIEW");
-  if (filter === "NEGOTIATION") return events.filter((event) => event.eventType.startsWith("NEGOTIATION_"));
+  if (filter === "NEGOTIATION") return events.filter((event) => event.eventType.startsWith("NEGOTIATION_") || event.sourceType === "SOURCE_MESSAGE");
   return events.filter((event) => ["ENTITY_EVIDENCE", "RELATIONSHIP_EVIDENCE", "DEAL_PARTICIPATION", "EMPLOYMENT_EVIDENCE", "PROPERTY_RELATIONSHIP_EVIDENCE"].includes(event.eventType));
+}
+
+function linkForFact(links: ReconciliationLink[], fact: { canonicalType: string | null; side: string; numeric: number | null }) {
+  return links.find((link) =>
+    link.canonicalType === fact.canonicalType
+    && link.eventSide === fact.side
+    && (fact.numeric == null || link.eventValue?.numeric === fact.numeric)
+  );
+}
+
+function sourceMessageEvent(
+  message: {
+    id: string;
+    dealId: string;
+    subject: string | null;
+    bodyText: string;
+    sentAt: Date | null;
+    receivedAt: Date | null;
+    createdAt: Date;
+    facts: Array<{
+      factType: string;
+      canonicalType: string | null;
+      side: string;
+      assertionStatus: string;
+      evidenceQuote: string;
+      structuredPayload: unknown;
+      activityExtractionRun: { id: string; status: string; completedAt: Date | null; createdAt: Date } | null;
+    }>;
+  },
+  links: ReconciliationLink[],
+  refs: ActivityEntityRef[]
+): ActivityEvent {
+  const facts = factsFromLatestRun(message.facts);
+  const negotiationCount = facts.filter((fact) => fact.factType === "NEGOTIATION_VALUE").length;
+  const occurredAt = message.sentAt ?? message.receivedAt ?? message.createdAt;
+  return {
+    id: `source-message:${message.id}`,
+    occurredAt: occurredAt.toISOString(),
+    recordedAt: message.createdAt.toISOString(),
+    eventType: "DEAL_ACTIVITY",
+    title: message.subject?.trim() || "Email",
+    description: negotiationCount > 0 ? `${negotiationCount} negotiation fact${negotiationCount === 1 ? "" : "s"}` : undefined,
+    entityRefs: refs,
+    dealId: message.dealId,
+    sourceType: "SOURCE_MESSAGE",
+    sourceId: message.id,
+    sourceHref: `/messages/${message.id}`,
+    dedupeKey: `source-message:${message.id}`,
+    reconciliation: links,
+    details: facts.map((fact) => {
+      const value = storedFactValue(fact.structuredPayload);
+      const reconciliation = linkForFact(links, { canonicalType: fact.canonicalType, side: fact.side, numeric: value.numeric });
+      return {
+        canonicalType: fact.canonicalType ?? fact.factType,
+        label: fact.canonicalType ? canonicalLabel(fact.canonicalType) : canonicalLabel(fact.factType),
+        value: value.display ?? fact.evidenceQuote,
+        status: fact.assertionStatus,
+        side: activitySideLabel(fact.side),
+        evidenceQuote: fact.evidenceQuote,
+        reconciliation,
+      };
+    }),
+    evidence: {
+      title: message.subject?.trim() || "Email",
+      supportCount: 1,
+      supports: [{
+        observationId: message.id,
+        quote: message.subject?.trim() || "Email",
+        provenanceStatus: null,
+        pageNumber: null,
+        documentId: null,
+        documentName: null,
+        messageId: message.id,
+        sourceKind: "SOURCE_MESSAGE",
+        sourceLocation: null,
+        sourceDate: occurredAt.toISOString(),
+        href: `/messages/${message.id}`,
+      }],
+    },
+  };
 }
 
 function compareEvent(a: Pick<ActivityEvent, "occurredAt" | "recordedAt" | "id">, b: Pick<ActivityEvent, "occurredAt" | "recordedAt" | "id">): number {
@@ -314,12 +399,13 @@ export async function getActivityPage(db: GraphDb, input: ActivityQuery): Promis
   const wantsDocuments = filter === "ALL" || filter === "DOCUMENTS";
   const wantsNegotiation = filter === "ALL" || filter === "NEGOTIATION";
   const wantsRelationships = filter === "ALL" || filter === "RELATIONSHIPS";
+  const wantsMessages = filter === "ALL" || filter === "NEGOTIATION";
   const documentRootWhere: Prisma.DocumentWhereInput = scope.root.type === "PERSON"
     ? { entityObservations: { some: { workspaceId: scope.workspaceId, resolutionLinks: { some: { status: "ACCEPTED", personId: scope.root.id } }, dispositions: { none: { disposition: "REJECTED" } } } } }
     : scope.root.type === "COMPANY"
       ? { entityObservations: { some: { workspaceId: scope.workspaceId, resolutionLinks: { some: { status: "ACCEPTED", companyId: scope.root.id } }, dispositions: { none: { disposition: "REJECTED" } } } } }
       : {};
-  const [documents, milestones, negotiationRows, dealEvents, relationshipEvents, observationEvents] = await Promise.all([
+  const [documents, milestones, negotiationRows, dealEvents, relationshipEvents, observationEvents, sources] = await Promise.all([
     wantsDocuments && dealIds.length ? db.document.findMany({ where: { dealId: { in: dealIds }, deal: { workspaceId: scope.workspaceId }, ...documentRootWhere }, include: { deal: { select: { id: true, name: true } } }, orderBy: [{ documentDate: "desc" }, { createdAt: "desc" }] }) : Promise.resolve([]),
     wantsDocuments && dealIds.length ? db.documentMilestone.findMany({ where: { document: { dealId: { in: dealIds }, deal: { workspaceId: scope.workspaceId } } }, include: { document: { select: { id: true, originalFilename: true, dealId: true } } }, orderBy: { occurredAt: "desc" } }) : Promise.resolve([]),
     wantsNegotiation && dealIds.length ? db.negotiationRound.findMany({
@@ -334,8 +420,52 @@ export async function getActivityPage(db: GraphDb, input: ActivityQuery): Promis
     filter === "ALL" && dealIds.length ? db.dealEvent.findMany({ where: { dealId: { in: dealIds }, deal: { workspaceId: scope.workspaceId } }, include: { deal: true, message: true }, orderBy: [{ occurredAt: "desc" }, { id: "asc" }] }) : Promise.resolve([]),
     wantsRelationships ? loadCanonicalRelationshipEvents(db, scope) : Promise.resolve([]),
     wantsRelationships ? loadObservationEvents(db, scope) : Promise.resolve([]),
+    wantsMessages ? loadDealMessageSources(db, scope.workspaceId, dealIds) : Promise.resolve({ messages: [], eventFacts: [] }),
   ]);
+  const coveredEvents = linkedLegacyEventIds(sources.messages);
+  const factsForEvent = eventFactsByEventId(sources.eventFacts);
+  const visibleEvents = dealEvents.filter((event) => !coveredEvents.has(event.id));
 
+  const reconciliation = linksByActivityEventId({
+    events: [
+      ...messageActivities(sources.messages),
+      ...visibleEvents.map((event) => ({
+        id: event.id,
+        dealId: event.dealId,
+        type: event.type,
+        description: event.description,
+        evidenceQuote: event.evidenceQuote,
+        occurredAt: event.occurredAt,
+        messageId: event.messageId,
+        message: event.message ? { sender: event.message.sender, sentAt: event.message.sentAt } : null,
+        structuredFacts: structuredFactsForEvent(factsForEvent.get(event.id) ?? []),
+      })),
+    ],
+    rounds: negotiationRows.map((round) => ({
+      id: round.id,
+      dealId: round.dealId,
+      side: round.side,
+      roundNumber: round.roundNumber,
+      documentName: round.documentName,
+      documentDate: round.documentDate,
+      createdAt: round.createdAt,
+      sourceType: round.sourceType,
+      documentId: round.documentId,
+      terms: round.terms.map((term) => ({
+        id: term.id,
+        canonicalType: term.canonicalType,
+        normalizedValue: term.normalizedValue,
+        normalizedNumeric: term.normalizedNumeric,
+        normalizedUnit: term.normalizedUnit,
+        rawValue: term.rawValue,
+        status: term.status,
+        side: term.side,
+        evidenceQuote: term.evidenceQuote,
+        structuredPayload: term.structuredPayload,
+        pageNumber: term.documentPage?.pageNumber ?? null,
+      })),
+    })),
+  });
   const mappedRounds: ActivityNegotiationRound[] = negotiationRows.map((round) => ({
     ...round,
     terms: round.terms.map((term) => ({
@@ -365,7 +495,7 @@ export async function getActivityPage(db: GraphDb, input: ActivityQuery): Promis
       dedupeKey: milestone.dedupeKey,
     })),
     ...buildNegotiationEvents(mappedRounds, (dealId) => refsForDeal(scope, dealId)),
-    ...dealEvents.map((event): ActivityEvent => ({
+    ...visibleEvents.map((event): ActivityEvent => ({
       id: `deal-event:${event.id}`,
       occurredAt: event.occurredAt.toISOString(),
       recordedAt: null,
@@ -378,7 +508,9 @@ export async function getActivityPage(db: GraphDb, input: ActivityQuery): Promis
       sourceType: "DEAL_EVENT",
       sourceId: event.id,
       dedupeKey: `deal-event:${event.id}`,
+      reconciliation: reconciliation.get(`deal-event:${event.id}`),
     })),
+    ...sources.messages.map((message) => sourceMessageEvent(message, reconciliation.get(`source-message:${message.id}`) ?? [], refsForDeal(scope, message.dealId))),
     ...relationshipEvents,
     ...observationEvents,
   ];

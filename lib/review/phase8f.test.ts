@@ -27,6 +27,7 @@ import { createWorkspace, ensureDefaultWorkspace } from "@/lib/entities/workspac
 import { getConnectionGraph } from "@/lib/graph/service";
 import { scoreConnectionPath, scoreEdgeStrength } from "@/lib/graph/strength";
 import { getInbox, getDocumentReview } from "@/lib/inbox/service";
+import { getDealIntelligence } from "@/lib/deals/intelligence/service";
 import { getNegotiationWorkspace } from "@/lib/negotiation/intelligence/service";
 import {
   acknowledgeBlockedRelationship,
@@ -487,6 +488,18 @@ describe("Phase 8F document review closure", { concurrency: 1 }, () => {
 
     const needsReview = await getInbox(prisma, { workspaceId, dealId: deal.id, filter: "NEEDS_REVIEW" });
     assert.equal(needsReview.items.some((item) => item.document.id === received.document.id), false);
+
+    const intelligence = await getDealIntelligence(prisma, deal.id);
+    assert.equal(intelligence?.intelligenceStatus, "NEGOTIATING");
+    assert.equal(intelligence?.deal.recordStatus, deal.status);
+    assert.equal(intelligence?.health.reviewedDocumentCount, 1);
+    assert.equal(intelligence?.health.reviewRequiredDocumentCount, 0);
+    assert.equal(intelligence?.agreedTerms.length, 0);
+    assert.equal(intelligence?.terms.find((term) => term.canonicalType === "BASE_RENT")?.status, "PROPOSED");
+    assert.equal(intelligence?.team.tenantBrokers.some((party) => party.name === "Sarah Chen"), true);
+    assert.equal(intelligence?.team.tenantBrokers.find((party) => party.name === "Sarah Chen")?.employers.some((employer) => employer.companyName === "Harbor Brokerage"), true);
+    assert.equal(intelligence?.team.landlord.some((party) => party.name === "Clarendon Holdings"), false);
+    assert.equal(intelligence?.reviewQueue.some((item) => item.kind === "ENTITY" || item.kind === "RELATIONSHIP"), false);
   });
 
   test("200 Clarendon development data is not repaired with invented source facts", async () => {

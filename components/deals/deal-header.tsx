@@ -11,6 +11,7 @@ interface DealHeaderProps {
   propertyHref?: string | null;
   stage: string;
   status: string;
+  intelligenceStatus?: string | null;
   estimatedValue: number | null;
   createdAt: Date;
 }
@@ -34,6 +35,7 @@ export function DealHeader({
   propertyHref,
   stage,
   status,
+  intelligenceStatus,
   estimatedValue,
   createdAt,
 }: DealHeaderProps) {
@@ -53,6 +55,7 @@ export function DealHeader({
               <span className="text-zinc-600">{company}</span>
             </div>
             <h1 className="text-xl font-semibold text-zinc-900">{name}</h1>
+            <p className="text-sm text-zinc-600">{company}</p>
             <div className="flex items-center gap-2 mt-0.5">
               {propertyHref ? <Link href={propertyHref} className="text-sm text-zinc-500 underline decoration-zinc-300 underline-offset-2 hover:text-zinc-800">{property}</Link> : <span className="text-sm text-zinc-500">{property}</span>}
             </div>
@@ -64,8 +67,11 @@ export function DealHeader({
               >
                 {stage}
               </span>
+              {intelligenceStatus ? (
+                <Badge variant="default">{intelligenceStatus}</Badge>
+              ) : null}
               <Badge variant={status === "ACTIVE" ? "default" : "secondary"}>
-                {status}
+                {intelligenceStatus ? `Record ${status}` : status}
               </Badge>
             </div>
             {estimatedValue && (
@@ -84,25 +90,7 @@ export function DealHeader({
               href={`/deals/${dealId}`}
               className={`border-b-2 pb-2.5 text-xs font-medium ${activeSection === "overview" ? "border-zinc-900 text-zinc-900" : "border-transparent text-zinc-400 hover:text-zinc-700"}`}
             >
-              Deal overview
-            </Link>
-            <Link
-              href={`/deals/${dealId}/negotiation`}
-              className={`border-b-2 pb-2.5 text-xs font-medium ${activeSection === "negotiation" ? "border-zinc-900 text-zinc-900" : "border-transparent text-zinc-400 hover:text-zinc-700"}`}
-            >
-              Negotiation intelligence
-            </Link>
-            <Link
-              href={`/deals/${dealId}/activity`}
-              className={`border-b-2 pb-2.5 text-xs font-medium ${activeSection === "activity" ? "border-zinc-900 text-zinc-900" : "border-transparent text-zinc-400 hover:text-zinc-700"}`}
-            >
-              Activity
-            </Link>
-            <Link
-              href={`/deals/${dealId}/knowledge`}
-              className={`border-b-2 pb-2.5 text-xs font-medium ${activeSection === "knowledge" ? "border-zinc-900 text-zinc-900" : "border-transparent text-zinc-400 hover:text-zinc-700"}`}
-            >
-              Knowledge
+              Overview
             </Link>
             <Link
               href={`/deals/${dealId}/documents`}
@@ -111,10 +99,28 @@ export function DealHeader({
               Documents
             </Link>
             <Link
+              href={`/deals/${dealId}/negotiation`}
+              className={`border-b-2 pb-2.5 text-xs font-medium ${activeSection === "negotiation" ? "border-zinc-900 text-zinc-900" : "border-transparent text-zinc-400 hover:text-zinc-700"}`}
+            >
+              Negotiation
+            </Link>
+            <Link
+              href={`/deals/${dealId}/knowledge`}
+              className={`border-b-2 pb-2.5 text-xs font-medium ${activeSection === "knowledge" ? "border-zinc-900 text-zinc-900" : "border-transparent text-zinc-400 hover:text-zinc-700"}`}
+            >
+              Knowledge
+            </Link>
+            <Link
               href={`/deals/${dealId}/connections`}
               className={`border-b-2 pb-2.5 text-xs font-medium ${activeSection === "connections" ? "border-zinc-900 text-zinc-900" : "border-transparent text-zinc-400 hover:text-zinc-700"}`}
             >
-              Connection map
+              Connections
+            </Link>
+            <Link
+              href={`/deals/${dealId}/activity`}
+              className={`border-b-2 pb-2.5 text-xs font-medium ${activeSection === "activity" ? "border-zinc-900 text-zinc-900" : "border-transparent text-zinc-400 hover:text-zinc-700"}`}
+            >
+              Activity
             </Link>
           </nav>
         )}

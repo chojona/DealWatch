@@ -12,6 +12,8 @@ import type {
   NegotiationWorkspace,
   NegotiationWorkspaceFilter,
 } from "@/lib/negotiation/intelligence/types";
+import { buildSourceChronology, chronologyRelationshipLabel, eventTypeLabel } from "@/lib/deals/reconciliation/present";
+import type { ReconciliationLink } from "@/lib/deals/reconciliation/types";
 
 const FILTERS: Array<{ value: NegotiationWorkspaceFilter; label: string }> = [
   { value: "ALL", label: "All" },
@@ -135,7 +137,46 @@ function PositionDetail({ title, position, term }: { title: string; position: Ne
   );
 }
 
-function TermDrawer({ term, onClose }: { term: NegotiationTermView; onClose: () => void }) {
+function positionSummary(position: NegotiationPositionView | null): string | null {
+  if (!position) return null;
+  if (position.kind === "CONFLICT") return position.label;
+  return position.value.summary;
+}
+
+function relatedActivity(observationId: string, roundId: string, canonicalType: string, links: ReconciliationLink[]) {
+  return links.filter((link) => link.canonicalType === canonicalType && (
+    link.matchedObservationIds.includes(observationId)
+    || (link.relationship === "POSSIBLE_RELATED" && link.matchedRoundId === roundId)
+  ));
+}
+
+function TermDrawer({
+  term,
+  links,
+  onClose,
+}: {
+  term: NegotiationTermView;
+  links: ReconciliationLink[];
+  onClose: () => void;
+}) {
+  const chronology = buildSourceChronology({
+    canonicalType: term.canonicalType,
+    currentTenant: positionSummary(term.tenantPosition),
+    currentLandlord: positionSummary(term.landlordPosition),
+    links,
+    observations: term.history.map((observation) => ({
+      id: observation.id,
+      roundId: observation.roundId,
+      roundName: observation.roundName,
+      roundDate: observation.roundDate,
+      side: observation.side,
+      valueDisplay: observation.value.summary,
+      href: observation.evidence.href,
+      sourceLabel: observation.evidence.pageNumber
+        ? `${observation.evidence.sourceLabel} · Page ${observation.evidence.pageNumber}`
+        : observation.evidence.sourceLabel || observation.roundName,
+    })),
+  });
   return (
     <div className="fixed inset-0 z-50 flex justify-end bg-zinc-950/25" role="dialog" aria-modal="true" aria-label={`${term.label} intelligence`}>
       <button type="button" className="min-w-0 flex-1 cursor-default" aria-label="Close term detail" onClick={onClose} />
@@ -161,6 +202,26 @@ function TermDrawer({ term, onClose }: { term: NegotiationTermView; onClose: () 
           </div>
           {term.agreedPosition && <PositionDetail title="Agreed position" position={term.agreedPosition} term={term} />}
           <section>
+            <h4 className="text-[10px] font-semibold uppercase tracking-wider text-zinc-400">Source chronology</h4>
+            <ol className="mt-2 space-y-2">
+              {chronology.entries.map((entry) => (
+                <li key={`${entry.sourceKind}:${entry.occurredAt}:${entry.sourceLabel}:${entry.statement}`} className="rounded-sm border border-zinc-200 bg-white px-3 py-2">
+                  <p className="text-[10px] text-zinc-400">{date(entry.occurredAt)} — {entry.sourceLabel}</p>
+                  <p className="mt-0.5 text-xs text-zinc-800">{entry.statement}</p>
+                  {entry.relationship && (
+                    <p className="mt-1 text-[11px] text-zinc-500">{chronologyRelationshipLabel(entry.relationship)}</p>
+                  )}
+                  {entry.href && <a className="mt-1 inline-block text-[11px] underline" href={entry.href}>Open source</a>}
+                </li>
+              ))}
+            </ol>
+            <div className="mt-2 rounded-sm border border-zinc-300 bg-white px-3 py-2">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-400">Current</p>
+              <p className="mt-1 text-xs text-zinc-800">Tenant {chronology.current.tenant ?? "—"}</p>
+              <p className="text-xs text-zinc-800">Landlord {chronology.current.landlord ?? "—"}</p>
+            </div>
+          </section>
+          <section>
             <div className="flex items-baseline justify-between">
               <h4 className="text-[10px] font-semibold uppercase tracking-wider text-zinc-400">Complete round history</h4>
               <span className="text-[10px] text-zinc-400">{term.history.length} observations</span>
@@ -176,6 +237,19 @@ function TermDrawer({ term, onClose }: { term: NegotiationTermView; onClose: () 
                     <span className={`rounded-sm border px-1.5 py-0.5 text-[9px] font-semibold ${statusClass[observation.status] ?? statusClass.UNRESOLVED}`}>{observation.status}</span>
                   </div>
                   <div className="mt-2 text-xs"><div>{formattedValue(observation.value, true)}</div></div>
+                  {relatedActivity(observation.id, observation.roundId, term.canonicalType, links).length > 0 && (
+                    <div className="mt-2">
+                      <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-400">Related activity</p>
+                      <ul className="mt-1 space-y-1">
+                        {relatedActivity(observation.id, observation.roundId, term.canonicalType, links).map((link) => (
+                          <li key={`${link.activityEventId}:${link.explanationCode}`} className="text-[11px] text-zinc-600">
+                            {eventTypeLabel(link.eventType)} — {date(link.eventDate)}
+                            {link.relationship === "POSSIBLE_RELATED" ? " · Possible correspondence" : ""}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
                   <div className="mt-3"><Evidence evidence={observation.evidence} /></div>
                 </article>
               ))}
@@ -219,7 +293,15 @@ function filterTerms(terms: NegotiationTermView[], filter: NegotiationWorkspaceF
   return terms.filter((term) => term.status !== "AGREED");
 }
 
-export function NegotiationWorkspaceView({ workspace, initialRoundId }: { workspace: NegotiationWorkspace; initialRoundId?: string | null }) {
+export function NegotiationWorkspaceView({
+  workspace,
+  initialRoundId,
+  reconciliation = [],
+}: {
+  workspace: NegotiationWorkspace;
+  initialRoundId?: string | null;
+  reconciliation?: ReconciliationLink[];
+}) {
   const [filter, setFilter] = useState<NegotiationWorkspaceFilter>("ALL");
   const [selectedTerm, setSelectedTerm] = useState<NegotiationTermView | null>(null);
   const [selectedRoundId, setSelectedRoundId] = useState(
@@ -342,7 +424,7 @@ export function NegotiationWorkspaceView({ workspace, initialRoundId }: { worksp
         </div>
       </section>
 
-      {selectedTerm && <TermDrawer term={selectedTerm} onClose={() => setSelectedTerm(null)} />}
+      {selectedTerm && <TermDrawer term={selectedTerm} links={reconciliation} onClose={() => setSelectedTerm(null)} />}
     </div>
   );
 }

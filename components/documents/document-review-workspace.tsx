@@ -15,6 +15,8 @@ import {
 } from "@/components/documents/review-actions";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DOCUMENT_TYPE_LABELS } from "@/lib/documents/labels";
+import { readinessGuidance } from "@/lib/documents/readinessCopy";
+import type { ReadinessGapCode } from "@/lib/documents/readiness";
 import { formatDate, formatDateTime } from "@/lib/formatters";
 import { processingLabel } from "@/lib/inbox/status";
 import type { DocumentReviewModel } from "@/lib/inbox/types";
@@ -148,14 +150,12 @@ export function DocumentReviewWorkspace({
           {item.canRetry && <div className="mt-3"><RetryAnalysisButton documentId={item.document.id} /></div>}
         </section>
       )}
-      {!review.fileAvailable && item.document.pageCount && item.document.ingestionStatus !== "UPLOADED" && (
-        <p className="rounded-sm border border-zinc-200 bg-white px-4 py-3 text-xs text-zinc-600">
-          Text was extracted, but the original PDF is unavailable.
-        </p>
-      )}
-      {!review.fileAvailable && (!item.document.pageCount || item.document.ingestionStatus === "UPLOADED") && item.processingStatus !== "FAILED" && (
-        <p className="rounded-sm border border-zinc-200 bg-white px-4 py-3 text-xs text-zinc-600">
-          The document has not been processed.
+      {!review.fileAvailable && (
+        <p className="rounded-sm border border-zinc-200 bg-white px-4 py-3 text-xs text-zinc-800">
+          Original PDF required.
+          {item.document.pageCount && item.document.ingestionStatus !== "UPLOADED"
+            ? " Text was extracted, but the original PDF is unavailable."
+            : " Upload the original PDF before analysis."}
         </p>
       )}
       {allowSourceReplacement && !review.fileAvailable && (
@@ -181,9 +181,17 @@ export function DocumentReviewWorkspace({
       {!review.readiness.analysisReady && !review.readiness.reviewReady && item.processingStatus !== "FAILED" && item.processingStatus !== "ANALYZING" && review.readiness.missing.length > 0 && (
         <section className="rounded-sm border border-zinc-200 bg-white px-4 py-3">
           <h2 className="text-xs font-semibold uppercase tracking-wider text-zinc-400">Analysis unavailable</h2>
-          <p className="mt-1 text-xs text-zinc-600">Missing:</p>
-          <ul className="mt-1 list-disc pl-4 text-xs text-zinc-800">
-            {review.readiness.missing.map((gap) => <li key={gap.code}>{gap.label}</li>)}
+          <p className="mt-1 text-xs text-zinc-600">Analyze stays unavailable until every requirement below is stored.</p>
+          <ul className="mt-3 space-y-2">
+            {review.readiness.missing.map((gap) => {
+              const guidance = readinessGuidance(gap.code as ReadinessGapCode, item.sourceFileState);
+              return (
+                <li key={gap.code}>
+                  <p className="text-xs font-medium text-zinc-900">{guidance.title}</p>
+                  <p className="text-[11px] text-zinc-600">{guidance.action}</p>
+                </li>
+              );
+            })}
           </ul>
         </section>
       )}

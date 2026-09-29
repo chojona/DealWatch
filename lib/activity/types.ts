@@ -1,3 +1,4 @@
+import type { ReconciliationLink } from "@/lib/deals/reconciliation/types";
 import type { EvidenceView } from "@/lib/promotion/types";
 
 export const ACTIVITY_ROOT_TYPES = ["PERSON", "COMPANY", "PROPERTY", "DEAL"] as const;
@@ -24,6 +25,7 @@ export type ActivitySourceType =
   | "DOCUMENT"
   | "NEGOTIATION_ROUND"
   | "DEAL_EVENT"
+  | "SOURCE_MESSAGE"
   | "ENTITY_OBSERVATION"
   | "RELATIONSHIP_OBSERVATION"
   | "CANONICAL_ASSERTION";
@@ -53,6 +55,9 @@ export interface ActivityTermDetail {
   value: string;
   previousValue?: string;
   status: string;
+  side?: string;
+  evidenceQuote?: string;
+  reconciliation?: ReconciliationLink;
   structured?: ActivityStructuredDetail;
 }
 
@@ -76,6 +81,9 @@ export interface ActivityEvent {
   sourceId: string;
   resolutionState?: "CONFIRMED" | "PENDING";
   dedupeKey: string;
+  sourceHref?: string | null;
+  /** Read-only correspondence with negotiation observations. Never stored. */
+  reconciliation?: ReconciliationLink[];
 }
 
 export interface ActivityCursor {

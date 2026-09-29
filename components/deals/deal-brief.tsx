@@ -258,7 +258,7 @@ export function DealBriefView({
     <div className="space-y-5">
       {brief.since ? (
         <div className="rounded-sm border border-zinc-200 bg-zinc-50 px-4 py-2.5 text-xs text-zinc-600">
-          Changes are filtered from {timestamp(brief.since)}. Current open deal state remains visible.
+          Showing changes after {timestamp(brief.since)}. Current open deal state remains visible.
         </div>
       ) : null}
 
@@ -364,7 +364,9 @@ export function DealBriefView({
 
         <Section title="What changed" eyebrow="Meaningful deal movement">
           {brief.recentChanges.length === 0 ? (
-            <p className="text-sm text-zinc-500">{brief.changeSummary.emptyState ?? "No recent meaningful deal changes."}</p>
+            <p className="text-sm text-zinc-500">
+              {brief.since ? `No meaningful changes since ${timestamp(brief.since)}.` : "No recent meaningful deal changes."}
+            </p>
           ) : (
             <>
             <ul className="divide-y divide-zinc-100">
@@ -454,7 +456,7 @@ export function DealBriefView({
           <Link href={`/deals/${brief.deal.id}/messages`} className="text-[11px] font-semibold text-sky-900 underline">Open all messages</Link>
         </div>
         {brief.communications.length === 0 ? (
-          <p className="text-sm text-zinc-500">No communications in the current view.</p>
+          <p className="text-sm text-zinc-500">{brief.since ? "No communications arrived in this catch-up window." : "No communications in the current view."}</p>
         ) : (
           <>
           <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
@@ -518,7 +520,7 @@ export function DealBriefView({
 
       <Section title="Brief timeline" eyebrow="Compact source chronology">
         {brief.timeline.length === 0 ? (
-          <p className="text-sm text-zinc-500">No source chronology in the current view.</p>
+          <p className="text-sm text-zinc-500">{brief.since ? "No timeline events occurred in this catch-up window." : "No source chronology in the current view."}</p>
         ) : (
           <ol className="grid gap-x-6 gap-y-0 md:grid-cols-2">
             {brief.timeline.slice(0, BRIEF_SECTION_CAPS.timeline).map((item) => (

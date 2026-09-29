@@ -392,8 +392,8 @@ describe("Phase 10A deterministic Deal Brief", { concurrency: 1 }, () => {
     assert.equal(brief.since, since.toISOString());
     assert.equal(brief.communications.some((item) => item.subject === "Email rent discussion"), false);
     assert.equal(brief.communications.some((item) => item.subject === "Message requiring review"), true);
-    assert.equal(brief.recentChanges.every((item) => new Date(item.timestamp) >= since), true);
-    assert.equal(brief.timeline.every((item) => new Date(item.occurredAt ?? item.recordedAt ?? 0) >= since), true);
+    assert.equal(brief.recentChanges.every((item) => new Date(item.timestamp) > since), true);
+    assert.equal(brief.timeline.every((item) => new Date(item.occurredAt ?? item.recordedAt ?? 0) > since), true);
     assert.equal(brief.recentChanges.every((item) => Boolean(item.source.id) && item.source.kind === item.sourceKind), true);
   });
 
@@ -410,7 +410,7 @@ describe("Phase 10A deterministic Deal Brief", { concurrency: 1 }, () => {
     assert.ok(empty);
     assert.deepEqual(empty.recentChanges, []);
     assert.equal(empty.changeSummary.meaningfulCount, 0);
-    assert.equal(empty.changeSummary.emptyState, `No meaningful deal changes since ${since.toISOString()}.`);
+    assert.equal(empty.changeSummary.emptyState, `No meaningful changes since ${since.toISOString()}.`);
     assert.ok(empty.negotiation.terms.length > 0);
   });
 

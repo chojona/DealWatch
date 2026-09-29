@@ -123,7 +123,7 @@ function iso(value: Date): string {
 
 function afterSince(value: string | null, since?: Date): boolean {
   if (!since) return true;
-  return Boolean(value && new Date(value).getTime() >= since.getTime());
+  return Boolean(value && new Date(value).getTime() > since.getTime());
 }
 
 function occurredAt(message: BriefMessageRow): Date {
@@ -142,9 +142,9 @@ function communicationWhere(
   return {
     ...scope,
     OR: [
-      { sentAt: { gte: since } },
-      { sentAt: null, receivedAt: { gte: since } },
-      { sentAt: null, receivedAt: null, createdAt: { gte: since } },
+      { sentAt: { gt: since } },
+      { sentAt: null, receivedAt: { gt: since } },
+      { sentAt: null, receivedAt: null, createdAt: { gt: since } },
     ],
   };
 }
@@ -303,18 +303,18 @@ export async function getDealBrief(
 
   const milestoneWhere = {
     document: { dealId: scopedDeal.id, deal: { workspaceId: scopedDeal.workspaceId } },
-    ...(options.since ? { occurredAt: { gte: options.since } } : {}),
+    ...(options.since ? { occurredAt: { gt: options.since } } : {}),
   };
   const legacyWhere = {
     dealId: scopedDeal.id,
     deal: { workspaceId: scopedDeal.workspaceId },
     linkedSourceMessages: { none: {} },
-    ...(options.since ? { occurredAt: { gte: options.since } } : {}),
+    ...(options.since ? { occurredAt: { gt: options.since } } : {}),
   };
   const correctionWhere = {
     workspaceId: scopedDeal.workspaceId,
     sourceMessage: { dealId: scopedDeal.id, workspaceId: scopedDeal.workspaceId },
-    ...(options.since ? { createdAt: { gte: options.since } } : {}),
+    ...(options.since ? { createdAt: { gt: options.since } } : {}),
   };
   const [negotiation, inbox, messageRows, communicationTotal, milestones, milestoneTotal, nonAnalyzedMilestoneTotal, legacyEvents, legacyTotal, corrections, correctionTotal, unpromotedAttachments, actions] = await Promise.all([
     getNegotiationWorkspace(db, scopedDeal.id),
@@ -784,17 +784,23 @@ export async function getDealBrief(
     description: `${communication.sender.label} · ${communication.facts.length} ${communication.facts.length === 1 ? "fact" : "facts"} · ${canonicalLabel(communication.lifecycleState)}`,
     source: communication.source,
   }));
+  // A document's `documentDate` is a calendar date from the paper, not the
+  // offset-aware instant when DealWatch learned about it. Timeline catch-up
+  // therefore uses the upload instant.
   const documentTimeline: DealBriefTimelineItem[] = inbox.items.map((item) => ({
     id: `document:${item.document.id}`,
     type: "DOCUMENT",
     sourceKind: "DOCUMENT",
-    occurredAt: item.document.documentDate,
+    occurredAt: null,
     recordedAt: item.uploadedAt,
     title: item.document.originalFilename,
     description: `${canonicalLabel(item.document.documentType)} · ${canonicalLabel(item.processingStatus)}`,
     source: source("DOCUMENT", item.document.id, item.document.originalFilename, item.reviewHref, { documentId: item.document.id }),
   }));
-  const milestoneTimeline: DealBriefTimelineItem[] = milestones.map((milestone) => ({
+  const timelineMilestones = options.since
+    ? milestones.filter((milestone) => milestone.kind !== "ANALYZED")
+    : milestones;
+  const milestoneTimeline: DealBriefTimelineItem[] = timelineMilestones.map((milestone) => ({
     id: `milestone:${milestone.id}`,
     type: "DOCUMENT_REVIEW",
     sourceKind: "DOCUMENT",
@@ -828,9 +834,10 @@ export async function getDealBrief(
   ].filter((item) => timelineAfterSince(item, options.since)).sort(compareTimeline);
   const loadedCommunicationsAfterSince = allCommunications
     .filter((communication) => afterSince(communication.timestamp, options.since)).length;
+  const availableMilestoneTotal = options.since ? nonAnalyzedMilestoneTotal : milestoneTotal;
   const timelineTotal = orderedTimeline.length
     + Math.max(0, communicationTotal - loadedCommunicationsAfterSince)
-    + Math.max(0, milestoneTotal - milestones.length)
+    + Math.max(0, availableMilestoneTotal - timelineMilestones.length)
     + Math.max(0, legacyTotal - legacyEvents.length);
   const timeline = orderedTimeline.slice(0, timelineLimit);
 
@@ -850,9 +857,9 @@ export async function getDealBrief(
     },
     recentChanges,
     changeSummary: {
-      meaningfulCount: recentChanges.length,
+      meaningfulCount: changeTotal,
       emptyState: options.since && recentChanges.length === 0
-        ? `No meaningful deal changes since ${options.since.toISOString()}.`
+        ? `No meaningful changes since ${options.since.toISOString()}.`
         : null,
     },
     communications,

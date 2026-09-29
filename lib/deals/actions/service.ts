@@ -8,6 +8,10 @@ import type {
 import { effectiveActivityFact } from "@/lib/messages/effective";
 import { canonicalLabel } from "@/lib/messages/facts";
 import { factsFromLatestRun } from "@/lib/messages/latestRun";
+import {
+  formalPositionFullyRejected,
+  projectFormalBriefStatus,
+} from "@/lib/deals/brief/formalStatus";
 import { currentFormalObservation, getNegotiationWorkspace } from "@/lib/negotiation/intelligence/service";
 import type { NegotiationPositionView, NegotiationRoundView } from "@/lib/negotiation/intelligence/types";
 import { deriveDealActionState, type ActionFactInput } from "./derive";
@@ -186,6 +190,12 @@ export async function getDealActionState(
 
   const roundById = new Map(negotiation.rounds.map((round) => [round.id, round]));
   const terms: DealBriefNegotiationTerm[] = negotiation.terms.map((term) => {
+    const projection = projectFormalBriefStatus({
+      label: term.label,
+      status: term.status,
+      conflict: term.conflict,
+      reviewRejected: formalPositionFullyRejected(term.history),
+    });
     const latestHistory = currentFormalObservation(term);
     const round = latestHistory ? roundById.get(latestHistory.roundId) ?? null : null;
     const latestEvidence = latestHistory?.evidence ?? term.evidence.at(-1) ?? null;
@@ -193,6 +203,8 @@ export async function getDealActionState(
       canonicalType: term.canonicalType,
       label: term.label,
       status: term.status,
+      briefStatus: projection.briefStatus,
+      statusLabel: projection.label,
       conflict: term.conflict,
       tenantPosition: term.tenantPosition,
       landlordPosition: term.landlordPosition,

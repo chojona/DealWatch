@@ -99,15 +99,44 @@ function AttentionItem({ item }: { item: DealBriefAttentionItem }) {
 
 const MAJOR_TERMS = new Set(["BASE_RENT", "TI_ALLOWANCE", "FREE_RENT", "LEASE_TERM"]);
 
-function meaningfulComparisons(comparisons: DealEvidenceComparison[]): DealEvidenceComparison[] {
-  const seen = new Set<string>();
-  return comparisons.filter((comparison) => {
-    if (comparison.outcome === "NOT_COMPARABLE") return false;
-    const key = `${comparison.canonicalType}:${comparison.side}`;
-    if (seen.has(key)) return false;
-    seen.add(key);
-    return true;
-  });
+function formalStatusClass(status: DealBriefFormalStatus): string {
+  switch (status) {
+    case "AGREED":
+      return "border-emerald-200 bg-emerald-50 text-emerald-700";
+    case "CONFLICT":
+      return "border-red-200 bg-red-50 text-red-700";
+    case "REJECTED":
+      return "border-red-200 bg-red-50 text-red-800";
+    case "WITHDRAWN":
+    case "NOT_MENTIONED":
+      return "border-zinc-200 bg-zinc-100 text-zinc-600";
+    case "UNKNOWN":
+      return "border-zinc-300 bg-zinc-50 text-zinc-700";
+    case "OPEN":
+      return "border-amber-200 bg-amber-50 text-amber-800";
+    default: {
+      const exhaustive: never = status;
+      return exhaustive;
+    }
+  }
+}
+
+function StaleBadge({ stale }: { stale: boolean }) {
+  if (!stale) return null;
+  return (
+    <span className="rounded-sm border border-amber-300 bg-amber-50 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-amber-800">
+      Stale
+    </span>
+  );
+}
+
+function ExpandableRemainder({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <details className="mt-3 border-t border-zinc-100 pt-3">
+      <summary className="cursor-pointer text-[11px] font-semibold text-zinc-800">{label}</summary>
+      <div className="mt-3">{children}</div>
+    </details>
+  );
 }
 
 function courtLabel(value: DealCourt): string {
@@ -145,7 +174,10 @@ function ActionPanel({ actions }: { actions: DealActionState }) {
             <ul className="mt-2 space-y-2">
               {actions.needsYou.slice(0, 3).map((action) => (
                 <li key={action.id}>
-                  <p className="text-xs font-semibold text-zinc-900">{action.timingLabel}</p>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="text-xs font-semibold text-zinc-900">{action.timingLabel}</p>
+                    <StaleBadge stale={action.stale} />
+                  </div>
                   <p className="text-[11px] leading-4 text-zinc-500">{action.description}</p>
                   <SourceLink href={action.source.href} label="View source" />
                 </li>
@@ -177,7 +209,10 @@ function ActionPanel({ actions }: { actions: DealActionState }) {
             <ul className="mt-2 space-y-2">
               {actions.outstandingActions.slice(0, 3).map((action) => (
                 <li key={action.id}>
-                  <p className="text-xs font-semibold text-zinc-900">{action.timingLabel}</p>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="text-xs font-semibold text-zinc-900">{action.timingLabel}</p>
+                    <StaleBadge stale={action.stale} />
+                  </div>
                   <p className="text-[11px] leading-4 text-zinc-500">{action.description}</p>
                   <SourceLink href={action.source.href} label="View source" />
                 </li>
@@ -213,7 +248,9 @@ export function DealBriefView({
       || Number(MAJOR_TERMS.has(right.canonicalType)) - Number(MAJOR_TERMS.has(left.canonicalType))
       || left.label.localeCompare(right.label))
     .slice(0, 8);
-  const comparisons = meaningfulComparisons(brief.comparisons).slice(0, 6);
+  const comparisons = displayedComparisons(brief.comparisons);
+  const visibleComparisons = comparisons.slice(0, BRIEF_SECTION_CAPS.comparisons);
+  const hiddenComparisons = hiddenCount(brief.preview.comparisons.total, BRIEF_SECTION_CAPS.comparisons);
   const hasEvidence = briefHasTrackedEvidence(snapshotFromBrief(brief));
   const hiddenTerms = Math.max(0, brief.negotiation.terms.length - displayedTerms.length);
 
@@ -329,6 +366,7 @@ export function DealBriefView({
           {brief.recentChanges.length === 0 ? (
             <p className="text-sm text-zinc-500">{brief.changeSummary.emptyState ?? "No recent meaningful deal changes."}</p>
           ) : (
+            <>
             <ul className="divide-y divide-zinc-100">
               {brief.recentChanges.slice(0, BRIEF_SECTION_CAPS.changes).map((change) => (
                 <li key={change.id} className="py-3 first:pt-0 last:pb-0">
@@ -358,6 +396,7 @@ export function DealBriefView({
                 ) : null}
               </ExpandableRemainder>
             ) : null}
+            </>
           )}
         </Section>
       </div>

@@ -395,14 +395,24 @@ export async function getDealBrief(
     .filter((communication) => afterSince(communication.timestamp, options.since))
     .slice(0, communicationLimit);
   const roundById = new Map(negotiation.rounds.map((round) => [round.id, round]));
-  const negotiationTerms = negotiation.terms.map((term) => {
+  const projectedTerms = negotiation.terms.map((term) => {
+    const projection = projectFormalBriefStatus({
+      label: term.label,
+      status: term.status,
+      conflict: term.conflict,
+      reviewRejected: formalPositionFullyRejected(term.history),
+    });
     const latestHistory = currentFormalObservation(term);
     const round = latestHistory ? roundById.get(latestHistory.roundId) ?? null : null;
     const latestEvidence = latestHistory?.evidence ?? term.evidence.at(-1) ?? null;
     return {
+      projection,
+      term: {
       canonicalType: term.canonicalType,
       label: term.label,
       status: term.status,
+      briefStatus: projection.briefStatus,
+      statusLabel: projection.label,
       conflict: term.conflict,
       tenantPosition: term.tenantPosition,
       landlordPosition: term.landlordPosition,
@@ -416,8 +426,10 @@ export async function getDealBrief(
         evidenceLabel: latestEvidence?.sourceLabel ?? null,
         provenanceStatus: latestEvidence?.provenanceStatus ?? null,
       },
+      },
     };
   });
+  const negotiationTerms = projectedTerms.map((item) => item.term);
   const comparisons = buildDealEvidenceComparisons({
     terms: negotiationTerms,
     communications: allCommunications,
@@ -494,13 +506,18 @@ export async function getDealBrief(
       ),
       priority: 4,
     }));
-  const recentChanges = [
+  const orderedChanges = [
     ...formalChanges,
     ...communicationChanges,
     ...correctionChanges,
     ...milestoneChanges,
     ...documentChanges,
-  ].sort(compareRecent).slice(0, changeLimit);
+  ].sort(compareRecent);
+  const loadedNonAnalyzedMilestones = milestones.filter((milestone) => milestone.kind !== "ANALYZED").length;
+  const changeTotal = orderedChanges.length
+    + Math.max(0, correctionTotal - corrections.length)
+    + Math.max(0, nonAnalyzedMilestoneTotal - loadedNonAnalyzedMilestones);
+  const recentChanges = orderedChanges.slice(0, changeLimit);
 
   // Commercial attention is deal work: open or unresolved terms, conflicts,
   // rejected and withdrawn positions, deadlines, follow-ups, new commercial
@@ -512,7 +529,7 @@ export async function getDealBrief(
   const systemAttention: DealBriefAttentionItem[] = [];
   for (const communication of allCommunications) {
     if (communication.analysisState === "ANALYSIS_FAILED") {
-      productAttention.push({
+      systemAttention.push({
         id: `message-failed:${communication.id}`,
         type: "MESSAGE_ANALYSIS_FAILED",
         sourceId: communication.id,
@@ -521,7 +538,7 @@ export async function getDealBrief(
         description: communication.failureReason ?? communication.subject,
         href: communication.source.href!,
         timestamp: communication.importedAt,
-        category: "PRODUCT",
+        category: "SYSTEM_REVIEW",
         priority: 5,
       });
     } else if (communication.reviewState === "NEEDS_FOLLOW_UP") {
@@ -591,7 +608,7 @@ export async function getDealBrief(
   }
   for (const item of inbox.items) {
     if (item.processingStatus === "FAILED") {
-      productAttention.push({
+      systemAttention.push({
         id: `document-failed:${item.document.id}`,
         type: "DOCUMENT_ANALYSIS_FAILED",
         sourceId: item.document.id,
@@ -600,7 +617,7 @@ export async function getDealBrief(
         description: item.document.failureReason ?? item.document.originalFilename,
         href: item.reviewHref,
         timestamp: item.uploadedAt,
-        category: "PRODUCT",
+        category: "SYSTEM_REVIEW",
         priority: 5,
       });
     }
@@ -703,36 +720,27 @@ export async function getDealBrief(
       priority: 10,
     });
   }
-  for (const term of negotiationTerms) {
-    const href = `/deals/${scopedDeal.id}/negotiation`;
-    if (term.conflict) {
-      productAttention.push({
-        id: `negotiation-conflict:${term.canonicalType}`,
-        type: "NEGOTIATION_CONFLICT",
-        sourceId: term.canonicalType,
-        sourceKind: "FORMAL_NEGOTIATION",
-        label: `${term.label} has conflicting formal evidence`,
-        description: "The deterministic resolver found multiple current candidates.",
-        href,
-        timestamp: term.lastChangedAt,
-        category: "PRODUCT",
-        priority: 3,
-      });
-    } else if (term.status !== "AGREED" && !comparisonTermKeys.has(`${term.canonicalType}:TENANT`)
-      && !comparisonTermKeys.has(`${term.canonicalType}:LANDLORD`)) {
-      productAttention.push({
-        id: `negotiation-unresolved:${term.canonicalType}`,
-        type: "NEGOTIATION_UNRESOLVED",
-        sourceId: term.canonicalType,
-        sourceKind: "FORMAL_NEGOTIATION",
-        label: `${term.label} ${term.status === "PROPOSED" ? "remains open" : "is unresolved"}`,
-        description: `Current formal status: ${canonicalLabel(term.status)}.`,
-        href,
-        timestamp: term.lastChangedAt,
-        category: "PRODUCT",
-        priority: 3,
-      });
+  for (const projected of projectedTerms) {
+    const attentionCopy = projected.projection.attention;
+    if (!attentionCopy) continue;
+    const term = projected.term;
+    if (attentionCopy.type === "NEGOTIATION_UNRESOLVED"
+      && (comparisonTermKeys.has(`${term.canonicalType}:TENANT`)
+        || comparisonTermKeys.has(`${term.canonicalType}:LANDLORD`))) {
+      continue;
     }
+    productAttention.push({
+      id: `negotiation-${attentionCopy.type.toLowerCase()}:${term.canonicalType}`,
+      type: attentionCopy.type,
+      sourceId: term.canonicalType,
+      sourceKind: "FORMAL_NEGOTIATION",
+      label: attentionCopy.label,
+      description: attentionCopy.description,
+      href: `/deals/${scopedDeal.id}/negotiation`,
+      timestamp: term.lastChangedAt,
+      category: "PRODUCT",
+      priority: 3,
+    });
   }
   productAttention.sort(compareAttention);
   systemAttention.sort(compareAttention);
@@ -796,22 +804,31 @@ export async function getDealBrief(
       `/deals/${scopedDeal.id}/activity`
     ),
   }));
-  const timeline = [
+  const orderedTimeline = [
     ...formalTimeline,
     ...communicationTimeline,
     ...documentTimeline,
     ...milestoneTimeline,
     ...legacyTimeline,
-  ].filter((item) => timelineAfterSince(item, options.since)).sort(compareTimeline).slice(0, timelineLimit);
+  ].filter((item) => timelineAfterSince(item, options.since)).sort(compareTimeline);
+  const loadedCommunicationsAfterSince = allCommunications
+    .filter((communication) => afterSince(communication.timestamp, options.since)).length;
+  const timelineTotal = orderedTimeline.length
+    + Math.max(0, communicationTotal - loadedCommunicationsAfterSince)
+    + Math.max(0, milestoneTotal - milestones.length)
+    + Math.max(0, legacyTotal - legacyEvents.length);
+  const timeline = orderedTimeline.slice(0, timelineLimit);
 
   return {
     deal: { ...scopedDeal, createdAt: iso(scopedDeal.createdAt) },
     negotiation: {
       summary: {
         termCount: negotiation.terms.length,
-        openCount: negotiation.unresolvedCount,
+        openCount: countOpenFormalTerms(projectedTerms.map((item) => item.projection)),
         agreedCount: negotiation.agreedCount,
         conflictCount: negotiation.conflictCount,
+        rejectedCount: negotiationTerms.filter((term) => term.briefStatus === "REJECTED").length,
+        withdrawnCount: negotiationTerms.filter((term) => term.briefStatus === "WITHDRAWN").length,
         latestFormalMovementAt: negotiation.latestRound?.documentDate ?? null,
       },
       terms: negotiationTerms,
@@ -828,6 +845,16 @@ export async function getDealBrief(
     productAttention,
     systemAttention,
     attention,
+    preview: {
+      attention: { returned: productAttention.length, total: productAttention.length },
+      changes: { returned: recentChanges.length, total: changeTotal },
+      communications: { returned: communications.length, total: communicationTotal },
+      timeline: { returned: timeline.length, total: timelineTotal },
+      comparisons: {
+        returned: displayedComparisons(comparisons).length,
+        total: displayedComparisons(comparisons).length,
+      },
+    },
     timeline,
     actions,
     since: options.since?.toISOString() ?? null,

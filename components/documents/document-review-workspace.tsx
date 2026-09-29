@@ -61,7 +61,7 @@ export function DocumentReviewWorkspace({
   history: ReviewHistory;
   allowSourceReplacement: boolean;
   allowDemoReset: boolean;
-  initialSection?: "overview" | "entities" | "relationships";
+  initialSection?: "overview" | "negotiation" | "entities" | "relationships" | "evidence";
   focusId?: string | null;
 }) {
   const item = review.item;

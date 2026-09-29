@@ -41,7 +41,11 @@ export interface DealBriefNegotiationTerm {
     observationIds: string[];
     evidenceHref: string | null;
     evidenceLabel: string | null;
+    evidenceQuote: string | null;
+    pageLabel: string | null;
     provenanceStatus: "EXACT" | "AMBIGUOUS" | "UNLOCATED" | null;
+    /** FormalTermReview state for the effective observation, when one exists. */
+    formalReviewState: string | null;
   };
 }
 
@@ -179,6 +183,9 @@ export interface DealEvidenceComparison {
     numeric: number | null;
     unit: string | null;
     observationIds: string[];
+    evidenceQuote: string | null;
+    pageLabel: string | null;
+    reviewState: string | null;
     source: DealBriefSourceRef | null;
   };
   communication: {
@@ -188,6 +195,11 @@ export interface DealEvidenceComparison {
     unit: string | null;
     reviewed: boolean;
     corrected: boolean;
+    subject: string;
+    sender: string;
+    evidenceQuote: string;
+    reviewState: string | null;
+    rawValue: string | null;
     source: DealBriefSourceRef;
   };
 }

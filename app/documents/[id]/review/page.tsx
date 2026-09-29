@@ -15,6 +15,8 @@ import { listResolutionCandidates } from "@/lib/resolution/service";
 
 export const dynamic = "force-dynamic";
 
+const DOCUMENT_REVIEW_SECTIONS = ["overview", "negotiation", "entities", "relationships", "evidence"] as const;
+
 export default async function DocumentReviewPage({
   params,
   searchParams,
@@ -24,7 +26,7 @@ export default async function DocumentReviewPage({
 }) {
   const { id } = await params;
   const query = await searchParams;
-  const initialSection = query.section === "entities" || query.section === "relationships" ? query.section : "overview";
+  const initialSection = DOCUMENT_REVIEW_SECTIONS.find((section) => section === query.section) ?? "overview";
   const focusId = query.focus?.trim() || null;
   const workspace = await ensureDefaultWorkspace(prisma);
   const [review, history, closures] = await Promise.all([

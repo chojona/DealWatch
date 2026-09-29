@@ -110,7 +110,7 @@ describe("Deal Brief truncation and comparison wording", () => {
       outcome: index === 0 ? "NOT_COMPARABLE" as const : "DIFFERS" as const,
       reason: "EXACT_VALUE_DIFFERENCE" as const,
       timestamp: `2026-09-${String(20 - index).padStart(2, "0")}T00:00:00.000Z`,
-      formal: { value: "a", numeric: 1, unit: "USD", observationIds: [], source: null },
+      formal: { value: "a", numeric: 1, unit: "USD", observationIds: [], evidenceQuote: null, pageLabel: null, reviewState: null, source: null },
       communication: {
         factId: `fact-${index}`,
         value: "b",
@@ -118,6 +118,11 @@ describe("Deal Brief truncation and comparison wording", () => {
         unit: "USD",
         reviewed: true,
         corrected: false,
+        subject: "Rent",
+        sender: "Broker",
+        evidenceQuote: "b",
+        reviewState: "CONFIRMED",
+        rawValue: "b",
         source: { kind: "COMMUNICATION_EVIDENCE" as const, id: "m", label: "m", href: "/messages/m" },
       },
     })) satisfies DealEvidenceComparison[];

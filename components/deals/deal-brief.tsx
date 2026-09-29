@@ -418,12 +418,20 @@ export function DealBriefView({
                   <div className="border-r border-zinc-200 pr-3">
                     <SourcePill kind="FORMAL_NEGOTIATION" />
                     <p className="mt-2 text-sm font-semibold text-zinc-900">{comparison.formal.value}</p>
+                    {comparison.formal.source?.label ? <p className="mt-1 text-[11px] text-zinc-600">{comparison.formal.source.label}</p> : null}
+                    {comparison.formal.evidenceQuote ? <p className="mt-1 text-[11px] leading-4 text-zinc-600">“{comparison.formal.evidenceQuote}”</p> : null}
+                    {comparison.formal.pageLabel ? <p className="mt-0.5 text-[10px] text-zinc-500">{comparison.formal.pageLabel}</p> : null}
+                    <p className="mt-1 text-[10px] text-zinc-500">{comparison.formal.reviewState ? `Formal review · ${comparison.formal.reviewState}` : "No formal review · effective value is the paper extraction"}</p>
                     <div className="mt-2"><SourceLink href={comparison.formal.source?.href ?? null} label="View document" /></div>
                   </div>
                   <div>
                     <SourcePill kind="COMMUNICATION_EVIDENCE" />
                     <p className="mt-2 text-sm font-semibold text-zinc-900">{comparison.communication.value}</p>
-                    {comparison.communication.corrected ? <p className="mt-0.5 text-[10px] text-amber-700">Reviewed correction</p> : null}
+                    <p className="mt-1 text-[11px] text-zinc-600">{comparison.communication.subject}</p>
+                    <p className="text-[11px] text-zinc-500">{comparison.communication.sender}</p>
+                    <p className="mt-1 text-[11px] leading-4 text-zinc-600">“{comparison.communication.evidenceQuote}”</p>
+                    <p className="mt-1 text-[10px] text-zinc-500">Review · {comparison.communication.reviewState ?? "unreviewed"}</p>
+                    {comparison.communication.corrected ? <p className="mt-0.5 text-[10px] text-amber-700">Reviewed correction{comparison.communication.rawValue ? ` · originally ${comparison.communication.rawValue}` : ""}</p> : null}
                     <div className="mt-2"><SourceLink href={comparison.communication.source.href} label="View message" /></div>
                   </div>
                 </div>

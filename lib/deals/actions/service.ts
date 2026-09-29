@@ -220,7 +220,10 @@ export async function getDealActionState(
         observationIds: term.sourceObservationIds,
         evidenceHref: latestEvidence?.href ?? null,
         evidenceLabel: latestEvidence?.sourceLabel ?? null,
+        evidenceQuote: latestEvidence?.quote ?? null,
+        pageLabel: latestEvidence?.pageLabel ?? null,
         provenanceStatus: latestEvidence?.provenanceStatus ?? null,
+        formalReviewState: latestHistory?.formalReview?.state ?? null,
       },
     };
   });

@@ -10,15 +10,19 @@ test("the brief shows paper and a corrected communication without moving formal 
   await page.getByRole("link", { name: "Review document" }).first().click();
   await page.getByRole("tab", { name: "Negotiation" }).click();
   await page.getByRole("button", { name: "Accept value" }).click();
-  await expect(page.getByText("Accepted extraction")).toBeVisible();
+  await expect(page.getByText("Paper value · Confirmed")).toBeVisible();
 
   await importEml(page, path.join(process.cwd(), "fixtures/messages/e2e-misread-rent.eml"));
   await analyzeMessage(page);
   await page.getByRole("button", { name: "Mark incorrect" }).click();
   await page.getByLabel("Corrected display").fill("$72.00 / RSF / year");
   await page.getByLabel("Numeric value").fill("72");
+  const saved = page.waitForResponse(
+    (response) => response.url().includes("/facts/") && response.url().includes("/review") && response.request().method() === "POST" && response.ok()
+  );
   await page.getByRole("button", { name: "Save correction" }).click();
-  await expect(page.getByText("INCORRECT")).toBeVisible();
+  await saved;
+  await expect(page.getByText("INCORRECT", { exact: true })).toBeVisible();
 
   await openDeal(page);
   const comparison = page.getByRole("heading", { name: "Paper and email" }).locator("xpath=ancestor::section[1]");

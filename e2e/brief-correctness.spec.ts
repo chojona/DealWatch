@@ -22,9 +22,9 @@ test("rejecting a formal extraction stays Rejected and out of the open count", a
   await expect(page.getByText("Analysis complete", { exact: true }).first()).toBeVisible();
   await page.getByRole("link", { name: "Review document" }).first().click();
   await page.getByRole("tab", { name: "Negotiation" }).click();
-  await page.getByRole("button", { name: "Reject extraction" }).click();
-  await expect(page.getByText("Rejected extraction")).toBeVisible();
-  await expect(page.getByText("This extraction is excluded from the formal position.")).toBeVisible();
+  await page.getByRole("button", { name: "Reject", exact: true }).click();
+  await expect(page.getByText("Paper value · Rejected")).toBeVisible();
+  await expect(page.getByText("This value is not part of the current paper position.")).toBeVisible();
 
   await openDeal(page);
   const position = page.getByRole("heading", { name: "Current terms" }).locator("xpath=ancestor::section[1]");
@@ -81,7 +81,7 @@ test("a later formal source moves the current position and keeps the earlier pap
   await page.getByRole("link", { name: "Review document" }).first().click();
   await page.getByRole("tab", { name: "Negotiation" }).click();
   await page.getByRole("button", { name: "Accept value" }).click();
-  await expect(page.getByText("Accepted extraction")).toBeVisible();
+  await expect(page.getByText("Paper value · Confirmed")).toBeVisible();
 
   await openDeal(page);
   await page.getByRole("link", { name: "Documents" }).click();
@@ -90,7 +90,7 @@ test("a later formal source moves the current position and keeps the earlier pap
   await page.getByRole("link", { name: "Review document" }).last().click();
   await page.getByRole("tab", { name: "Negotiation" }).click();
   await page.getByRole("button", { name: "Accept value" }).click();
-  await expect(page.getByText("Accepted extraction")).toBeVisible();
+  await expect(page.getByText("Paper value · Confirmed")).toBeVisible();
 
   await openDeal(page);
   const position = page.getByRole("heading", { name: "Current terms" }).locator("xpath=ancestor::section[1]");

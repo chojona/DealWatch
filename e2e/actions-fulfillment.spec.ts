@@ -25,7 +25,7 @@ test("a reviewed request becomes a current action", async ({ page }) => {
   await openDeal(page);
   const actions = page.locator("#actions");
   await expect(actions.getByText("Please send the revised proposal by Friday.").first()).toBeVisible();
-  await expect(actions.getByText("Our side").first()).toBeVisible();
+  await expect(actions.getByText("Needs you").first()).toBeVisible();
 });
 
 test("accepted fulfillment closes only the targeted request", async ({ page }) => {

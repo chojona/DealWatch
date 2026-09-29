@@ -7,8 +7,8 @@ test("promoting an email PDF attachment analyzes it as formal paper", async ({ p
   await importEml(page, path.join(process.cwd(), "fixtures/messages/acme-loi.eml"));
   await expect(page.getByRole("heading", { name: "Acme LOI" })).toBeVisible();
   await expect(page.getByText("acme-loi.pdf")).toBeVisible();
-  await page.getByRole("button", { name: "Promote to document" }).click();
-  await expect(page.getByText("Promoted to document")).toBeVisible();
+  await page.getByRole("button", { name: "Add to Documents" }).click();
+  await expect(page.getByText("Added to Documents")).toBeVisible();
   await page.getByRole("link", { name: "Open document" }).click();
   await expect(page.getByRole("heading", { name: "Source" })).toBeVisible();
   await expect(page.getByText("Email attachment")).toBeVisible();
@@ -24,7 +24,7 @@ test("promoting an email PDF attachment analyzes it as formal paper", async ({ p
   await page.getByRole("tab", { name: "Negotiation" }).click();
   await expect(page.getByText(/Base Rent: \$45\.00 per rentable square foot per year|\$45\.00\/RSF\/year/).first()).toBeVisible();
   await page.getByRole("button", { name: "Accept value" }).click();
-  await expect(page.getByText("Accepted extraction")).toBeVisible();
+  await expect(page.getByText("Paper value · Confirmed")).toBeVisible();
 
   const db = e2eDb();
   const term = await db.negotiationTerm.findFirstOrThrow({ where: { canonicalType: "BASE_RENT" } });

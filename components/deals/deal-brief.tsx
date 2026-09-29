@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { ActionEvidenceReview } from "@/components/deals/action-evidence-review";
+import type { ActionEvidenceReviewItem } from "@/lib/deals/actions/evidenceReviewView";
 import type { DealActionState, DealCourt } from "@/lib/deals/actions/types";
 import type {
   DealBrief,
@@ -187,7 +189,13 @@ function communicationState(value: string): string {
   return "Received";
 }
 
-export function DealBriefView({ brief }: { brief: DealBrief }) {
+export function DealBriefView({
+  brief,
+  actionEvidence = [],
+}: {
+  brief: DealBrief;
+  actionEvidence?: ActionEvidenceReviewItem[];
+}) {
   const displayedTerms = [...brief.negotiation.terms]
     .sort((left, right) => Number(right.conflict) - Number(left.conflict)
       || Number(left.status === "AGREED") - Number(right.status === "AGREED")
@@ -208,6 +216,8 @@ export function DealBriefView({ brief }: { brief: DealBrief }) {
       ) : null}
 
       <ActionPanel actions={brief.actions} />
+
+      <ActionEvidenceReview dealId={brief.deal.id} items={actionEvidence} />
 
       <Section title="Deal attention" eyebrow="Review and commercial signals">
         {brief.productAttention.length === 0 ? (

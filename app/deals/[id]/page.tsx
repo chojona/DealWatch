@@ -4,6 +4,7 @@ import { DealHeader } from "@/components/deals/deal-header";
 import { DealBriefView } from "@/components/deals/deal-brief";
 import { prisma } from "@/lib/db";
 import { parseDealBriefQuery } from "@/lib/deals/brief/query";
+import { getActionEvidenceReview } from "@/lib/deals/actions/evidenceReview";
 import { getDealBrief } from "@/lib/deals/brief/service";
 import { messageRequestWorkspaceId } from "@/lib/messages/workspace";
 
@@ -30,6 +31,7 @@ export default async function DealPage({
   if (!workspaceId) notFound();
   const brief = await getDealBrief(prisma, id, { ...query, expectedWorkspaceId: workspaceId });
   if (!brief) notFound();
+  const actionEvidence = await getActionEvidenceReview(prisma, id, { expectedWorkspaceId: workspaceId });
 
   return (
     <div className="min-h-screen">
@@ -47,7 +49,7 @@ export default async function DealPage({
         createdAt={new Date(brief.deal.createdAt)}
       />
       <main className="mx-auto max-w-7xl px-6 py-6">
-        <DealBriefView brief={brief} />
+        <DealBriefView brief={brief} actionEvidence={actionEvidence?.items ?? []} />
       </main>
     </div>
   );

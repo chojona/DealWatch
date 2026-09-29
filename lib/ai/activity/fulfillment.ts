@@ -167,6 +167,20 @@ function eligible(target: FulfillmentTarget, scope: FulfillmentScope): boolean {
 }
 
 /**
+ * Earlier requests that satisfy the Phase 12C eligibility and referent rules.
+ * Zero or many matches stay unresolved. This does not pick a newest or only action.
+ */
+export function matchingFulfillmentTargets(
+  fulfillment: ExplicitFulfillment,
+  targets: FulfillmentTarget[],
+  scope: FulfillmentScope,
+): FulfillmentTarget[] {
+  const pool = targets.filter((target) => eligible(target, scope));
+  if (fulfillment.referents.length === 0) return pool;
+  return pool.filter((target) => fulfillment.referents.some((referent) => matchesReferent(target.evidenceQuote, referent)));
+}
+
+/**
  * One earlier reviewed request, or null when the reference is missing, ambiguous, or ineligible.
  * An empty candidate list never becomes "the newest" or "the only" action.
  */
@@ -175,10 +189,7 @@ export function resolveFulfillmentTarget(
   targets: FulfillmentTarget[],
   scope: FulfillmentScope,
 ): string | null {
-  const pool = targets.filter((target) => eligible(target, scope));
-  const matched = fulfillment.referents.length === 0
-    ? pool
-    : pool.filter((target) => fulfillment.referents.some((referent) => matchesReferent(target.evidenceQuote, referent)));
+  const matched = matchingFulfillmentTargets(fulfillment, targets, scope);
   return matched.length === 1 ? matched[0]!.id : null;
 }
 

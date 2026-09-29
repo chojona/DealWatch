@@ -13,9 +13,12 @@ const NUMERIC_EPSILON = 1e-6;
 
 function formalSource(term: DealBriefNegotiationTerm): DealBriefSourceRef | null {
   if (!term.source) return null;
+  const documentId = term.source.documentId;
   return {
     ...term.source,
-    href: term.provenance.evidenceHref ?? term.source.href,
+    href: documentId
+      ? `/documents/${documentId}/review?section=negotiation`
+      : term.provenance.evidenceHref ?? term.source.href,
     label: term.provenance.evidenceLabel ?? term.source.label,
   };
 }
@@ -61,6 +64,9 @@ function comparisonFor(
       numeric: null,
       unit: null,
       observationIds: position?.observationIds ?? [],
+      evidenceQuote: term?.provenance.evidenceQuote ?? null,
+      pageLabel: term?.provenance.pageLabel ?? null,
+      reviewState: term?.provenance.formalReviewState ?? null,
       source,
     },
     communication: {
@@ -70,6 +76,11 @@ function comparisonFor(
       unit: stored.unit,
       reviewed: false,
       corrected: communicationValue.corrected,
+      subject: communication.subject,
+      sender: communication.sender.label,
+      evidenceQuote: fact.evidenceQuote,
+      reviewState: fact.review?.state ?? null,
+      rawValue: fact.raw.value.display,
       source: communication.source,
     },
   };

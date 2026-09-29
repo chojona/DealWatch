@@ -39,6 +39,7 @@ export function DocumentReviewWorkspace({
   history,
   allowSourceReplacement,
   allowDemoReset,
+  initialSection = "overview",
 }: {
   review: DocumentReviewModel;
   observations: Array<
@@ -60,6 +61,7 @@ export function DocumentReviewWorkspace({
   history: ReviewHistory;
   allowSourceReplacement: boolean;
   allowDemoReset: boolean;
+  initialSection?: "overview" | "negotiation" | "entities" | "relationships" | "evidence";
 }) {
   const item = review.item;
   const progress = review.progress;
@@ -226,7 +228,7 @@ export function DocumentReviewWorkspace({
       {review.readiness.reviewReady && <CompletionSummary review={review} />}
       {allowDemoReset && <DemoResetButton documentId={item.document.id} />}
 
-      <Tabs defaultValue="overview">
+      <Tabs defaultValue={initialSection}>
         <TabsList>
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="negotiation">Negotiation</TabsTrigger>

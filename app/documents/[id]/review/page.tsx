@@ -15,12 +15,18 @@ import { listResolutionCandidates } from "@/lib/resolution/service";
 
 export const dynamic = "force-dynamic";
 
+const DOCUMENT_REVIEW_SECTIONS = ["overview", "negotiation", "entities", "relationships", "evidence"] as const;
+
 export default async function DocumentReviewPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ section?: string }>;
 }) {
   const { id } = await params;
+  const query = await searchParams;
+  const initialSection = DOCUMENT_REVIEW_SECTIONS.find((section) => section === query.section) ?? "overview";
   const workspace = await ensureDefaultWorkspace(prisma);
   const [review, history, closures] = await Promise.all([
     getDocumentReview(prisma, workspace.id, id),
@@ -66,6 +72,7 @@ export default async function DocumentReviewPage({
           history={history}
           allowSourceReplacement={process.env.NODE_ENV !== "production"}
           allowDemoReset={process.env.NODE_ENV !== "production"}
+          initialSection={initialSection}
         />
       </main>
     </div>

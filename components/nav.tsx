@@ -5,6 +5,7 @@ import { GlobalSearch } from "@/components/global-search";
 const navLinks = [
   { href: "/inbox", label: "Inbox" },
   { href: "/dashboard", label: "Dashboard" },
+  { href: "/deals", label: "Deals" },
   { href: "/analyze", label: "Analyze Thread" },
 ];
 

@@ -7,7 +7,7 @@
   },
   "scripts": {
     "dev": "next dev",
-    "test": "tsx --test lib/ai/*.test.ts lib/ai/negotiation/*.test.ts lib/ai/graph/*.test.ts lib/ai/activity/*.test.ts lib/negotiation/*.test.ts lib/negotiation/intelligence/*.test.ts lib/documents/*.test.ts lib/entities/*.test.ts lib/resolution/*.test.ts lib/promotion/*.test.ts lib/graph/*.test.ts lib/intelligence/*.test.ts lib/activity/*.test.ts lib/inbox/*.test.ts lib/review/*.test.ts lib/deals/actions/*.test.ts lib/deals/brief/*.test.ts lib/deals/intelligence/*.test.ts lib/deals/reconciliation/*.test.ts lib/messages/*.test.ts evals/negotiation/*.test.ts evals/negotiation/v2/*.test.ts evals/resolution/*.test.ts",
+    "test": "tsx --test lib/ai/*.test.ts lib/ai/negotiation/*.test.ts lib/ai/graph/*.test.ts lib/ai/activity/*.test.ts lib/negotiation/*.test.ts lib/negotiation/intelligence/*.test.ts lib/documents/*.test.ts lib/entities/*.test.ts lib/resolution/*.test.ts lib/promotion/*.test.ts lib/graph/*.test.ts lib/intelligence/*.test.ts lib/activity/*.test.ts lib/inbox/*.test.ts lib/review/*.test.ts lib/deals/search.test.ts lib/deals/actions/*.test.ts lib/deals/brief/*.test.ts lib/deals/intelligence/*.test.ts lib/deals/reconciliation/*.test.ts lib/messages/*.test.ts evals/negotiation/*.test.ts evals/negotiation/v2/*.test.ts evals/resolution/*.test.ts",
     "eval:resolution": "node --import tsx evals/resolution/cli.ts",
     "eval:negotiation": "node --import tsx evals/negotiation/cli.ts",
     "eval:negotiation:v2": "node --import tsx evals/negotiation/v2/cli.ts",

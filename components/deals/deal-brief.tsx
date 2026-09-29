@@ -9,6 +9,7 @@ import {
   displayedComparisons,
   hiddenCount,
   isOperationalAnalysisAttention,
+  processingIssuesInboxHref,
   remainderLabel,
 } from "@/lib/deals/brief/presentation";
 import type {
@@ -252,6 +253,7 @@ export function DealBriefView({
   const visibleComparisons = comparisons.slice(0, BRIEF_SECTION_CAPS.comparisons);
   const hiddenComparisons = hiddenCount(brief.preview.comparisons.total, BRIEF_SECTION_CAPS.comparisons);
   const hasEvidence = briefHasTrackedEvidence(snapshotFromBrief(brief));
+  const processingIssues = brief.systemAttention.filter((item) => isOperationalAnalysisAttention(item.type));
   const hiddenTerms = Math.max(0, brief.negotiation.terms.length - displayedTerms.length);
 
   return (
@@ -502,11 +504,13 @@ export function DealBriefView({
           <p className="text-sm text-zinc-500">No internal review work is outstanding.</p>
         ) : (
           <div className="space-y-4">
-            {brief.systemAttention.some((item) => isOperationalAnalysisAttention(item.type)) ? (
+            {processingIssues.length > 0 ? (
               <div>
-                <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-400">Processing issues</p>
+                <Link href={processingIssuesInboxHref(brief.deal.id)} className="text-[10px] font-semibold uppercase tracking-wider text-zinc-400 underline decoration-zinc-300 underline-offset-2">
+                  {processingIssues.length} Processing {processingIssues.length === 1 ? "issue" : "issues"}
+                </Link>
                 <ul className="mt-2 divide-y divide-zinc-100">
-                  {brief.systemAttention.filter((item) => isOperationalAnalysisAttention(item.type)).map((item) => (
+                  {processingIssues.map((item) => (
                     <li key={item.id} className="py-2">
                       <p className="text-xs font-semibold text-zinc-900">{item.label}</p>
                       {item.description ? <p className="mt-0.5 text-[11px] text-zinc-500">{item.description}</p> : null}

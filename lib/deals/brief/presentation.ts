@@ -93,3 +93,9 @@ export type OperationalAnalysisAttention = (typeof OPERATIONAL_ANALYSIS_ATTENTIO
 export function isOperationalAnalysisAttention(type: string): type is OperationalAnalysisAttention {
   return (OPERATIONAL_ANALYSIS_ATTENTION as readonly string[]).includes(type);
 }
+
+/** Inbox work queue that contains the same operational failures as Processing issues. */
+export function processingIssuesInboxHref(dealId: string): string {
+  const params = new URLSearchParams({ dealId, filter: "FAILED" });
+  return `/inbox?${params.toString()}`;
+}

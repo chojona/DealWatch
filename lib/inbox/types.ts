@@ -1,4 +1,10 @@
 import type { DocumentLifecyclePresentation } from "@/lib/documents/lifecycle";
+import type {
+  ActionEvidenceReviewState,
+  MessageAnalysisState,
+  MessageLifecycleState,
+  MessageReviewState,
+} from "@/lib/messages/state";
 
 export const INBOX_FILTERS = [
   "ALL",
@@ -9,6 +15,9 @@ export const INBOX_FILTERS = [
 ] as const;
 
 export type InboxFilter = (typeof INBOX_FILTERS)[number];
+
+/** Newest messages kept in the work queue. Older rows stay in the source archive. */
+export const INBOX_MESSAGE_LIMIT = 200;
 
 export const INBOX_PROCESSING_STATUSES = [
   "NOT_READY",
@@ -133,6 +142,13 @@ export interface InboxFacet {
   sides: string[];
 }
 
+export interface InboxMessageWindow {
+  limit: number;
+  loaded: number;
+  /** True when at least one older message was left outside the work queue. */
+  truncated: boolean;
+}
+
 export interface InboxPageModel {
   workspaceId: string;
   items: InboxItem[];
@@ -140,6 +156,7 @@ export interface InboxPageModel {
   facets: InboxFacet;
   counts: Record<InboxFilter, number>;
   sourceCounts: { ALL: number; DOCUMENTS: number; MESSAGES: number };
+  messageWindow: InboxMessageWindow;
 }
 
 export interface InboxMessageItem {
@@ -148,15 +165,19 @@ export interface InboxMessageItem {
   sender: string;
   occurredAt: string;
   sourceType: string;
-  analysisState: string;
-  reviewState: string;
-  actionReviewState: string;
+  analysisState: MessageAnalysisState;
+  reviewState: MessageReviewState;
+  actionReviewState: ActionEvidenceReviewState;
   evidenceSettled: boolean;
-  lifecycleState: string;
+  lifecycleState: MessageLifecycleState;
   factCount: number;
   failureReason: string | null;
+  analysisLabel: string;
+  reviewLabel: string;
+  importedAt: string;
   deal: InboxDealRef;
   href: string;
+  nextAction: { label: string; href: string };
 }
 
 export type InboxSourceItem =

@@ -2,8 +2,15 @@ import type { DocumentReviewState, ReviewWork } from "@/lib/review/completion";
 import { deriveDocumentReviewState } from "@/lib/review/completion";
 import { overallStatusLabel } from "@/lib/documents/lifecycle";
 import type {
+  ActionEvidenceReviewState,
+  MessageAnalysisState,
+  MessageLifecycleState,
+  MessageReviewState,
+} from "@/lib/messages/state";
+import type {
   EvidenceSummary,
   EntityReviewSummary,
+  InboxFilter,
   InboxProcessingStatus,
   NegotiationSummary,
   RelationshipReviewSummary,
@@ -147,12 +154,108 @@ export function reviewProgress(input: {
 export function matchesInboxFilter(
   status: InboxProcessingStatus,
   requiresReview: boolean,
-  filter: "ALL" | "NEEDS_REVIEW" | "PROCESSING" | "COMPLETE" | "FAILED"
+  filter: InboxFilter
 ): boolean {
-  if (filter === "ALL") return true;
-  if (filter === "NEEDS_REVIEW") return requiresReview;
-  if (filter === "PROCESSING") return status === "ANALYZING";
-  if (filter === "COMPLETE") return status === "REVIEWED";
-  if (filter === "FAILED") return status === "FAILED";
-  return true;
+  switch (filter) {
+    case "ALL":
+      return true;
+    case "NEEDS_REVIEW":
+      return requiresReview;
+    case "PROCESSING":
+      return status === "ANALYZING";
+    case "COMPLETE":
+      return status === "REVIEWED";
+    case "FAILED":
+      return status === "FAILED";
+    default: {
+      const exhaustive: never = filter;
+      return exhaustive;
+    }
+  }
+}
+
+/**
+ * Message review is acknowledgement of the current extraction, plus action
+ * evidence when a directive exists. A confirmed ActivityFact does not settle
+ * the message. Failed, imported, and in-progress analysis are not review work.
+ */
+export function matchesMessageInboxFilter(
+  state: {
+    analysisState: MessageAnalysisState;
+    lifecycleState: MessageLifecycleState;
+  },
+  filter: InboxFilter
+): boolean {
+  switch (filter) {
+    case "ALL":
+      return true;
+    case "NEEDS_REVIEW":
+      return state.lifecycleState === "REVIEW_REQUIRED";
+    case "PROCESSING":
+      return state.analysisState === "ANALYZING";
+    case "COMPLETE":
+      return state.lifecycleState === "REVIEWED";
+    case "FAILED":
+      return state.analysisState === "ANALYSIS_FAILED";
+    default: {
+      const exhaustive: never = filter;
+      return exhaustive;
+    }
+  }
+}
+
+export function messageAnalysisLabel(state: MessageAnalysisState): string {
+  switch (state) {
+    case "NOT_ANALYZED":
+      return "Not analyzed";
+    case "ANALYZING":
+      return "Analyzing";
+    case "ANALYZED":
+      return "Analyzed";
+    case "ANALYSIS_FAILED":
+      return "Analysis failed";
+    default: {
+      const exhaustive: never = state;
+      return exhaustive;
+    }
+  }
+}
+
+export function messageReviewLabel(state: MessageReviewState): string {
+  switch (state) {
+    case "NOT_REVIEWED":
+      return "Not reviewed";
+    case "REVIEW_REQUIRED":
+      return "Needs review";
+    case "NEEDS_FOLLOW_UP":
+      return "Needs follow-up";
+    case "REVIEWED":
+      return "Message reviewed";
+    default: {
+      const exhaustive: never = state;
+      return exhaustive;
+    }
+  }
+}
+
+export function messageNextAction(input: {
+  analysisState: MessageAnalysisState;
+  reviewState: MessageReviewState;
+  actionReviewState: ActionEvidenceReviewState;
+  evidenceSettled: boolean;
+  href: string;
+}): { label: string; href: string } {
+  if (input.analysisState === "ANALYSIS_FAILED") {
+    return { label: "Retry analysis", href: input.href };
+  }
+  if (input.analysisState === "NOT_ANALYZED") {
+    return { label: "Analyze", href: input.href };
+  }
+  if (input.analysisState === "ANALYZING" || input.evidenceSettled) {
+    return { label: "View message", href: input.href };
+  }
+  if (input.reviewState === "REVIEWED" && input.actionReviewState === "PENDING") {
+    return { label: "Review action evidence", href: input.href };
+  }
+  return { label: "Review message", href: input.href };
 }

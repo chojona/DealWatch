@@ -60,6 +60,12 @@ export function InboxView({
         {(["ALL", "DOCUMENTS", "MESSAGES"] as const).map((source) => <Link key={source} href={hrefWith(basePath, query, { source: source === "ALL" ? null : source })} className={`rounded-sm border px-2.5 py-1 text-[11px] font-medium ${(query.get("source") ?? "ALL").toUpperCase() === source ? "border-zinc-900 bg-zinc-900 text-white" : "border-zinc-200 bg-white text-zinc-600"}`}>{source === "ALL" ? "All" : source === "DOCUMENTS" ? "Documents" : "Messages"}<span className="ml-1.5 opacity-70">{page.sourceCounts[source]}</span></Link>)}
       </div>}
 
+      {!documentsOnly && page.messageWindow.truncated ? (
+        <p className="text-xs text-zinc-500">
+          Showing the most recent {page.messageWindow.limit} messages. Older messages stay outside this work queue.
+        </p>
+      ) : null}
+
       <div className="flex flex-wrap gap-1">
         {FILTERS.map((filter) => {
           const active = (query.get("filter") ?? "ALL").toUpperCase() === filter.id;
@@ -140,14 +146,7 @@ function MessageInboxCard({ item }: { item: InboxMessageItem }) {
     : item.actionReviewState === "REVIEWED"
       ? "Action evidence reviewed"
       : null;
-  const openLabel = item.analysisState === "NOT_ANALYZED"
-    ? "Analyze"
-    : item.evidenceSettled
-      ? "View message"
-      : item.reviewState === "REVIEWED" && item.actionReviewState === "PENDING"
-        ? "Review action evidence"
-        : "Review message";
-  return <article className="rounded-sm border border-zinc-200 bg-white px-4 py-3"><div className="flex flex-wrap items-start justify-between gap-3"><div><p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-400">Message · {item.sourceType}</p><h2 className="mt-1 text-sm font-semibold text-zinc-900">{item.subject}</h2><p className="mt-0.5 text-xs text-zinc-600"><Link href={`/deals/${item.deal.id}`} className="underline">{item.deal.name}</Link><span className="text-zinc-400"> · {item.sender} · {formatDate(item.occurredAt)}</span></p></div><div className="text-right"><p className="text-[11px] font-semibold uppercase tracking-wider text-zinc-700">{item.analysisState.replaceAll("_", " ")}</p><p className="mt-0.5 text-[10px] uppercase tracking-wide text-zinc-500">{item.reviewState === "REVIEWED" ? "Message reviewed" : item.reviewState.replaceAll("_", " ")}</p>{actionLabel && <p className="mt-0.5 text-[10px] uppercase tracking-wide text-amber-800">{actionLabel}</p>}</div></div><p className="mt-3 border-t border-zinc-100 pt-3 text-xs text-zinc-700">{item.factCount} commercial {item.factCount === 1 ? "fact" : "facts"}</p>{item.failureReason && <p className="mt-2 text-xs text-red-700">{item.failureReason}</p>}<Link href={item.href} className="mt-3 inline-flex h-8 items-center rounded-sm bg-zinc-900 px-3 text-xs font-medium text-white">{openLabel}</Link></article>;
+  return <article className="rounded-sm border border-zinc-200 bg-white px-4 py-3"><div className="flex flex-wrap items-start justify-between gap-3"><div><p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-400">Message · {item.sourceType}</p><h2 className="mt-1 text-sm font-semibold text-zinc-900">{item.subject}</h2><p className="mt-0.5 text-xs text-zinc-600"><Link href={`/deals/${item.deal.id}`} className="underline">{item.deal.name}</Link><span className="text-zinc-400"> · {item.sender} · {formatDate(item.occurredAt)}</span></p></div><div className="text-right"><p className="text-[11px] font-semibold uppercase tracking-wider text-zinc-700">{item.analysisLabel}</p><p className="mt-0.5 text-[10px] uppercase tracking-wide text-zinc-500">{item.reviewLabel}</p>{actionLabel && <p className="mt-0.5 text-[10px] uppercase tracking-wide text-amber-800">{actionLabel}</p>}</div></div><p className="mt-3 border-t border-zinc-100 pt-3 text-xs text-zinc-700">{item.factCount} commercial {item.factCount === 1 ? "fact" : "facts"}</p>{item.failureReason && <p className="mt-2 text-xs text-red-700">{item.failureReason}</p>}<Link href={item.nextAction.href} className="mt-3 inline-flex h-8 items-center rounded-sm bg-zinc-900 px-3 text-xs font-medium text-white">{item.nextAction.label}</Link></article>;
 }
 
 function InboxCard({ item }: { item: InboxItem }) {

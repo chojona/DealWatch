@@ -1,3 +1,5 @@
+import type { DocumentLifecyclePresentation } from "@/lib/documents/lifecycle";
+
 export const INBOX_FILTERS = [
   "ALL",
   "NEEDS_REVIEW",
@@ -104,6 +106,7 @@ export interface InboxItem {
   document: InboxDocumentRef;
   deal: InboxDealRef;
   processingStatus: InboxProcessingStatus;
+  lifecycle: DocumentLifecyclePresentation;
   negotiationSummary: NegotiationSummary;
   entityReviewSummary: EntityReviewSummary;
   relationshipReviewSummary: RelationshipReviewSummary;
@@ -265,11 +268,11 @@ export interface DocumentReviewModel {
   readiness: {
     fileReady: boolean;
     metadataReady: boolean;
+    analysisEligible: boolean;
     analysisReady: boolean;
     reviewReady: boolean;
     missing: Array<{ code: string; label: string }>;
   };
   fileAvailable: boolean;
-  deletionBlocked: boolean;
   completion: DocumentCompletionSummary;
 }

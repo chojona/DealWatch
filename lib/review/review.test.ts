@@ -22,6 +22,7 @@ import { getNegotiationWorkspace } from "@/lib/negotiation/intelligence/service"
 import { getDealKnowledge } from "@/lib/promotion/service";
 import { recordReviewDecision } from "@/lib/review/decisions";
 import { correctNegotiationEvidence } from "@/lib/review/evidence";
+import { reviewFormalTerm } from "@/lib/review/formalTerm";
 import { ensureDefaultWorkspace } from "@/lib/entities/workspace";
 
 let prisma: PrismaClient;
@@ -182,6 +183,34 @@ describe("Phase 8E document review completion", { concurrency: 1 }, () => {
     assert.equal(review?.findings.length, 1);
     assert.equal(review?.findings[0]?.reviewState, "PENDING");
     assert.equal(review?.item.processingStatus, "REVIEW_REQUIRED");
+    const termId = review?.findings[0]?.termId;
+    assert.ok(termId);
+    await reviewFormalTerm(prisma, {
+      documentId: received.document.id,
+      negotiationTermId: termId,
+      action: "ACCEPT",
+    });
+    await prisma.document.update({
+      where: { id: received.document.id },
+      data: {
+        ingestionStatus: "FAILED",
+        failureCode: "ANALYSIS_FAILED",
+        failureReason: "Stale failure after a committed result.",
+      },
+    });
+    const stabilized = await analyzeNegotiationDocument({
+      documentId: received.document.id,
+      prisma,
+      extractTerms,
+    });
+    assert.equal(stabilized.idempotent, true);
+    assert.equal(stabilized.document.ingestionStatus, "COMPLETE");
+    assert.equal(stabilized.document.failureCode, null);
+    assert.equal(await prisma.negotiationRound.count({ where: { documentId: received.document.id } }), 1);
+    assert.equal(await prisma.negotiationTerm.count({ where: { round: { documentId: received.document.id } } }), 1);
+    assert.equal(await prisma.formalTermReview.count({ where: { negotiationTermId: termId } }), 1);
+    assert.equal(await prisma.formalTermReviewEvent.count({ where: { negotiationTermId: termId } }), 1);
+    assert.equal(calls.length, 2);
   });
 
   test("K-Q review decisions do not change negotiation truth", async () => {
@@ -389,7 +418,7 @@ describe("Phase 8E document review completion", { concurrency: 1 }, () => {
     await recordReviewDecision(prisma, { documentId: document.id, action: "NEEDS_FOLLOW_UP", target: { kind: "NEGOTIATION_TERM", negotiationTermId: round.terms[0]!.id } });
     const followUp = await getDocumentReview(prisma, workspaceId, document.id);
     assert.equal(followUp?.item.processingStatus, "REVIEW_REQUIRED");
-    assert.equal(followUp?.progress.negotiationReviewed, 1);
+    assert.equal(followUp?.progress.negotiationReviewed, 0);
     assert.equal(followUp?.progress.negotiationTotal, 1);
     assert.equal(followUp?.item.requiresReview, true);
     await recordReviewDecision(prisma, { documentId: document.id, action: "ACKNOWLEDGE", target: { kind: "NEGOTIATION_TERM", negotiationTermId: round.terms[0]!.id } });

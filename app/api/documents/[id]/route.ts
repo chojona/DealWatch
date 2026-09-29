@@ -4,8 +4,6 @@ import { toDocumentDto } from "@/lib/documents/dto";
 import { analyzeNegotiationDocument, receiveNegotiationPdf } from "@/lib/documents/ingestNegotiationPdf";
 import { runDocumentGraphExtraction } from "@/lib/documents/runGraphExtraction";
 import { NegotiationExtractionConfigurationError } from "@/lib/ai/negotiation/extractTerms";
-import { GraphInvariantError } from "@/lib/entities/errors";
-import { deleteDocumentPreservingEvidence } from "@/lib/entities/service";
 import { getDocumentStorage } from "@/lib/documents/storage";
 import { needsStoredPageExtraction } from "@/lib/documents/readinessCopy";
 import { loadDocumentReadiness } from "@/lib/documents/readiness";
@@ -153,28 +151,4 @@ export async function POST(
       { status: 500 }
     );
   }
-}
-
-export async function DELETE(
-  _request: NextRequest,
-  context: { params: Promise<{ id: string }> }
-) {
-  const { id } = await context.params;
-  const existing = await prisma.document.findUnique({
-    where: { id },
-    select: { id: true, storageKey: true },
-  });
-  if (!existing) {
-    return NextResponse.json({ error: "Document not found" }, { status: 404 });
-  }
-  try {
-    await deleteDocumentPreservingEvidence(prisma, id);
-  } catch (error) {
-    if (error instanceof GraphInvariantError) {
-      return NextResponse.json({ error: error.message }, { status: 409 });
-    }
-    throw error;
-  }
-  await getDocumentStorage().delete(existing.storageKey);
-  return NextResponse.json({ deleted: true });
 }

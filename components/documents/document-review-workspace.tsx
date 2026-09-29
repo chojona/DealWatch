@@ -16,10 +16,9 @@ import {
 } from "@/components/documents/review-actions";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DOCUMENT_TYPE_LABELS } from "@/lib/documents/labels";
-import { needsStoredPageExtraction, readinessGuidance } from "@/lib/documents/readinessCopy";
+import { actionableReadinessGaps, needsStoredPageExtraction, readinessGuidance } from "@/lib/documents/readinessCopy";
 import type { ReadinessGapCode } from "@/lib/documents/readiness";
 import { formatCalendarDate, formatDateTime } from "@/lib/formatters";
-import { processingLabel } from "@/lib/inbox/status";
 import type { DocumentReviewModel } from "@/lib/inbox/types";
 import type { ReviewHistory } from "@/lib/review/history";
 import type { CanonicalEntityPreview, RelationshipPromotionPreview } from "@/lib/promotion/types";
@@ -67,6 +66,10 @@ export function DocumentReviewWorkspace({
 }) {
   const item = review.item;
   const progress = review.progress;
+  const actionableGaps = actionableReadinessGaps(review.readiness.missing, {
+    ingestionStatus: item.document.ingestionStatus,
+    fileReady: review.readiness.fileReady,
+  });
   const unresolvedNames = relationships
     .filter((relationship) => relationship.status === "BLOCKED_UNRESOLVED_ENTITY")
     .flatMap((relationship) => relationship.endpoints.filter((endpoint) => !endpoint.resolved).map((endpoint) => endpoint.surfaceForm));
@@ -89,7 +92,7 @@ export function DocumentReviewWorkspace({
             <p className="mt-1 text-sm text-zinc-600">{item.deal.name}</p>
           </div>
           <p className="text-[11px] font-semibold uppercase tracking-wider text-zinc-700">
-            {processingLabel(item.processingStatus)}
+            {item.lifecycle.primaryLabel}
           </p>
         </div>
         <dl className="mt-4 grid gap-3 text-xs sm:grid-cols-3">
@@ -98,8 +101,9 @@ export function DocumentReviewWorkspace({
           <Fact label="Document date" value={item.documentDate ? formatCalendarDate(item.documentDate) : "Not set"} />
           <Fact label="Uploaded" value={formatDateTime(item.uploadedAt)} />
           <Fact label="Pages" value={item.document.pageCount === null ? "Unknown" : String(item.document.pageCount)} />
-          <Fact label="Analysis" value={item.document.ingestionStatus} />
-          <Fact label="Graph extraction" value={item.document.graphExtractionStatus} />
+          <Fact label="Analysis" value={item.lifecycle.analysis.label} />
+          <Fact label="Review" value={item.lifecycle.review.label} />
+          <Fact label="Knowledge extraction" value={item.lifecycle.knowledge.label} />
           <Fact label="File" value={review.fileAvailable ? "Stored PDF available" : "Stored PDF is missing"} />
           <Fact
             label="Duplicate"
@@ -149,7 +153,7 @@ export function DocumentReviewWorkspace({
           <p>Relationships · {progress.relationshipsTotal === 0 ? "No relationships" : `${progress.relationshipsReviewed} / ${progress.relationshipsTotal} reviewed`}</p>
           <p>Evidence · {progress.evidenceTotal === 0 ? "No issues" : `${progress.evidenceReviewed} / ${progress.evidenceTotal} ${progress.evidenceTotal === 1 ? "issue" : "issues"} reviewed`}</p>
         </div>
-        <p className="mt-2 text-xs font-medium text-zinc-900">Overall · {processingLabel(progress.overall)}</p>
+        <p className="mt-2 text-xs font-medium text-zinc-900">Overall · {item.lifecycle.primaryLabel}</p>
         {item.processingStatus === "REVIEWED" && <ReviewedBanner item={item} />}
         {item.entityReviewSummary.unresolved > 0 && relationships.some((relationship) => relationship.status === "BLOCKED_UNRESOLVED_ENTITY") && (
           <p className="mt-2 text-xs text-amber-800">
@@ -163,12 +167,15 @@ export function DocumentReviewWorkspace({
 
       {(item.processingStatus === "FAILED") && (
         <section className="rounded-sm border border-red-200 bg-red-50 px-4 py-3">
-          <h2 className="text-xs font-semibold uppercase tracking-wider text-red-700">Failed</h2>
+          <h2 className="text-xs font-semibold uppercase tracking-wider text-red-700">{item.lifecycle.failureTitle ?? "Processing failed"}</h2>
           <p className="mt-1 text-sm text-red-900">
             {item.document.failureReason ?? item.document.graphFailureReason ?? (!review.fileAvailable ? "The stored PDF file is missing." : "This document failed processing.")}
           </p>
           {item.document.graphFailureReason && item.document.failureReason && (
             <p className="mt-1 text-xs text-red-800">{item.document.graphFailureReason}</p>
+          )}
+          {item.lifecycle.retryExplanation && (
+            <p className="mt-2 text-xs text-red-800">{item.lifecycle.retryExplanation}</p>
           )}
           {item.canRetry && <div className="mt-3"><RetryAnalysisButton documentId={item.document.id} /></div>}
         </section>
@@ -194,22 +201,26 @@ export function DocumentReviewWorkspace({
         locked={review.findings.length > 0}
       />
 
-      {review.readiness.analysisReady && item.processingStatus !== "FAILED" && (
+      {review.readiness.analysisEligible && item.processingStatus !== "FAILED" && (
         <section className="rounded-sm border border-zinc-200 bg-white px-4 py-3">
           <h2 className="text-xs font-semibold uppercase tracking-wider text-zinc-400">Ready to analyze</h2>
-          <p className="mt-1 text-xs text-zinc-600">Side, date, source file, and extracted pages are stored. Analysis uses the existing pipeline.</p>
+          <p className="mt-1 text-xs text-zinc-600">
+            {needsStoredPageExtraction(review.readiness, item.document.ingestionStatus)
+              ? "Required metadata is stored. Analyze document will extract the stored PDF, then run the existing analysis pipeline."
+              : "Authoring side, document date, source file, and extracted pages are stored. Analysis uses the existing pipeline."}
+          </p>
           <div className="mt-3"><AnalyzeDocumentButton documentId={item.document.id} ready /></div>
         </section>
       )}
-      {!review.readiness.analysisReady && !review.readiness.reviewReady && item.processingStatus !== "FAILED" && item.processingStatus !== "ANALYZING" && review.readiness.missing.length > 0 && (
+      {!review.readiness.analysisEligible && !review.readiness.reviewReady && item.processingStatus !== "FAILED" && item.processingStatus !== "ANALYZING" && actionableGaps.length > 0 && (
         <section className="rounded-sm border border-zinc-200 bg-white px-4 py-3">
           <h2 className="text-xs font-semibold uppercase tracking-wider text-zinc-400">Analysis unavailable</h2>
-          <p className="mt-1 text-xs text-zinc-600">{needsStoredPageExtraction(review.readiness, item.document.ingestionStatus) ? "Metadata is stored. Analyze document extracts the stored PDF, then runs the existing analysis pipeline." : "Analyze stays unavailable until every requirement below is stored."}</p>
-          {needsStoredPageExtraction(review.readiness, item.document.ingestionStatus) && (
-            <div className="mt-3"><AnalyzeDocumentButton documentId={item.document.id} ready /></div>
+          <p className="mt-1 text-xs text-zinc-600">Before this document can be analyzed, complete every requirement below.</p>
+          {item.document.ingestionStatus === "UPLOADED" && review.readiness.fileReady && (
+            <p className="mt-1 text-[11px] text-zinc-500">Text extraction will run automatically after the required metadata is saved.</p>
           )}
           <ul className="mt-3 space-y-2">
-            {review.readiness.missing.map((gap) => {
+            {actionableGaps.map((gap) => {
               const guidance = readinessGuidance(gap.code as ReadinessGapCode, item.sourceFileState);
               return (
                 <li key={gap.code}>
@@ -250,9 +261,6 @@ export function DocumentReviewWorkspace({
               <p>Nothing on this document currently requires review.</p>
             ) : (
               <p>Review starts after analysis is stored. Counts above are from records already on the document.</p>
-            )}
-            {review.deletionBlocked && (
-              <p className="mt-3 text-zinc-500">This document is referenced by graph observations and cannot be deleted.</p>
             )}
           </div>
         </TabsContent>
@@ -411,9 +419,9 @@ export function DocumentReviewWorkspace({
 function ReviewedBanner({ item }: { item: DocumentReviewModel["item"] }) {
   return (
     <div className="mt-4 rounded-sm border border-zinc-300 bg-zinc-50 px-3 py-3">
-      <p className="text-sm font-semibold text-zinc-900">Review complete</p>
+      <p className="text-sm font-semibold text-zinc-900">All review items are resolved. Review complete.</p>
       <p className="mt-1 text-xs text-zinc-600">
-        This document has been reviewed. Review completion does not imply that every observation was promoted to canonical knowledge.
+        DealWatch closes review automatically when every finding and conflict is addressed, every entity and relationship is closed, and every evidence issue is handled. If new work appears or an item is reopened, this document returns to Needs review. Completion does not imply that every observation was promoted to canonical knowledge.
       </p>
       <div className="mt-2 flex flex-wrap gap-3 text-[11px]">
         <Link href={item.negotiationHref} className="underline">Negotiation</Link>
@@ -454,7 +462,7 @@ function CompletionSummary({ review }: { review: DocumentReviewModel }) {
           <p>✓ {summary.evidenceCorrected} manually corrected</p>
           <p>✓ {summary.ambiguityAcknowledged} {summary.ambiguityAcknowledged === 1 ? "ambiguity" : "ambiguities"} acknowledged</p>
         </div>
-        <p className="font-medium text-zinc-900">Result {processingLabel(summary.result)}</p>
+        <p className="font-medium text-zinc-900">Review status {review.item.lifecycle.review.label}</p>
       </div>
     </section>
   );

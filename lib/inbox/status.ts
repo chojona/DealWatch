@@ -1,5 +1,6 @@
 import type { DocumentReviewState, ReviewWork } from "@/lib/review/completion";
 import { deriveDocumentReviewState } from "@/lib/review/completion";
+import { overallStatusLabel } from "@/lib/documents/lifecycle";
 import type {
   EvidenceSummary,
   EntityReviewSummary,
@@ -72,13 +73,7 @@ export function reviewReasonsFor(input: {
 }
 
 export function processingLabel(status: InboxProcessingStatus): string {
-  if (status === "NOT_READY") return "Not ready";
-  if (status === "READY_TO_PREPARE") return "Ready to prepare";
-  if (status === "READY_TO_ANALYZE") return "Ready to analyze";
-  if (status === "ANALYZING") return "Analyzing";
-  if (status === "REVIEW_REQUIRED") return "Review required";
-  if (status === "FAILED") return "Failed";
-  return "Reviewed";
+  return overallStatusLabel(status);
 }
 
 export function nextActionFor(input: {
@@ -137,7 +132,7 @@ export function reviewProgress(input: {
     metadataLabel,
     metadataReady: input.metadataReady,
     analysisLabel,
-    negotiationReviewed: input.work.negotiationAcknowledged + input.work.negotiationFollowUp,
+    negotiationReviewed: input.work.negotiationAcknowledged,
     negotiationTotal: input.work.negotiationTotal,
     entitiesAddressed: input.work.entitiesAddressed,
     entitiesTotal: input.work.entitiesTotal,

@@ -7,11 +7,13 @@ import { Button } from "@/components/ui/button";
 import { DOCUMENT_TYPE_LABELS } from "@/lib/documents/labels";
 
 type Phase =
-  | "Uploading"
-  | "Extracting"
-  | "Analyzing"
-  | "Complete"
-  | "Failed";
+  | "Uploading PDF"
+  | "Extracting text"
+  | "Analyzing document"
+  | "Analysis complete"
+  | "Analysis failed"
+  | "Preparation failed"
+  | "Processing failed";
 
 interface DocumentResponse {
   document?: {
@@ -42,7 +44,7 @@ export function UploadNegotiationDocument({
   const [summary, setSummary] = useState<DocumentResponse["document"] | null>(
     null
   );
-  const busy = phase === "Uploading" || phase === "Extracting" || phase === "Analyzing";
+  const busy = phase === "Uploading PDF" || phase === "Extracting text" || phase === "Analyzing document";
   const documentsSurface = surface === "documents";
 
   async function submit(event: React.FormEvent<HTMLFormElement>) {
@@ -54,9 +56,9 @@ export function UploadNegotiationDocument({
     const form = event.currentTarget;
     const body = new FormData(form);
     body.set("phase", "extract");
-    setPhase("Uploading");
+    setPhase("Uploading PDF");
     await new Promise((resolve) => setTimeout(resolve, 40));
-    setPhase("Extracting");
+    setPhase("Extracting text");
 
     try {
       const upload = await fetch(`/api/deals/${dealId}/documents`, {
@@ -68,32 +70,32 @@ export function UploadNegotiationDocument({
         throw new Error(uploaded.error ?? "Upload failed");
       }
       if (uploaded.document.ingestionStatus === "FAILED") {
-        setPhase("Failed");
+        setPhase("Preparation failed");
         setError(uploaded.document.failureReason ?? uploaded.error ?? "Extraction failed");
         setSummary(uploaded.document);
         router.refresh();
         return;
       }
 
-      setPhase("Analyzing");
+      setPhase("Analyzing document");
       const analysis = await fetch(`/api/documents/${uploaded.document.id}`, {
         method: "POST",
       });
       const analyzed = (await analysis.json().catch(() => ({}))) as DocumentResponse;
       const document = analyzed.document ?? uploaded.document;
       if (document.ingestionStatus === "FAILED") {
-        setPhase("Failed");
+        setPhase("Analysis failed");
         setError(document.failureReason ?? analyzed.error ?? "Analysis failed");
       } else if (!analysis.ok) {
-        setPhase("Failed");
+        setPhase("Analysis failed");
         setError(analyzed.error ?? "Analysis failed");
       } else {
-        setPhase("Complete");
+        setPhase("Analysis complete");
       }
       setSummary(document);
       router.refresh();
     } catch (cause) {
-      setPhase("Failed");
+      setPhase("Processing failed");
       setError(cause instanceof Error ? cause.message : "Upload failed");
     } finally {
       submitting.current = false;
@@ -168,7 +170,7 @@ export function UploadNegotiationDocument({
           </label>
           {phase && (
             <p className="text-xs font-medium text-zinc-700">
-              {phase === "Uploading" || phase === "Extracting" || phase === "Analyzing" ? (
+              {busy ? (
                 <Loader2 className="mr-1 inline h-3.5 w-3.5 animate-spin" />
               ) : null}
               {phase}
@@ -179,7 +181,7 @@ export function UploadNegotiationDocument({
               {error}
             </p>
           )}
-          {summary && phase === "Complete" && (
+          {summary && phase === "Analysis complete" && (
             <p className="text-xs text-zinc-600">
               {documentsSurface ? "Source added. " : null}
               {summary.originalFilename}
@@ -199,8 +201,8 @@ export function UploadNegotiationDocument({
               {" · "}
               {summary.termCount} extracted terms
               {" · "}
-              <a href="#term-history" className="underline">
-                Negotiation intelligence
+              <a href={documentsSurface ? `/documents/${summary.id}/review` : "#term-history"} className="underline">
+                {documentsSurface ? "Review document" : "Negotiation intelligence"}
               </a>
             </p>
           )}

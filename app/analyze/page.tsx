@@ -8,13 +8,15 @@ export default function AnalyzePage() {
 
       <main className="mx-auto max-w-4xl px-6 py-6">
         <div className="mb-6">
+          <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-zinc-400">
+            Legacy workflow
+          </p>
           <h1 className="text-xl font-semibold text-zinc-900">
             Analyze Thread
           </h1>
           <p className="mt-1 text-xs text-zinc-400 max-w-xl">
-            Paste a full email thread to extract commitments, obligations,
-            deadlines, and deal intelligence. Review the output before saving to
-            your records.
+            This older path creates legacy obligation and deal-event records from a pasted thread.
+            New work starts from Create Deal. The modern workspace uses documents, messages, the brief, actions, and negotiation.
           </p>
         </div>
 

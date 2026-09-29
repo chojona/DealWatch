@@ -175,6 +175,12 @@ export interface NegotiationFinding {
   reviewState: "PENDING" | "ACKNOWLEDGED" | "NEEDS_FOLLOW_UP";
   reviewNote: string | null;
   activeCorrectionId: string | null;
+  formalReviewState: "UNREVIEWED" | "ACCEPTED" | "CORRECTED" | "REJECTED";
+  formalExtractedSummary: string;
+  formalEffectiveSummary: string | null;
+  formalReviewNote: string | null;
+  formalReviewedAt: string | null;
+  formalCorrectionMode: "BASE_RENT_SIMPLE" | "LEGACY" | "STRUCTURED";
   impactKind: "CHANGED" | "UNCHANGED" | "AGREED";
   impactLabel: string;
   previousValue: string | null;

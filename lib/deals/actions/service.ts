@@ -8,7 +8,7 @@ import type {
 import { effectiveActivityFact } from "@/lib/messages/effective";
 import { canonicalLabel } from "@/lib/messages/facts";
 import { factsFromLatestRun } from "@/lib/messages/latestRun";
-import { getNegotiationWorkspace } from "@/lib/negotiation/intelligence/service";
+import { currentFormalObservation, getNegotiationWorkspace } from "@/lib/negotiation/intelligence/service";
 import type { NegotiationPositionView, NegotiationRoundView } from "@/lib/negotiation/intelligence/types";
 import { deriveDealActionState, type ActionFactInput } from "./derive";
 import type { DealActionState, DealDiscrepancySignal, DealPreparationTerm } from "./types";
@@ -186,7 +186,7 @@ export async function getDealActionState(
 
   const roundById = new Map(negotiation.rounds.map((round) => [round.id, round]));
   const terms: DealBriefNegotiationTerm[] = negotiation.terms.map((term) => {
-    const latestHistory = term.history.at(-1) ?? null;
+    const latestHistory = currentFormalObservation(term);
     const round = latestHistory ? roundById.get(latestHistory.roundId) ?? null : null;
     const latestEvidence = latestHistory?.evidence ?? term.evidence.at(-1) ?? null;
     return {

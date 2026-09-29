@@ -4,7 +4,7 @@ import { formatCurrency, formatDate } from "@/lib/formatters";
 
 interface DealHeaderProps {
   dealId?: string;
-  activeSection?: "overview" | "negotiation" | "activity" | "knowledge" | "connections" | "documents" | "messages";
+  activeSection?: "overview" | "negotiation" | "activity" | "knowledge" | "connections" | "documents" | "messages" | "actions";
   name: string;
   company: string;
   property: string;
@@ -48,17 +48,19 @@ export function DealHeader({
         <div className="flex items-start justify-between">
           <div className="flex flex-col gap-1">
             <div className="flex items-center gap-2 text-xs text-zinc-400">
-              <Link href="/dashboard" className="hover:text-zinc-600">
-                Dashboard
+              <Link href="/deals" className="hover:text-zinc-600">
+                Deals
               </Link>
               <span>/</span>
               <span className="text-zinc-600">{company}</span>
             </div>
             <h1 className="text-xl font-semibold text-zinc-900">{name}</h1>
-            <p className="text-sm text-zinc-600">{company}</p>
-            <div className="flex items-center gap-2 mt-0.5">
-              {propertyHref ? <Link href={propertyHref} className="text-sm text-zinc-500 underline decoration-zinc-300 underline-offset-2 hover:text-zinc-800">{property}</Link> : <span className="text-sm text-zinc-500">{property}</span>}
-            </div>
+            {company ? <p className="text-sm text-zinc-600">{company}</p> : null}
+            {property ? (
+              <div className="flex items-center gap-2 mt-0.5">
+                {propertyHref ? <Link href={propertyHref} className="text-sm text-zinc-500 underline decoration-zinc-300 underline-offset-2 hover:text-zinc-800">{property}</Link> : <span className="text-sm text-zinc-500">{property}</span>}
+              </div>
+            ) : null}
           </div>
           <div className="flex flex-col items-end gap-1.5">
             <div className="flex items-center gap-2">
@@ -103,6 +105,12 @@ export function DealHeader({
               className={`border-b-2 pb-2.5 text-xs font-medium ${activeSection === "messages" ? "border-zinc-900 text-zinc-900" : "border-transparent text-zinc-400 hover:text-zinc-700"}`}
             >
               Messages
+            </Link>
+            <Link
+              href={`/deals/${dealId}#actions`}
+              className={`border-b-2 pb-2.5 text-xs font-medium ${activeSection === "actions" ? "border-zinc-900 text-zinc-900" : "border-transparent text-zinc-400 hover:text-zinc-700"}`}
+            >
+              Actions
             </Link>
             <Link
               href={`/deals/${dealId}/negotiation`}

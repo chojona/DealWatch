@@ -103,7 +103,7 @@ export function DocumentReviewWorkspace({
           <Fact label="Pages" value={item.document.pageCount === null ? "Unknown" : String(item.document.pageCount)} />
           <Fact label="Analysis" value={item.lifecycle.analysis.label} />
           <Fact label="Review" value={item.lifecycle.review.label} />
-          <Fact label="Knowledge extraction" value={item.lifecycle.knowledge.label} />
+          <Fact label="People and companies" value={item.lifecycle.knowledge.label} />
           <Fact label="File" value={review.fileAvailable ? "Stored PDF available" : "Stored PDF is missing"} />
           <Fact
             label="Duplicate"

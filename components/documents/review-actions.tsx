@@ -209,7 +209,7 @@ export function FormalTermReviewControls({
       setOpen(false);
       router.refresh();
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Formal review could not be saved.");
+      setError(caught instanceof Error ? caught.message : "This review could not be saved.");
     } finally {
       setPending(false);
     }
@@ -251,18 +251,18 @@ export function FormalTermReviewControls({
   }
 
   const stateLabel = finding.formalReviewState === "UNREVIEWED"
-    ? "Unreviewed extraction"
+    ? "Needs review"
     : finding.formalReviewState === "ACCEPTED"
-      ? "Accepted extraction"
+      ? "Confirmed"
       : finding.formalReviewState === "CORRECTED"
-        ? "Reviewed correction"
-        : "Rejected extraction";
+        ? "Corrected"
+        : "Rejected";
 
   return (
     <div className="mt-3 rounded-sm border border-zinc-200 bg-zinc-50 px-3 py-2">
-      <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-400">Formal value · {stateLabel}</p>
-      <p className="mt-1 text-xs text-zinc-800">Extracted value {finding.formalExtractedSummary}</p>
-      <p className="mt-1 text-[11px] text-zinc-500">Formal value decisions control negotiation truth. The finding review decision below controls whether this review item remains open.</p>
+      <p className="text-xs font-medium text-zinc-700">Paper value · {stateLabel}</p>
+      <p className="mt-1 text-xs text-zinc-800">Detected {finding.formalExtractedSummary}</p>
+      <p className="mt-1 text-[11px] text-zinc-500">Confirming or correcting this value changes what DealWatch treats as the formal paper. It does not rewrite the original detection.</p>
       {finding.formalReviewState === "CORRECTED" && finding.formalEffectiveSummary && (
         <p className="mt-1 text-xs text-zinc-800">
           Current formal value {finding.formalEffectiveSummary}
@@ -270,13 +270,13 @@ export function FormalTermReviewControls({
         </p>
       )}
       {finding.formalReviewState === "REJECTED" && (
-        <p className="mt-1 text-xs text-red-800">This extraction is excluded from the formal position.</p>
+        <p className="mt-1 text-xs text-red-800">Rejected. This value is not part of the current paper position. The original detection is still saved.</p>
       )}
       {finding.formalReviewNote && <p className="mt-1 text-[11px] text-zinc-600">Note: {finding.formalReviewNote}</p>}
       <div className="mt-2 flex flex-wrap items-center gap-2">
         <button type="button" disabled={pending} onClick={() => void submit({ action: "ACCEPT" })} className="h-7 rounded-sm border border-zinc-300 bg-white px-2 text-[11px] text-zinc-800 disabled:opacity-50">Accept value</button>
         <button type="button" disabled={pending} onClick={() => setOpen((value) => !value)} className="h-7 rounded-sm border border-zinc-300 bg-white px-2 text-[11px] text-zinc-800 disabled:opacity-50">Correct value</button>
-        <button type="button" disabled={pending} onClick={() => void submit({ action: "REJECT" })} className="h-7 rounded-sm border border-zinc-300 bg-white px-2 text-[11px] text-zinc-800 disabled:opacity-50">Reject extraction</button>
+        <button type="button" disabled={pending} onClick={() => void submit({ action: "REJECT" })} className="h-7 rounded-sm border border-red-300 bg-white px-2 text-[11px] font-medium text-red-800 disabled:opacity-50">Reject</button>
       </div>
       {open && (
         <div className="mt-2 grid gap-2">

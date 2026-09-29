@@ -47,11 +47,11 @@ export function GlobalSearch() {
   const choose = (hit: CanonicalSearchHit) => { setOpen(false); setQuery(""); router.push(canonicalEntityHref(hit.entityType, hit.entityId)); };
 
   return (
-    <div ref={root} className="relative w-72">
+    <div ref={root} className="relative w-full min-w-0 md:w-full">
       <label htmlFor="global-search" className="sr-only">Search DealWatch people, companies, properties, and deals</label>
       <input
         id="global-search" type="search" role="combobox" aria-expanded={open} aria-controls="global-search-results" aria-activedescendant={selected ? `global-result-${selected.nodeId}` : undefined}
-        value={query} placeholder="Search DealWatch"
+        value={query} placeholder="Search deals, people, companies"
         onFocus={() => setOpen(true)}
         onChange={(event) => {
           const value = event.target.value;
@@ -68,12 +68,12 @@ export function GlobalSearch() {
           if (event.key === "ArrowUp" && results.length) { event.preventDefault(); setActive((value) => (value - 1 + results.length) % results.length); }
           if (event.key === "Enter" && selected) { event.preventDefault(); choose(selected); }
         }}
-        className="h-8 w-full rounded-sm border border-zinc-300 bg-zinc-50 px-2.5 text-xs text-zinc-900 outline-none placeholder:text-zinc-400 focus:border-zinc-500 focus:bg-white"
+        className="h-8 w-full rounded-md border border-white/20 bg-white/10 px-2.5 text-xs text-white outline-none placeholder:text-white/50 focus:border-white/40 focus:bg-white/15"
       />
       {open && query.trim().length >= 2 && (
-        <div id="global-search-results" role="listbox" className="absolute right-0 top-9 z-50 max-h-[70vh] w-96 overflow-y-auto rounded-sm border border-zinc-300 bg-white py-1 shadow-lg">
-          {loading && <p className="px-3 py-2 text-xs text-zinc-500">Searching confirmed canonical records…</p>}
-          {!loading && !results.length && <p className="px-3 py-4 text-center text-xs text-zinc-500">No confirmed canonical results.</p>}
+        <div id="global-search-results" role="listbox" className="absolute left-0 top-9 z-50 max-h-[70vh] w-80 overflow-y-auto rounded-md border border-zinc-300 bg-white py-1 text-zinc-900 shadow-lg">
+          {loading && <p className="px-3 py-2 text-xs text-zinc-500">Searching deals, people, companies, and properties…</p>}
+          {!loading && !results.length && <p className="px-3 py-4 text-center text-xs text-zinc-500">No matching deals, people, companies, or properties.</p>}
           {!loading && grouped.map((group) => (
             <section key={group.type} aria-label={group.label}>
               <h2 className="border-t border-zinc-100 bg-zinc-50 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-zinc-400 first:border-t-0">{group.label}</h2>

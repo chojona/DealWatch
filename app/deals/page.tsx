@@ -16,13 +16,13 @@ export default async function DealsPage() {
         <div className="mb-4 flex items-start justify-between gap-4">
           <div>
             <h1 className="text-xl font-semibold text-zinc-900">Deals</h1>
-            <p className="mt-0.5 text-xs text-zinc-400">Modern deals in this workspace.</p>
+            <p className="mt-0.5 text-sm text-zinc-500">Find a deal by name, company, or property.</p>
           </div>
           <Link
             href="/deals/new"
             className="inline-flex h-8 items-center rounded-sm bg-zinc-900 px-3 text-xs font-medium text-white"
           >
-            Create Deal
+            New deal
           </Link>
         </div>
         <DealSearch>

@@ -2,9 +2,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "DealWatch — CRE Transaction Intelligence",
-  description:
-    "Reconstruct CRE negotiations, track term movement, and surface unresolved issues.",
+  title: "DealWatch",
+  description: "See what needs you, what is true, and what the paper and the emails disagree about.",
 };
 
 export default function RootLayout({

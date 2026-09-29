@@ -7,6 +7,9 @@ import { NegotiationExtractionConfigurationError } from "@/lib/ai/negotiation/ex
 import { getDocumentStorage } from "@/lib/documents/storage";
 import { needsStoredPageExtraction } from "@/lib/documents/readinessCopy";
 import { loadDocumentReadiness } from "@/lib/documents/readiness";
+import { isE2ETestMode } from "@/lib/e2e/mode";
+import { e2eNegotiationExtractor } from "@/lib/e2e/negotiationExtractor";
+import { e2eGraphExtractor } from "@/lib/e2e/graphExtractor";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -105,6 +108,7 @@ export async function POST(
       result = await analyzeNegotiationDocument({
         documentId: id,
         prisma,
+        ...(isE2ETestMode() ? { extractTerms: e2eNegotiationExtractor } : {}),
       });
     } catch (error) {
       if (error instanceof NegotiationExtractionConfigurationError) {
@@ -114,7 +118,11 @@ export async function POST(
       }
     }
 
-    await runDocumentGraphExtraction({ prisma, documentId: id });
+    await runDocumentGraphExtraction({
+      prisma,
+      documentId: id,
+      ...(isE2ETestMode() ? { extractor: e2eGraphExtractor } : {}),
+    });
     if (negotiationConfigError) throw negotiationConfigError;
     if (!result) {
       return NextResponse.json({ error: "Document analysis failed" }, { status: 500 });

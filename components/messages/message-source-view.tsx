@@ -35,6 +35,25 @@ function FactActions({ messageId, fact }: { messageId: string; fact: MessageFact
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  async function rejectFact() {
+    setBusy(true);
+    setError(null);
+    try {
+      const response = await fetch(`/api/messages/${messageId}/facts/${fact.id}/review`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ state: "INCORRECT" }),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Fact review could not be saved");
+      router.refresh();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Fact review could not be saved");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function submit(state: "CONFIRMED" | "INCORRECT" | "SUPERSEDED") {
     setBusy(true);
     setError(null);
@@ -67,6 +86,7 @@ function FactActions({ messageId, fact }: { messageId: string; fact: MessageFact
   return <div className="mt-3 border-t border-zinc-100 pt-3">
     <div className="flex flex-wrap gap-2">
       <button disabled={busy} onClick={() => void submit("CONFIRMED")} className="rounded-sm border border-zinc-200 px-2 py-1 text-[11px] font-medium hover:bg-zinc-50 disabled:opacity-50">Confirm</button>
+      <button disabled={busy} onClick={() => void rejectFact()} className="rounded-sm border border-zinc-200 px-2 py-1 text-[11px] font-medium hover:bg-zinc-50 disabled:opacity-50">Reject fact</button>
       <button disabled={busy} onClick={() => setOpen((value) => !value)} className="rounded-sm border border-zinc-200 px-2 py-1 text-[11px] font-medium hover:bg-zinc-50 disabled:opacity-50">Mark incorrect</button>
       <button disabled={busy} onClick={() => void submit("SUPERSEDED")} className="rounded-sm border border-zinc-200 px-2 py-1 text-[11px] font-medium hover:bg-zinc-50 disabled:opacity-50">Supersede</button>
       {fact.reviewState && <StatePill>{fact.reviewState}</StatePill>}
@@ -146,7 +166,10 @@ export function MessageSourceView({
     try {
       const response = await fetch(url, { method: "POST", headers: payload ? { "Content-Type": "application/json" } : undefined, body: payload ? JSON.stringify(payload) : undefined });
       const result = await response.json();
-      if (!response.ok) throw new Error(result.error || "Action failed");
+      if (!response.ok) {
+        router.refresh();
+        throw new Error(result.error || "Action failed");
+      }
       router.refresh();
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Action failed");

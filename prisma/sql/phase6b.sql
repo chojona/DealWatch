@@ -1,6 +1,7 @@
--- Phase 6B graph read model and partial unique indexes.
--- Prisma db push does not create views or partial indexes. Reapply this file
--- after every db push (scripts/apply-phase6b-sql.ts, and the test database helper).
+-- Phase 6B graph read model, partial unique indexes, and the deal-delete trigger.
+-- Prisma db push does not create views, partial indexes, or triggers. Reapply
+-- this file after every db push (scripts/apply-phase6b-sql.ts, and the test
+-- database helper).
 --
 -- CHECK constraints from the ontology are enforced in lib/entities/invariants.ts.
 -- SQLite cannot add CHECK constraints without rebuilding tables, and the next
@@ -154,3 +155,27 @@ WHERE "status" = 'ASSERTED' AND "companyId" IS NOT NULL;
 CREATE UNIQUE INDEX IF NOT EXISTS "EntityResolutionLink_one_accepted"
 ON "EntityResolutionLink" ("entityObservationId")
 WHERE "status" = 'ACCEPTED';
+
+-- SQLite checks foreign keys immediately during a cascade. Deleting a Deal
+-- removes source messages, documents, activity facts, and attachment promotions
+-- through more than one parent, so a review or promotion row can still point
+-- at a parent this same delete is removing. Clear those dependents first.
+DROP TRIGGER IF EXISTS delete_deal_dependents;
+
+CREATE TRIGGER delete_deal_dependents
+BEFORE DELETE ON "Deal"
+FOR EACH ROW
+BEGIN
+  DELETE FROM "ActivityFactCorrection"
+  WHERE "activityFactId" IN (
+    SELECT "id" FROM "ActivityFact" WHERE "dealId" = OLD."id"
+  );
+  DELETE FROM "ActivityFactReview"
+  WHERE "activityFactId" IN (
+    SELECT "id" FROM "ActivityFact" WHERE "dealId" = OLD."id"
+  );
+  DELETE FROM "ActivityFact"
+  WHERE "dealId" = OLD."id";
+  DELETE FROM "AttachmentDocumentPromotion"
+  WHERE "dealId" = OLD."id";
+END;

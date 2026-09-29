@@ -18,7 +18,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DOCUMENT_TYPE_LABELS } from "@/lib/documents/labels";
 import { needsStoredPageExtraction, readinessGuidance } from "@/lib/documents/readinessCopy";
 import type { ReadinessGapCode } from "@/lib/documents/readiness";
-import { formatDate, formatDateTime } from "@/lib/formatters";
+import { formatCalendarDate, formatDateTime } from "@/lib/formatters";
 import { processingLabel } from "@/lib/inbox/status";
 import type { DocumentReviewModel } from "@/lib/inbox/types";
 import type { ReviewHistory } from "@/lib/review/history";
@@ -91,7 +91,7 @@ export function DocumentReviewWorkspace({
         <dl className="mt-4 grid gap-3 text-xs sm:grid-cols-3">
           <Fact label="Document type" value={DOCUMENT_TYPE_LABELS[item.document.documentType] ?? item.document.documentType} />
           <Fact label="Authoring side" value={sideLabel(item.document.negotiationSide)} />
-          <Fact label="Document date" value={item.documentDate ? formatDate(item.documentDate) : "Not set"} />
+          <Fact label="Document date" value={item.documentDate ? formatCalendarDate(item.documentDate) : "Not set"} />
           <Fact label="Uploaded" value={formatDateTime(item.uploadedAt)} />
           <Fact label="Pages" value={item.document.pageCount === null ? "Unknown" : String(item.document.pageCount)} />
           <Fact label="Analysis" value={item.document.ingestionStatus} />

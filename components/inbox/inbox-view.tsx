@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { DOCUMENT_TYPE_LABELS } from "@/lib/documents/labels";
-import { formatDate } from "@/lib/formatters";
+import { formatCalendarDate, formatDate } from "@/lib/formatters";
 import { processingLabel } from "@/lib/inbox/status";
 import type { InboxFilter, InboxItem, InboxMessageItem, InboxPageModel } from "@/lib/inbox/types";
 
@@ -171,7 +171,7 @@ function InboxCard({ item }: { item: InboxItem }) {
             {" · "}
             {sideLabel(item.document.negotiationSide)}
             {" · "}
-            {item.documentDate ? formatDate(item.documentDate) : "No document date"}
+            {item.documentDate ? formatCalendarDate(item.documentDate) : "No document date"}
             {" · Uploaded "}
             {formatDate(item.uploadedAt)}
           </p>

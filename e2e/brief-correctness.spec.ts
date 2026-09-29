@@ -27,7 +27,7 @@ test("rejecting a formal extraction stays Rejected and out of the open count", a
   await expect(page.getByText("This extraction is excluded from the formal position.")).toBeVisible();
 
   await openDeal(page);
-  const position = page.getByRole("heading", { name: "Where the deal stands" }).locator("xpath=ancestor::section[1]");
+  const position = page.getByRole("heading", { name: "Current terms" }).locator("xpath=ancestor::section[1]");
   await expect(position.getByText("Rejected", { exact: true })).toBeVisible();
   await expect(position.getByText("Open", { exact: true })).toHaveCount(0);
   await expect(position.getByText("0 open")).toBeVisible();
@@ -48,7 +48,7 @@ test("a withdrawn extraction renders Withdrawn", async ({ page }) => {
   await uploadPdf(page, file, { date: "2026-09-15" });
   await expect(page.getByText("Analysis complete", { exact: true }).first()).toBeVisible();
   await page.getByRole("link", { name: "Overview" }).click();
-  const position = page.getByRole("heading", { name: "Where the deal stands" }).locator("xpath=ancestor::section[1]");
+  const position = page.getByRole("heading", { name: "Current terms" }).locator("xpath=ancestor::section[1]");
   await expect(position.getByText("Withdrawn", { exact: true })).toBeVisible();
   await expect(position.getByText("Open", { exact: true })).toHaveCount(0);
   await expect(position.getByText("0 open")).toBeVisible();
@@ -60,7 +60,7 @@ test("attention shows the first six items and reveals the remainder", async ({ p
   await uploadPdf(page, file, { date: "2026-09-15" });
   await expect(page.getByText("Analysis complete", { exact: true }).first()).toBeVisible();
   await page.getByRole("link", { name: "Overview" }).click();
-  const attention = page.getByRole("heading", { name: "Deal attention" }).locator("xpath=ancestor::section[1]");
+  const attention = page.getByRole("heading", { name: "Needs you" }).locator("xpath=ancestor::section[1]");
   await expect(attention.getByRole("listitem")).toHaveCount(6);
   const more = attention.getByText(/\+ \d+ more items need attention/);
   await expect(more).toBeVisible();
@@ -93,7 +93,7 @@ test("a later formal source moves the current position and keeps the earlier pap
   await expect(page.getByText("Accepted extraction")).toBeVisible();
 
   await openDeal(page);
-  const position = page.getByRole("heading", { name: "Where the deal stands" }).locator("xpath=ancestor::section[1]");
+  const position = page.getByRole("heading", { name: "Current terms" }).locator("xpath=ancestor::section[1]");
   await expect(position.getByText(/\$67/)).toBeVisible();
   await page.getByRole("link", { name: "Negotiation", exact: true }).click();
   await expect(page.getByText("Base rent: $72.00 / RSF / yr → $67.00 / RSF / yr").first()).toBeVisible();

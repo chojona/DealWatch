@@ -32,5 +32,5 @@ test("since catch-up keeps current paper and filters communication around the bo
   await page.goto(`${dealPath}?since=banana`);
   await expect(page.getByRole("heading", { name: "Invalid catch-up timestamp" })).toBeVisible();
   await expect(page.getByText(/since must be a valid offset-aware ISO-8601 date-time/)).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Where the deal stands" })).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: "Current terms" })).toHaveCount(0);
 });

@@ -17,13 +17,13 @@ export function EmptyDeals({ compact = false }: { compact?: boolean }) {
     <div className="rounded-sm border border-zinc-200 bg-white px-6 py-10 text-center">
       <h2 className="text-sm font-semibold text-zinc-900">No deals yet</h2>
       <p className="mx-auto mt-1 max-w-md text-xs leading-5 text-zinc-500">
-        Create a deal to start tracking documents, messages, negotiation terms, and follow-up actions.
+        Create a deal, then add a document or an email. DealWatch will show what needs you, what the paper says, and what changed.
       </p>
       <Link
         href="/deals/new"
         className="mt-4 inline-flex h-8 items-center rounded-sm bg-zinc-900 px-3 text-xs font-medium text-white"
       >
-        Create Deal
+        New deal
       </Link>
       {compact ? null : (
         <p className="mt-3 text-[11px] text-zinc-400">No seed data is required.</p>
@@ -87,19 +87,22 @@ export function ModernHome({
   subheading?: string;
   showHeader?: boolean;
 }) {
+  const needsAttention = dashboard.deals.filter((deal) => deal.needsYouCount > 0 || deal.passedDeadlineCount > 0 || deal.negotiation?.conflictCount);
+  const rest = dashboard.deals.filter((deal) => !needsAttention.some((item) => item.id === deal.id));
+
   return (
     <div>
       {showHeader ? (
         <div className="mb-6 flex items-start justify-between gap-4">
           <div>
             <h1 className="text-xl font-semibold text-zinc-900">{heading}</h1>
-            {subheading ? <p className="mt-0.5 text-xs text-zinc-400">{subheading}</p> : null}
+            {subheading ? <p className="mt-0.5 text-sm text-zinc-500">{subheading}</p> : null}
           </div>
           <Link
             href="/deals/new"
-            className="inline-flex h-8 items-center rounded-sm bg-zinc-900 px-3 text-xs font-medium text-white"
+            className="inline-flex h-8 items-center rounded-md bg-[#16323a] px-3 text-xs font-medium text-white"
           >
-            Create Deal
+            New deal
           </Link>
         </div>
       ) : null}
@@ -108,19 +111,32 @@ export function ModernHome({
         <EmptyDeals />
       ) : (
         <>
-          <div className="mb-6 flex items-center gap-8 rounded-sm border border-zinc-200 bg-white px-6 py-4">
+          <div className="mb-6 grid grid-cols-2 gap-3 rounded-lg border border-[#d7e0e4] bg-white px-4 py-4 sm:grid-cols-4 sm:gap-6 sm:px-6">
             <Metric label="Active deals" value={dashboard.metrics.activeDeals} />
-            <div className="h-10 w-px bg-zinc-100" />
-            <Metric label="Open actions" value={dashboard.metrics.openActions} urgent={dashboard.metrics.openActions > 0} />
-            <div className="h-10 w-px bg-zinc-100" />
             <Metric label="Needs you" value={dashboard.metrics.needsYou} urgent={dashboard.metrics.needsYou > 0} />
-            <div className="h-10 w-px bg-zinc-100" />
-            <Metric label="Waiting on counterparty" value={dashboard.metrics.waitingOnCounterparty} />
+            <Metric label="Open requests" value={dashboard.metrics.openActions} urgent={dashboard.metrics.openActions > 0} />
+            <Metric label="Waiting on them" value={dashboard.metrics.waitingOnCounterparty} />
           </div>
-          <h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-zinc-400">Deals</h2>
-          <div className="flex flex-col gap-2">
-            {dashboard.deals.map((deal) => <DealCard key={deal.id} deal={deal} />)}
-          </div>
+          {needsAttention.length > 0 ? (
+            <section className="mb-8">
+              <h2 className="mb-3 text-sm font-semibold text-zinc-900">Needs your attention</h2>
+              <div className="flex flex-col gap-2">
+                {needsAttention.map((deal) => <DealCard key={deal.id} deal={deal} />)}
+              </div>
+            </section>
+          ) : (
+            <p className="mb-8 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
+              Nothing across the portfolio is waiting on you right now.
+            </p>
+          )}
+          {rest.length > 0 ? (
+            <section>
+              <h2 className="mb-3 text-sm font-semibold text-zinc-900">Other active deals</h2>
+              <div className="flex flex-col gap-2">
+                {rest.map((deal) => <DealCard key={deal.id} deal={deal} />)}
+              </div>
+            </section>
+          ) : null}
         </>
       )}
     </div>

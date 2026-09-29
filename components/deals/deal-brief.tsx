@@ -53,7 +53,7 @@ function sourceClass(kind: DealBriefSourceKind): string {
 
 function SourcePill({ kind }: { kind: DealBriefSourceKind }) {
   return (
-    <span className={`inline-flex rounded-sm border px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider ${sourceClass(kind)}`}>
+    <span className={`inline-flex rounded-md border px-1.5 py-0.5 text-[11px] font-medium ${sourceClass(kind)}`}>
       {sourceLabel(kind)}
     </span>
   );
@@ -71,10 +71,10 @@ function Section({ title, eyebrow, children, className = "" }: {
   className?: string;
 }) {
   return (
-    <section className={`rounded-sm border border-zinc-200 bg-white ${className}`}>
-      <header className="border-b border-zinc-100 px-4 py-3">
-        <p className="text-[9px] font-semibold uppercase tracking-[0.18em] text-zinc-400">{eyebrow}</p>
-        <h2 className="mt-0.5 text-sm font-semibold text-zinc-900">{title}</h2>
+    <section className={`rounded-lg border border-[#d7e0e4] bg-white ${className}`}>
+      <header className="border-b border-[#e6ecee] px-4 py-3">
+        <h2 className="text-sm font-semibold text-[#1c2430]">{title}</h2>
+        <p className="mt-0.5 text-xs text-zinc-500">{eyebrow}</p>
       </header>
       <div className="p-4">{children}</div>
     </section>
@@ -141,11 +141,11 @@ function ExpandableRemainder({ label, children }: { label: string; children: Rea
 }
 
 function courtLabel(value: DealCourt): string {
-  if (value === "OUR_SIDE") return "Our side";
-  if (value === "COUNTERPARTY") return "Counterparty";
-  if (value === "BOTH") return "Both";
-  if (value === "NONE") return "No outstanding response";
-  return "Unknown";
+  if (value === "OUR_SIDE") return "Needs you";
+  if (value === "COUNTERPARTY") return "Waiting on them";
+  if (value === "BOTH") return "Both sides";
+  if (value === "NONE") return "Nothing outstanding";
+  return "Not clear yet";
 }
 
 function ActionPanel({ actions }: { actions: DealActionState }) {
@@ -153,22 +153,22 @@ function ActionPanel({ actions }: { actions: DealActionState }) {
   return (
     <section id="actions" className="rounded-sm border border-zinc-200 bg-white">
       <header className="border-b border-zinc-100 px-4 py-3">
-        <p className="text-[9px] font-semibold uppercase tracking-[0.18em] text-zinc-400">Follow-up</p>
-        <h2 className="mt-0.5 text-sm font-semibold text-zinc-900">What to do next</h2>
+        <h2 className="text-sm font-semibold text-zinc-900">What to do next</h2>
+        <p className="mt-0.5 text-xs text-zinc-500">Requests taken from reviewed messages.</p>
       </header>
       <div className="grid gap-px bg-zinc-100 lg:grid-cols-4">
         <div className="bg-white p-4">
-          <p className="text-[9px] font-semibold uppercase tracking-[0.16em] text-zinc-400">Whose court</p>
+          <p className="text-[11px] font-medium text-zinc-500">Who should act</p>
           <p className="mt-2 text-sm font-semibold text-zinc-900">{courtLabel(actions.court.value)}</p>
           <p className="mt-1 text-[11px] leading-4 text-zinc-500">
             {actions.court.value === "UNKNOWN"
-              ? "Reviewed evidence does not say who owes the next response."
-              : "Based on reviewed requests."}
+              ? "Reviewed messages do not say who owes the next response."
+              : "Taken from reviewed requests. This does not change the paper."}
           </p>
           {courtEvidence ? <div className="mt-2"><SourceLink href={courtEvidence.href} label="View source" /></div> : null}
         </div>
         <div className="bg-white p-4">
-          <p className="text-[9px] font-semibold uppercase tracking-[0.16em] text-zinc-400">Needs you</p>
+          <p className="text-[11px] font-medium text-zinc-500">Your requests</p>
           {actions.needsYou.length === 0 ? (
             <p className="mt-2 text-[11px] leading-4 text-zinc-500">No explicit action is waiting.</p>
           ) : (
@@ -187,7 +187,7 @@ function ActionPanel({ actions }: { actions: DealActionState }) {
           )}
         </div>
         <div className="bg-white p-4">
-          <p className="text-[9px] font-semibold uppercase tracking-[0.16em] text-zinc-400">Upcoming</p>
+          <p className="text-[11px] font-medium text-zinc-500">Upcoming</p>
           {actions.upcoming.length === 0 ? (
             <p className="mt-2 text-[11px] leading-4 text-zinc-500">No explicit deadlines or meetings.</p>
           ) : (
@@ -203,7 +203,7 @@ function ActionPanel({ actions }: { actions: DealActionState }) {
           )}
         </div>
         <div className="bg-white p-4">
-          <p className="text-[9px] font-semibold uppercase tracking-[0.16em] text-zinc-400">Outstanding</p>
+          <p className="text-[11px] font-medium text-zinc-500">Still open</p>
           {actions.outstandingActions.length === 0 ? (
             <p className="mt-2 text-[11px] leading-4 text-zinc-500">No unresolved follow-ups.</p>
           ) : (
@@ -268,7 +268,7 @@ export function DealBriefView({
         <div className="rounded-sm border border-zinc-200 bg-white px-4 py-5">
           <h2 className="text-sm font-semibold text-zinc-900">Add your first source</h2>
           <p className="mt-1 max-w-xl text-xs leading-5 text-zinc-500">
-            Upload a document or add messages to start building the deal record. Brief, actions, and negotiation update from that evidence.
+            Upload a deal document or import an email. DealWatch will organize the terms, requests, and evidence for you.
           </p>
           <div className="mt-3 flex gap-2">
             <Link href={`/deals/${brief.deal.id}/documents`} className="inline-flex h-8 items-center rounded-sm bg-zinc-900 px-3 text-xs font-medium text-white">Upload a document</Link>
@@ -277,11 +277,7 @@ export function DealBriefView({
         </div>
       )}
 
-      <ActionPanel actions={brief.actions} />
-
-      <ActionEvidenceReview dealId={brief.deal.id} items={actionEvidence} />
-
-      <Section title="Deal attention" eyebrow="Review and commercial signals">
+      <Section title="Needs you" eyebrow="Requests, deadlines, disagreements, and reviews that should come before everything else.">
         {brief.productAttention.length === 0 ? (
           hasEvidence ? (
             <div className="rounded-sm border border-emerald-100 bg-emerald-50 px-3 py-3 text-sm text-emerald-800">
@@ -306,8 +302,12 @@ export function DealBriefView({
         )}
       </Section>
 
+      <ActionPanel actions={brief.actions} />
+
+      <ActionEvidenceReview dealId={brief.deal.id} items={actionEvidence} />
+
       <div className="grid gap-5 xl:grid-cols-[1.4fr_1fr]">
-        <Section title="Where the deal stands" eyebrow="Current commercial state">
+        <Section title="Current terms" eyebrow="What the formal paper currently says. Communication does not change these positions.">
           <div className="mb-4 flex flex-wrap items-center gap-2 text-xs text-zinc-600">
             <SourcePill kind="FORMAL_NEGOTIATION" />
             <span>{brief.negotiation.summary.openCount} open</span>
@@ -364,7 +364,7 @@ export function DealBriefView({
           </div>
         </Section>
 
-        <Section title="What changed" eyebrow="Meaningful deal movement">
+        <Section title="What changed" eyebrow="Meaningful movement. Processing events stay out of this list.">
           {brief.recentChanges.length === 0 ? (
             <p className="text-sm text-zinc-500">
               {brief.since ? `No meaningful changes since ${timestamp(brief.since)}.` : "No recent meaningful deal changes."}
@@ -406,8 +406,8 @@ export function DealBriefView({
       </div>
 
       {visibleComparisons.length > 0 ? (
-        <Section title="Paper vs communication" eyebrow="Reviewed, comparable evidence">
-          <p className="mb-4 text-xs text-zinc-500">This comparison does not choose which source is correct or change the formal negotiation.</p>
+        <Section title="Paper and email" eyebrow="DealWatch shows the disagreement. It does not decide which source is right. The paper stays the formal position.">
+          <p className="mb-4 text-xs text-zinc-500">A difference here is evidence to inspect, not an automatic correction.</p>
           <div className="grid gap-3 lg:grid-cols-2">
             {visibleComparisons.map((comparison) => (
               <article key={comparison.id} className={`rounded-sm border p-3 ${comparison.outcome === "DIFFERS" ? "border-amber-200 bg-amber-50/40" : "border-zinc-200"}`}>
@@ -420,21 +420,21 @@ export function DealBriefView({
                 <p className="mt-0.5 text-[10px] uppercase tracking-wide text-zinc-400">{comparison.side.toLowerCase()} position</p>
                 <div className="mt-3 grid grid-cols-2 gap-3">
                   <div className="border-r border-zinc-200 pr-3">
-                    <SourcePill kind="FORMAL_NEGOTIATION" />
-                    <p className="mt-2 text-sm font-semibold text-zinc-900">{comparison.formal.value}</p>
+                    <p className="text-[11px] font-medium text-zinc-500">On the paper</p>
+                    <p className="mt-2 text-base font-semibold text-zinc-900">{comparison.formal.value}</p>
                     {comparison.formal.source?.label ? <p className="mt-1 text-[11px] text-zinc-600">{comparison.formal.source.label}</p> : null}
                     {comparison.formal.evidenceQuote ? <p className="mt-1 text-[11px] leading-4 text-zinc-600">“{comparison.formal.evidenceQuote}”</p> : null}
                     {comparison.formal.pageLabel ? <p className="mt-0.5 text-[10px] text-zinc-500">{comparison.formal.pageLabel}</p> : null}
-                    <p className="mt-1 text-[10px] text-zinc-500">{comparison.formal.reviewState ? `Formal review · ${comparison.formal.reviewState}` : "No formal review · effective value is the paper extraction"}</p>
+                    <p className="mt-1 text-[10px] text-zinc-500">{comparison.formal.reviewState ? `Paper review · ${comparison.formal.reviewState === "ACCEPTED" ? "Confirmed" : comparison.formal.reviewState === "CORRECTED" ? "Corrected" : comparison.formal.reviewState === "REJECTED" ? "Rejected" : comparison.formal.reviewState}` : "Not reviewed yet. The detected paper value is what DealWatch is using."}</p>
                     <div className="mt-2"><SourceLink href={comparison.formal.source?.href ?? null} label="View document" /></div>
                   </div>
                   <div>
-                    <SourcePill kind="COMMUNICATION_EVIDENCE" />
-                    <p className="mt-2 text-sm font-semibold text-zinc-900">{comparison.communication.value}</p>
+                    <p className="text-[11px] font-medium text-zinc-500">In the latest reviewed email</p>
+                    <p className="mt-2 text-base font-semibold text-zinc-900">{comparison.communication.value}</p>
                     <p className="mt-1 text-[11px] text-zinc-600">{comparison.communication.subject}</p>
                     <p className="text-[11px] text-zinc-500">{comparison.communication.sender}</p>
                     <p className="mt-1 text-[11px] leading-4 text-zinc-600">“{comparison.communication.evidenceQuote}”</p>
-                    <p className="mt-1 text-[10px] text-zinc-500">Review · {comparison.communication.reviewState ?? "unreviewed"}</p>
+                    <p className="mt-1 text-[10px] text-zinc-500">Email review · {comparison.communication.reviewState === "CONFIRMED" ? "Confirmed" : comparison.communication.reviewState ?? "Not reviewed"}</p>
                     {comparison.communication.corrected ? <p className="mt-0.5 text-[10px] text-amber-700">Reviewed correction{comparison.communication.rawValue ? ` · originally ${comparison.communication.rawValue}` : ""}</p> : null}
                     <div className="mt-2"><SourceLink href={comparison.communication.source.href} label="View message" /></div>
                   </div>
@@ -460,7 +460,7 @@ export function DealBriefView({
         </Section>
       ) : null}
 
-      <Section title="Recent communications" eyebrow="Message evidence">
+      <Section title="Recent emails" eyebrow="What people said. These notes never become the formal paper on their own.">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-sm border border-sky-100 bg-sky-50 px-3 py-2">
           <p className="text-[11px] text-sky-900">Communication evidence never sets or changes the formal negotiation position.</p>
           <Link href={`/deals/${brief.deal.id}/messages`} className="text-[11px] font-semibold text-sky-900 underline">Open all messages</Link>
@@ -485,7 +485,7 @@ export function DealBriefView({
                       </li>
                     ))}
                   </ul>
-                ) : <p className="mt-2 text-[11px] text-zinc-400">No structured commercial facts available.</p>}
+                ) : <p className="mt-2 text-[11px] text-zinc-400">Nothing commercial was noted in this email.</p>}
                 <div className="mt-3"><SourceLink href={communication.source.href} label="View message" /></div>
               </article>
             ))}
@@ -501,7 +501,7 @@ export function DealBriefView({
         )}
       </Section>
 
-      <Section title="System review" eyebrow="DealWatch maintenance">
+      <Section title="Processing problems" eyebrow="These are analysis issues, separate from commercial work. Your uploaded files and emails are still saved.">
         {brief.systemAttention.length === 0 ? (
           <p className="text-sm text-zinc-500">No internal review work is outstanding.</p>
         ) : (
@@ -530,7 +530,7 @@ export function DealBriefView({
         )}
       </Section>
 
-      <Section title="Brief timeline" eyebrow="Compact source chronology">
+      <Section title="Recent history" eyebrow="A short chronology. Open Activity for the full deal history.">
         {brief.timeline.length === 0 ? (
           <p className="text-sm text-zinc-500">{brief.since ? "No timeline events occurred in this catch-up window." : "No source chronology in the current view."}</p>
         ) : (

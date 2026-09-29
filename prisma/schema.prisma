@@ -1398,6 +1398,8 @@ model SourceMessageAttachment {
 /// Immutable record that one attachment was explicitly promoted into one Document.
 /// The attachment row and its stored bytes stay in place. Promotion does not
 /// analyze the file and does not create negotiation or activity facts.
+/// Deal delete clears this row in prisma/sql/phase6b.sql before SQLite cascades
+/// from both Deal and Document.
 model AttachmentDocumentPromotion {
   id                        String   @id @default(cuid())
   workspaceId               String
@@ -1470,6 +1472,8 @@ model ActivityExtractionRun {
 
 /// Immutable structured reading of one source. Exactly one of sourceMessageId
 /// or dealEventId is set. This row is not negotiation truth.
+/// Deal delete clears facts, reviews, and corrections in prisma/sql/phase6b.sql
+/// before SQLite cascades from the deal and the source message together.
 model ActivityFact {
   id                      String                   @id @default(cuid())
   workspaceId             String

@@ -87,7 +87,7 @@ export function DealHeader({
           </div>
         </div>
         {dealId && (
-          <nav className="mt-4 -mb-4 flex gap-5 border-t border-zinc-100 pt-3">
+          <nav className="mt-4 -mb-4 flex gap-4 overflow-x-auto border-t border-zinc-100 pt-3 [&_a]:shrink-0 [&_a]:whitespace-nowrap" aria-label="Deal">
             <Link
               href={`/deals/${dealId}`}
               className={`border-b-2 pb-2.5 text-xs font-medium ${activeSection === "overview" ? "border-zinc-900 text-zinc-900" : "border-transparent text-zinc-400 hover:text-zinc-700"}`}

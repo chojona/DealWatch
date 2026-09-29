@@ -21,10 +21,10 @@ test("the brief shows paper and a corrected communication without moving formal 
   await expect(page.getByText("INCORRECT")).toBeVisible();
 
   await openDeal(page);
-  const comparison = page.getByRole("heading", { name: "Paper vs communication" }).locator("xpath=ancestor::section[1]");
+  const comparison = page.getByRole("heading", { name: "Paper and email" }).locator("xpath=ancestor::section[1]");
   await expect(comparison.getByText("Paper and communication differ")).toBeVisible();
   await expect(comparison.getByText("On the paper")).toBeVisible();
-  await expect(comparison.getByText("In communication")).toBeVisible();
+  await expect(comparison.getByText("In the latest reviewed email")).toBeVisible();
   await expect(comparison.getByText(/\$67/).first()).toBeVisible();
   await expect(comparison.getByText(/\$72/).first()).toBeVisible();
 
@@ -39,7 +39,7 @@ test("the brief shows paper and a corrected communication without moving formal 
   await expect(page.getByRole("heading", { name: "Revised rent misread" })).toBeVisible();
 
   await openDeal(page);
-  const position = page.getByRole("heading", { name: "Where the deal stands" }).locator("xpath=ancestor::section[1]");
+  const position = page.getByRole("heading", { name: "Current terms" }).locator("xpath=ancestor::section[1]");
   await expect(position.getByText(/\$67/)).toBeVisible();
   await expect(position.getByText(/\$72/)).toHaveCount(0);
 

@@ -31,6 +31,6 @@ test("a reviewer can canonicalize a pending company and open its provenance", as
   await page.getByRole("button", { name: "Create Company" }).last().click();
   await expect(page.getByText(/Harbor Brokerage|Northwind Labs|Clarendon Holdings/).first()).toBeVisible();
   await page.goto(`${dealPath}/knowledge`);
-  await expect(page.getByRole("heading", { name: "Canonical knowledge" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Confirmed on this deal" })).toBeVisible();
   await expect(page.getByText(/Harbor Brokerage|Northwind Labs|Clarendon Holdings/).first()).toBeVisible();
 });

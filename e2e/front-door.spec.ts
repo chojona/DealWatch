@@ -5,7 +5,7 @@ import { expect, test } from "./test";
 test("a fresh workspace shows the modern empty state and creates a deal in the browser", async ({ page }) => {
   await page.goto("/dashboard");
   await expect(page.getByRole("heading", { name: "No deals yet" })).toBeVisible();
-  await expect(page.getByRole("link", { name: "Create Deal" }).first()).toBeVisible();
+  await expect(page.getByRole("link", { name: "New deal" }).first()).toBeVisible();
   await expect(page.getByRole("link", { name: "Analyze Thread" })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Analyze Thread" })).toHaveCount(0);
 

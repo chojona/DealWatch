@@ -16,13 +16,13 @@ export default async function DashboardPage() {
       <main className="mx-auto max-w-7xl px-6 py-6">
         <ModernHome
           dashboard={dashboard}
-          heading={greeting}
-          subheading={new Date().toLocaleDateString("en-US", {
+          heading="Home"
+          subheading={`${greeting}. ${new Date().toLocaleDateString("en-US", {
             weekday: "long",
             month: "long",
             day: "numeric",
             year: "numeric",
-          })}
+          })}`}
         />
       </main>
     </div>

@@ -112,7 +112,7 @@ function Evidence({ evidence }: { evidence: NegotiationEvidenceView }) {
       {evidence.spanCorrected && (
         <p className="mt-2 text-[11px] text-zinc-600">Corrected span. Original extraction quote: “{evidence.originalQuote}”</p>
       )}
-      <p className="mt-2 text-[10px] text-zinc-400">Stored extraction evidence · Model confidence {(evidence.confidence * 100).toFixed(0)}%</p>
+      <p className="mt-2 text-[10px] text-zinc-400">Original quote from the document. Review state is what decides whether this value counts.</p>
     </div>
   );
 }
@@ -193,11 +193,9 @@ function TermDrawer({
       <aside className="h-full w-full max-w-2xl overflow-y-auto border-l border-zinc-200 bg-zinc-50 shadow-2xl">
         <header className="sticky top-0 z-10 flex items-start justify-between border-b border-zinc-200 bg-white px-5 py-4">
           <div>
-            <p className="text-[10px] font-semibold uppercase tracking-widest text-zinc-400">{term.canonicalType.replaceAll("_", " ")}</p>
-            <h3 className="mt-0.5 text-lg font-semibold text-zinc-950">{term.label}</h3>
+            <h3 className="text-lg font-semibold text-zinc-950">{term.label}</h3>
             <div className="mt-2 flex flex-wrap items-center gap-2">
-              <span className={`rounded-sm border px-2 py-0.5 text-[9px] font-semibold ${statusClass[term.status] ?? statusClass.UNRESOLVED}`}>{term.status}</span>
-              <span className="text-[10px] text-zinc-400">{term.resolutionMode === "STRUCTURED" ? "Structured resolver" : "Legacy flat resolver"}</span>
+              <span className={`rounded-sm border px-2 py-0.5 text-[11px] font-medium ${statusClass[term.status] ?? statusClass.UNRESOLVED}`}>{term.status.replaceAll("_", " ").toLowerCase()}</span>
             </div>
           </div>
           <button type="button" aria-label="Close term detail" onClick={onClose} className="rounded-sm p-1.5 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-900"><X className="h-4 w-4" /></button>

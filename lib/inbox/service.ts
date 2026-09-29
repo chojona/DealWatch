@@ -1012,7 +1012,7 @@ export async function getDocumentReview(prisma: PrismaClient, workspaceId: strin
     include: documentInclude,
   });
   if (!document || document.deal.workspaceId !== workspaceId) return null;
-  const [rounds, observations, decisions, corrections, pages, deletionBlocked, sourceFileState, siblings] = await Promise.all([
+  const [rounds, observations, decisions, corrections, pages, deletionBlocked, sourceFileState, siblings, promotions] = await Promise.all([
     prisma.negotiationRound.findMany({
       where: { dealId: document.dealId },
       select: roundSelect,
@@ -1036,6 +1036,16 @@ export async function getDocumentReview(prisma: PrismaClient, workspaceId: strin
       },
       select: { id: true },
     }),
+    prisma.attachmentDocumentPromotion.findMany({
+      where: { documentId, workspaceId },
+      orderBy: { createdAt: "asc" },
+      select: {
+        sourceMessageId: true,
+        sourceMessageAttachmentId: true,
+        originalFilename: true,
+        sourceMessage: { select: { subject: true } },
+      },
+    }),
   ]);
   const built = buildItem({
     document,
@@ -1057,6 +1067,13 @@ export async function getDocumentReview(prisma: PrismaClient, workspaceId: strin
     conflicts: built.conflicts,
     evidence: evidenceFor(built.item, built.findings, observations.entities, observations.relationships, decisions),
     pages,
+    promotionSources: promotions.map((promotion) => ({
+      messageId: promotion.sourceMessageId,
+      messageSubject: promotion.sourceMessage.subject,
+      messageHref: `/messages/${promotion.sourceMessageId}`,
+      attachmentId: promotion.sourceMessageAttachmentId,
+      attachmentFilename: promotion.originalFilename,
+    })),
     progress: reviewProgress({
       sourceFileState,
       metadataReady: built.readiness.metadataReady,

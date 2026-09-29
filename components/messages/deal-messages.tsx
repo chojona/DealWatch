@@ -17,25 +17,27 @@ export function DealMessages({ dealId, items }: { dealId: string; items: DealMes
 
   async function manual(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const form = new FormData(event.currentTarget);
+    const formElement = event.currentTarget;
+    const form = new FormData(formElement);
     setBusy(true); setError(null);
     try {
       const response = await fetch(`/api/deals/${dealId}/messages`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(Object.fromEntries(form)) });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || "Import failed");
-      event.currentTarget.reset(); router.push(result.href); router.refresh();
+      formElement.reset(); router.push(result.href); router.refresh();
     } catch (cause) { setError(cause instanceof Error ? cause.message : "Import failed"); } finally { setBusy(false); }
   }
 
   async function eml(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const form = new FormData(event.currentTarget);
+    const formElement = event.currentTarget;
+    const form = new FormData(formElement);
     setBusy(true); setError(null);
     try {
       const response = await fetch(`/api/deals/${dealId}/messages`, { method: "POST", body: form });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || "Import failed");
-      event.currentTarget.reset(); router.push(result.href); router.refresh();
+      formElement.reset(); router.push(result.href); router.refresh();
     } catch (cause) { setError(cause instanceof Error ? cause.message : "Import failed"); } finally { setBusy(false); }
   }
 

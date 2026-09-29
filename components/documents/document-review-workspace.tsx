@@ -116,6 +116,24 @@ export function DocumentReviewWorkspace({
         </div>
       </div>
 
+      {review.promotionSources.length > 0 && (
+        <section className="rounded-sm border border-zinc-200 bg-white px-4 py-3">
+          <h2 className="text-xs font-semibold uppercase tracking-wider text-zinc-400">Source</h2>
+          {review.promotionSources.map((source) => (
+            <dl key={source.attachmentId} className="mt-3 grid gap-3 text-xs sm:grid-cols-3">
+              <Fact label="Source" value="Email attachment" />
+              <div>
+                <dt className="text-[10px] font-semibold uppercase tracking-wider text-zinc-400">Message</dt>
+                <dd className="mt-0.5 text-zinc-800">
+                  <Link href={source.messageHref} className="underline">{source.messageSubject || "Email"}</Link>
+                </dd>
+              </div>
+              <Fact label="Attachment" value={source.attachmentFilename} />
+            </dl>
+          ))}
+        </section>
+      )}
+
       <section className="rounded-sm border border-zinc-200 bg-white px-4 py-3">
         <h2 className="text-xs font-semibold uppercase tracking-wider text-zinc-400">Document review</h2>
         <div className="mt-2 grid gap-2 text-xs text-zinc-700 sm:grid-cols-2">

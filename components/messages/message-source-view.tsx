@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { highlightSpans } from "@/lib/ai/activity/evidence";
 import { ReconciliationBadge } from "@/components/deals/reconciliation-context";
+import { isPromotablePdfAttachment } from "@/lib/messages/promotionEligibility";
 import type { MessageFactView, MessageSourceView as MessageSourceDto } from "@/lib/messages/service";
 
 function utcDate(value: string | null): string {
@@ -73,7 +74,7 @@ function AttachmentRow({ messageId, attachment }: { messageId: string; attachmen
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const promotable = !attachment.promotion && (attachment.contentType === "application/pdf" || attachment.filename.toLowerCase().endsWith(".pdf"));
+  const promotable = !attachment.promotion && isPromotablePdfAttachment(attachment);
 
   async function promote() {
     setBusy(true);

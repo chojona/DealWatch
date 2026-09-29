@@ -5,7 +5,7 @@ import { canonicalLabel } from "@/lib/messages/facts";
 import { effectiveActivityFact } from "@/lib/messages/effective";
 import { factsFromLatestRun } from "@/lib/messages/latestRun";
 import { deriveMessageLifecycle } from "@/lib/messages/state";
-import { getNegotiationWorkspace } from "@/lib/negotiation/intelligence/service";
+import { currentFormalObservation, getNegotiationWorkspace } from "@/lib/negotiation/intelligence/service";
 import type { NegotiationRoundView } from "@/lib/negotiation/intelligence/types";
 import type {
   DealBrief,
@@ -366,7 +366,7 @@ export async function getDealBrief(
     .slice(0, communicationLimit);
   const roundById = new Map(negotiation.rounds.map((round) => [round.id, round]));
   const negotiationTerms = negotiation.terms.map((term) => {
-    const latestHistory = term.history.at(-1) ?? null;
+    const latestHistory = currentFormalObservation(term);
     const round = latestHistory ? roundById.get(latestHistory.roundId) ?? null : null;
     const latestEvidence = latestHistory?.evidence ?? term.evidence.at(-1) ?? null;
     return {

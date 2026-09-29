@@ -245,6 +245,7 @@ model NegotiationTerm {
   documentPage        DocumentPage?        @relation(fields: [documentPageId], references: [id], onDelete: SetNull)
   evidenceCorrections EvidenceCorrection[]
   reviewDecisions     ReviewDecision[]
+  formalTermReview    FormalTermReview?
 
   @@index([roundId, canonicalType])
   @@index([documentPageId])
@@ -1176,6 +1177,63 @@ model EvidenceCorrection {
 
   @@index([documentId, negotiationTermId, createdAt])
   @@index([negotiationTermId, supersededAt])
+}
+
+/// Current decision about whether one NegotiationTerm extraction is formal paper truth.
+/// No row means UNREVIEWED. NegotiationTerm columns stay the immutable extraction.
+/// Existing rows therefore keep resolving exactly as they did before any review.
+enum FormalTermReviewState {
+  ACCEPTED
+  CORRECTED
+  REJECTED
+}
+
+model FormalTermReview {
+  id                String                @id @default(cuid())
+  negotiationTermId String                @unique
+  state             FormalTermReviewState
+  /// Commercial fields the resolver should use when state is CORRECTED.
+  /// Null for ACCEPTED and REJECTED. Never copied back onto NegotiationTerm.
+  normalizedValue   String?
+  normalizedNumeric Float?
+  normalizedUnit    String?
+  rawValue          String?
+  structuredPayload Json?
+  note              String?
+  reviewedAt        DateTime
+  actor             ReviewActor           @default(MANUAL_REVIEW)
+  /// Reserved for a future account id. Null while review is unauthenticated.
+  reviewerUserId    String?
+  createdAt         DateTime              @default(now())
+  updatedAt         DateTime              @updatedAt
+
+  negotiationTerm NegotiationTerm          @relation(fields: [negotiationTermId], references: [id], onDelete: Cascade)
+  events          FormalTermReviewEvent[]
+
+  @@index([state])
+}
+
+/// Append-only history of formal-term review mutations. The FormalTermReview row is current state.
+model FormalTermReviewEvent {
+  id                String                @id @default(cuid())
+  formalTermReviewId String
+  negotiationTermId String
+  state             FormalTermReviewState
+  normalizedValue   String?
+  normalizedNumeric Float?
+  normalizedUnit    String?
+  rawValue          String?
+  structuredPayload Json?
+  note              String?
+  reviewedAt        DateTime
+  actor             ReviewActor           @default(MANUAL_REVIEW)
+  reviewerUserId    String?
+  createdAt         DateTime              @default(now())
+
+  formalTermReview FormalTermReview @relation(fields: [formalTermReviewId], references: [id], onDelete: Cascade)
+
+  @@index([negotiationTermId, createdAt])
+  @@index([formalTermReviewId, createdAt])
 }
 
 /// Document-level activity milestones. Individual review clicks are not events.

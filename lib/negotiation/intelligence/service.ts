@@ -10,6 +10,11 @@ import type {
   NegotiationSide,
   NegotiationTermStatus,
 } from "@/lib/ai/negotiation/schemas";
+import {
+  effectiveFormalTerm,
+  projectEffectiveRounds,
+  type FormalReviewSnapshot,
+} from "@/lib/negotiation/formalReview";
 import { presentTermSource } from "@/lib/negotiation/presentSource";
 import {
   chronologicalRounds,
@@ -39,6 +44,7 @@ import type {
   NegotiationRoundChangeView,
   NegotiationRoundView,
   NegotiationTermGroup,
+  FormalObservationReview,
   NegotiationTermView,
   NegotiationWorkspace,
   NegotiationWorkspaceFilter,
@@ -89,6 +95,29 @@ const workspaceSelect = {
           provenanceStatus: true,
           structuredPayload: true,
           documentPage: { select: { id: true, pageNumber: true } },
+          formalTermReview: {
+            select: {
+              state: true,
+              normalizedValue: true,
+              normalizedNumeric: true,
+              normalizedUnit: true,
+              rawValue: true,
+              structuredPayload: true,
+              note: true,
+              reviewedAt: true,
+              actor: true,
+              reviewerUserId: true,
+            },
+          },
+          evidenceCorrections: {
+            where: { supersededAt: null },
+            orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+            take: 1,
+            select: {
+              evidenceQuote: true,
+              documentPage: { select: { pageNumber: true } },
+            },
+          },
         },
         orderBy: [{ canonicalType: "asc" }, { id: "asc" }],
       },
@@ -149,14 +178,33 @@ interface RoundMetadata {
     string,
     "EXACT" | "AMBIGUOUS" | "UNLOCATED" | null
   >;
+  correctedSpanByTermId: Map<string, { quote: string; pageNumber: number | null }>;
 }
 
 function asRounds(source: NegotiationWorkspaceSource): {
   rounds: RoundWithPayload[];
   metadata: Map<string, RoundMetadata>;
+  reviews: Map<string, FormalReviewSnapshot>;
 } {
   const metadata = new Map<string, RoundMetadata>();
+  const reviews = new Map<string, FormalReviewSnapshot>();
   const rounds: RoundWithPayload[] = source.negotiationRounds.map((round) => {
+    for (const term of round.terms) {
+      if (term.formalTermReview) {
+        reviews.set(term.id, {
+          state: term.formalTermReview.state,
+          normalizedValue: term.formalTermReview.normalizedValue,
+          normalizedNumeric: term.formalTermReview.normalizedNumeric,
+          normalizedUnit: term.formalTermReview.normalizedUnit,
+          rawValue: term.formalTermReview.rawValue,
+          structuredPayload: term.formalTermReview.structuredPayload,
+          note: term.formalTermReview.note,
+          reviewedAt: term.formalTermReview.reviewedAt,
+          actor: term.formalTermReview.actor,
+          reviewerUserId: term.formalTermReview.reviewerUserId,
+        });
+      }
+    }
     metadata.set(round.id, {
       sourceType: round.sourceType,
       documentId: round.documentId,
@@ -166,6 +214,14 @@ function asRounds(source: NegotiationWorkspaceSource): {
       ),
       provenanceByTermId: new Map(
         round.terms.map((term) => [term.id, term.provenanceStatus] as const)
+      ),
+      correctedSpanByTermId: new Map(
+        round.terms.flatMap((term) => {
+          const correction = term.evidenceCorrections[0];
+          return correction
+            ? [[term.id, { quote: correction.evidenceQuote, pageNumber: correction.documentPage?.pageNumber ?? null }] as const]
+            : [];
+        })
       ),
     });
     return {
@@ -198,7 +254,7 @@ function asRounds(source: NegotiationWorkspaceSource): {
       })),
     };
   });
-  return { rounds, metadata };
+  return { rounds, metadata, reviews };
 }
 
 function formattedTerm(term: TermWithPayload): FormattedTermValue {
@@ -337,12 +393,13 @@ function termEvidence(
   term: TermWithPayload,
   metadata: RoundMetadata
 ): NegotiationEvidenceView {
+  const span = metadata.correctedSpanByTermId.get(term.id);
   const source = presentTermSource({
     documentName: round.documentName,
-    evidenceQuote: term.evidenceQuote,
+    evidenceQuote: span?.quote ?? term.evidenceQuote,
     sourceLocation: term.sourceLocation,
-    provenanceStatus: metadata.provenanceByTermId.get(term.id) ?? null,
-    pageNumber: metadata.documentPageByTermId.get(term.id)?.pageNumber ?? null,
+    provenanceStatus: span ? "EXACT" : metadata.provenanceByTermId.get(term.id) ?? null,
+    pageNumber: span?.pageNumber ?? metadata.documentPageByTermId.get(term.id)?.pageNumber ?? null,
     originalFilename: metadata.documentOriginalFilename,
     documentId: metadata.documentId,
   });
@@ -352,6 +409,8 @@ function termEvidence(
   return {
     observationId: term.id,
     quote: source.evidenceQuote,
+    originalQuote: term.evidenceQuote,
+    spanCorrected: Boolean(span),
     confidence: term.confidence,
     sourceKind: metadata.sourceType,
     sourceLabel:
@@ -368,10 +427,29 @@ function termEvidence(
   };
 }
 
+function observationReview(
+  term: TermWithPayload,
+  reviews: Map<string, FormalReviewSnapshot>
+): FormalObservationReview | null {
+  const review = reviews.get(term.id);
+  if (!review) return null;
+  const effective = effectiveFormalTerm(term, review);
+  return {
+    state: review.state,
+    extractedSummary: formattedTerm(term).summary,
+    effectiveSummary: effective ? formattedTerm(effective).summary : null,
+    note: review.note,
+    reviewedAt: review.reviewedAt.toISOString(),
+    actor: review.actor,
+    reviewerUserId: review.reviewerUserId,
+  };
+}
+
 function termHistory(
   rounds: RoundWithPayload[],
   canonicalType: CanonicalTermType,
-  metadata: Map<string, RoundMetadata>
+  metadata: Map<string, RoundMetadata>,
+  reviews: Map<string, FormalReviewSnapshot>
 ): NegotiationObservationView[] {
   return (termObservations(rounds as never, canonicalType) as Array<{
     round: RoundWithPayload;
@@ -385,7 +463,18 @@ function termHistory(
     status: term.status,
     value: formattedTerm(term),
     evidence: termEvidence(round, term, metadata.get(round.id)!),
+    formalReview: observationReview(term, reviews),
   }));
+}
+
+export function currentFormalObservation(term: NegotiationTermView) {
+  const ids = new Set([
+    ...(term.agreedPosition?.observationIds ?? []),
+    ...(term.tenantPosition?.observationIds ?? []),
+    ...(term.landlordPosition?.observationIds ?? []),
+  ]);
+  if (ids.size === 0) return term.history.at(-1) ?? null;
+  return [...term.history].reverse().find((item) => ids.has(item.id)) ?? term.history.at(-1) ?? null;
 }
 
 function numericGap(
@@ -482,27 +571,29 @@ function buildRoundViews(
 
 function buildTermView(
   rounds: RoundWithPayload[],
+  resolverRounds: RoundWithPayload[],
   canonicalType: CanonicalTermType,
   label: string,
   metadata: Map<string, RoundMetadata>,
-  latestRound: NegotiationRoundView | null
+  latestRound: NegotiationRoundView | null,
+  reviews: Map<string, FormalReviewSnapshot>
 ): NegotiationTermView | null {
-  const history = termHistory(rounds, canonicalType, metadata);
+  const history = termHistory(rounds, canonicalType, metadata, reviews);
   if (history.length === 0) return null;
-  const flat = resolveCurrentState(rounds as never, canonicalType);
+  const flat = resolveCurrentState(resolverRounds as never, canonicalType);
   const displayTenantTerm = displayTermForSide(
-    rounds,
+    resolverRounds,
     canonicalType,
     "TENANT",
     flat.currentTenantTerm as TermWithPayload | undefined
   );
   const displayLandlordTerm = displayTermForSide(
-    rounds,
+    resolverRounds,
     canonicalType,
     "LANDLORD",
     flat.currentLandlordTerm as TermWithPayload | undefined
   );
-  const useStructured = canResolveStructured(rounds, canonicalType);
+  const useStructured = canResolveStructured(resolverRounds, canonicalType);
   let tenantPosition: NegotiationPositionView | null;
   let landlordPosition: NegotiationPositionView | null;
   let agreedPosition: NegotiationPositionView | null;
@@ -510,7 +601,7 @@ function buildTermView(
   let structuredState: NegotiationTermView["structuredState"] = null;
 
   if (useStructured) {
-    const resolved = resolveStructuredState({ rounds, canonicalType });
+    const resolved = resolveStructuredState({ rounds: resolverRounds, canonicalType });
     tenantPosition = structuredPosition(resolved.tenant) ?? legacyPosition(displayTenantTerm);
     landlordPosition = structuredPosition(resolved.landlord) ?? legacyPosition(displayLandlordTerm);
     agreedPosition = resolved.agreed
@@ -529,7 +620,7 @@ function buildTermView(
     landlordPosition = legacyPosition(displayLandlordTerm);
     agreedPosition = legacyPosition(flat.agreedTerm as TermWithPayload | undefined);
     if (flat.contradictory) {
-      const conflict = legacyConflictPosition(rounds, canonicalType, null);
+      const conflict = legacyConflictPosition(resolverRounds, canonicalType, null);
       const latestSide = history.at(-1)?.side;
       if (latestSide === "TENANT") tenantPosition = conflict;
       if (latestSide === "LANDLORD") landlordPosition = conflict;
@@ -542,7 +633,7 @@ function buildTermView(
   const latestChange = latestRound?.changes.find(
     (change) => change.canonicalType === canonicalType
   );
-  const calculatedMovement = calculateWorkspaceMovement(rounds, canonicalType);
+  const calculatedMovement = calculateWorkspaceMovement(resolverRounds, canonicalType);
   const movement = conflict
     ? {
         kind: "CHANGED" as const,
@@ -626,10 +717,19 @@ export function buildNegotiationWorkspace(
   source: NegotiationWorkspaceSource
 ): NegotiationWorkspace {
   const normalized = asRounds(source);
+  const resolverRounds = projectEffectiveRounds(normalized.rounds, normalized.reviews);
   const roundViews = buildRoundViews(normalized.rounds, normalized.metadata);
   const latestRound = roundViews.at(-1) ?? null;
   const terms = TERM_CATALOG.map(({ type, label }) =>
-    buildTermView(normalized.rounds, type, label, normalized.metadata, latestRound)
+    buildTermView(
+      normalized.rounds,
+      resolverRounds,
+      type,
+      label,
+      normalized.metadata,
+      latestRound,
+      normalized.reviews
+    )
   ).filter((term): term is NegotiationTermView => term !== null);
   const agreedCount = terms.filter((term) => term.status === "AGREED").length;
   const conflictCount = terms.filter((term) => term.conflict).length;

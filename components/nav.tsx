@@ -3,9 +3,9 @@ import { cn } from "@/lib/utils";
 import { GlobalSearch } from "@/components/global-search";
 
 const navLinks = [
-  { href: "/inbox", label: "Inbox" },
   { href: "/dashboard", label: "Dashboard" },
-  { href: "/analyze", label: "Analyze Thread" },
+  { href: "/deals", label: "Deals" },
+  { href: "/inbox", label: "Inbox" },
 ];
 
 interface NavProps {
@@ -44,6 +44,12 @@ export function Nav({ active }: NavProps) {
             </nav>
           </div>
           <div className="flex items-center gap-2">
+            <Link
+              href="/deals/new"
+              className="rounded-sm bg-zinc-900 px-2.5 py-1.5 text-xs font-medium text-white hover:bg-zinc-800"
+            >
+              Create Deal
+            </Link>
             <GlobalSearch />
             <div className="h-6 w-6 rounded-full bg-zinc-200 text-[10px] font-semibold flex items-center justify-center text-zinc-600">
               JC

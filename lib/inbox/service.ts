@@ -1,6 +1,6 @@
 import type { Prisma, PrismaClient } from "@prisma/client";
 import { parseStructuredPayload } from "@/lib/ai/negotiation/payloads";
-import type { CanonicalTermType } from "@/lib/ai/negotiation/schemas";
+import type { CanonicalTermType, NegotiationTermStatus } from "@/lib/ai/negotiation/schemas";
 import { documentGraphReferenceCount } from "@/lib/entities/service";
 import { deriveReadiness } from "@/lib/documents/readiness";
 import { getDocumentStorage } from "@/lib/documents/storage";
@@ -14,6 +14,11 @@ import {
   buildNegotiationWorkspace,
   type NegotiationWorkspaceSource,
 } from "@/lib/negotiation/intelligence/service";
+import {
+  effectiveFormalTerm,
+  formalCorrectionMode,
+  type FormalReviewSnapshot,
+} from "@/lib/negotiation/formalReview";
 import { presentTermSource } from "@/lib/negotiation/presentSource";
 import { TERM_LABELS } from "@/lib/negotiation/termCatalog";
 import type {
@@ -71,6 +76,29 @@ const roundSelect = {
       provenanceStatus: true,
       structuredPayload: true,
       documentPage: { select: { id: true, pageNumber: true } },
+      formalTermReview: {
+        select: {
+          state: true,
+          normalizedValue: true,
+          normalizedNumeric: true,
+          normalizedUnit: true,
+          rawValue: true,
+          structuredPayload: true,
+          note: true,
+          reviewedAt: true,
+          actor: true,
+          reviewerUserId: true,
+        },
+      },
+      evidenceCorrections: {
+        where: { supersededAt: null },
+        orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+        take: 1,
+        select: {
+          evidenceQuote: true,
+          documentPage: { select: { pageNumber: true } },
+        },
+      },
     },
     orderBy: [{ canonicalType: "asc" }, { id: "asc" }],
   },
@@ -232,6 +260,24 @@ function decisionState(
   return "PENDING";
 }
 
+function formalSnapshot(
+  review: {
+    state: FormalReviewSnapshot["state"];
+    normalizedValue: string | null;
+    normalizedNumeric: number | null;
+    normalizedUnit: string | null;
+    rawValue: string | null;
+    structuredPayload: unknown;
+    note: string | null;
+    reviewedAt: Date;
+    actor: FormalReviewSnapshot["actor"];
+    reviewerUserId: string | null;
+  } | null
+): FormalReviewSnapshot | null {
+  if (!review) return null;
+  return review;
+}
+
 function activeCorrections(corrections: StoredCorrection[]): Map<string, StoredCorrection> {
   const byTerm = new Map<string, StoredCorrection>();
   for (const correction of [...corrections].sort((left, right) => left.createdAt.getTime() - right.createdAt.getTime())) {
@@ -291,6 +337,28 @@ function negotiationForDocument(
         originalFilename: round.document?.originalFilename,
         documentId,
       });
+      const formalReview = formalSnapshot(term.formalTermReview);
+      const effective = effectiveFormalTerm(
+        {
+          id: term.id,
+          canonicalType: term.canonicalType as CanonicalTermType,
+          normalizedValue: term.normalizedValue,
+          normalizedNumeric: term.normalizedNumeric,
+          normalizedUnit: term.normalizedUnit,
+          rawValue: term.rawValue,
+          status: term.status as NegotiationTermStatus,
+          side: term.side as "TENANT" | "LANDLORD",
+          roundNumber: term.roundNumber,
+          confidence: term.confidence,
+          evidenceQuote: term.evidenceQuote,
+          sourceLocation: term.sourceLocation,
+          structuredPayload: payload,
+        },
+        formalReview
+      );
+      const effectiveFormatted = effective
+        ? (effective.structuredPayload ? formatStructuredPayload(effective.structuredPayload) : formatLegacyTerm(effective))
+        : null;
       const reviewState = decisionState(decisions, `term:${term.id}`);
       if (reviewState === "ACKNOWLEDGED") summary.acknowledgedCount += 1;
       else if (reviewState === "NEEDS_FOLLOW_UP") summary.followUpCount += 1;
@@ -315,6 +383,12 @@ function negotiationForDocument(
         reviewState,
         reviewNote: decisions.find((decision) => decision.subjectKey === `term:${term.id}`)?.note ?? null,
         activeCorrectionId: correction?.id ?? null,
+        formalReviewState: formalReview?.state ?? "UNREVIEWED",
+        formalExtractedSummary: formatted.summary,
+        formalEffectiveSummary: effectiveFormatted?.summary ?? null,
+        formalReviewNote: formalReview?.note ?? null,
+        formalReviewedAt: formalReview?.reviewedAt.toISOString() ?? null,
+        formalCorrectionMode: formalCorrectionMode(term),
         impactKind: kind,
         impactLabel: impactLabel({
           kind,

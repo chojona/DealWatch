@@ -109,6 +109,9 @@ function Evidence({ evidence }: { evidence: NegotiationEvidenceView }) {
       ) : (
         <blockquote className="mt-2 border-l-2 border-zinc-300 pl-2 text-[11px] leading-5 text-zinc-600">“{evidence.quote}”</blockquote>
       )}
+      {evidence.spanCorrected && (
+        <p className="mt-2 text-[11px] text-zinc-600">Corrected span. Original extraction quote: “{evidence.originalQuote}”</p>
+      )}
       <p className="mt-2 text-[10px] text-zinc-400">Stored extraction evidence · Model confidence {(evidence.confidence * 100).toFixed(0)}%</p>
     </div>
   );
@@ -129,7 +132,14 @@ function PositionDetail({ title, position, term }: { title: string; position: Ne
         <Position position={position} />
         {observations.length > 0 && (
           <div className="mt-3 space-y-2 border-t border-zinc-100 pt-3">
-            {observations.map((observation) => <Evidence key={observation.id} evidence={observation.evidence} />)}
+            {observations.map((observation) => (
+              <div key={observation.id}>
+                {observation.formalReview?.state === "CORRECTED" && (
+                  <p className="mb-2 text-[11px] text-zinc-700">Reviewed correction {observation.formalReview.extractedSummary} → {observation.formalReview.effectiveSummary}</p>
+                )}
+                <Evidence evidence={observation.evidence} />
+              </div>
+            ))}
           </div>
         )}
       </div>
@@ -237,6 +247,15 @@ function TermDrawer({
                     <span className={`rounded-sm border px-1.5 py-0.5 text-[9px] font-semibold ${statusClass[observation.status] ?? statusClass.UNRESOLVED}`}>{observation.status}</span>
                   </div>
                   <div className="mt-2 text-xs"><div>{formattedValue(observation.value, true)}</div></div>
+                  {observation.formalReview?.state === "CORRECTED" && (
+                    <p className="mt-2 text-[11px] text-zinc-700">Reviewed correction {observation.formalReview.extractedSummary} → {observation.formalReview.effectiveSummary}</p>
+                  )}
+                  {observation.formalReview?.state === "ACCEPTED" && (
+                    <p className="mt-2 text-[11px] text-zinc-600">Accepted extraction. Formal value matches the original extraction.</p>
+                  )}
+                  {observation.formalReview?.state === "REJECTED" && (
+                    <p className="mt-2 text-[11px] text-red-800">Rejected extraction. Original extraction: {observation.formalReview.extractedSummary}. This value is not formal paper truth.{observation.formalReview.note ? ` Reason: ${observation.formalReview.note}` : ""}</p>
+                  )}
                   {relatedActivity(observation.id, observation.roundId, term.canonicalType, links).length > 0 && (
                     <div className="mt-2">
                       <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-400">Related activity</p>

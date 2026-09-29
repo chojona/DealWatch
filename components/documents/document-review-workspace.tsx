@@ -8,6 +8,7 @@ import {
   conflictReviewTarget,
   EvidenceLocateButton,
   findingReviewTarget,
+  FormalTermReviewControls,
   MetadataEditor,
   ReviewDecisionButtons,
   SourceReplacementForm,
@@ -275,6 +276,7 @@ export function DocumentReviewWorkspace({
                   <blockquote className="mt-2 border-l-2 border-zinc-200 pl-3 text-[11px] text-zinc-600">
                     {finding.evidenceQuote}
                   </blockquote>
+                  <FormalTermReviewControls documentId={item.document.id} finding={finding} />
                   {finding.activeCorrectionId && (
                     <p className="mt-1 text-[11px] text-zinc-500">Original model quote: {finding.originalEvidenceQuote}</p>
                   )}

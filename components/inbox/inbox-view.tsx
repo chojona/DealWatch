@@ -120,7 +120,9 @@ export function InboxView({
           </p>
           <p className="mt-1 text-xs text-zinc-500">
             {(documentsOnly ? page.items.length : page.sourceCounts.ALL) === 0
-              ? "Import an email or upload a PDF from a deal workspace."
+              ? documentsOnly
+                ? "Upload a PDF above to add the first source for this deal."
+                : "Import an email or upload a PDF from a deal workspace."
               : "Clear a filter to see the rest of the inbox."}
           </p>
         </div>

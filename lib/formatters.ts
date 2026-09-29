@@ -23,6 +23,19 @@ export function formatDate(date: Date | string | null | undefined): string {
   return format(d, "MMM d, yyyy");
 }
 
+/** Format a date-only value stored as UTC midnight without shifting the calendar day. */
+export function formatCalendarDate(date: Date | string | null | undefined): string {
+  if (!date) return "—";
+  const d = typeof date === "string" ? new Date(date) : date;
+  if (Number.isNaN(d.getTime())) return "—";
+  return new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    timeZone: "UTC",
+  }).format(d);
+}
+
 export function formatDateTime(date: Date | string | null | undefined): string {
   if (!date) return "—";
   const d = typeof date === "string" ? new Date(date) : date;

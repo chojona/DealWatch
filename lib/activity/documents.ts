@@ -58,6 +58,9 @@ export function buildDocumentEvent(row: {
   const analysis = row.graphExtractionStatus === "SUCCEEDED" ? "Entity analysis complete" : row.graphExtractionStatus === "FAILED" ? "Entity analysis failed" : "Entity analysis not run";
   return {
     id: `document:${row.id}`,
+    // documentDate is the calendar date on the paper. createdAt is when
+    // DealWatch received the file. A dated paper must not sort as if it
+    // were ingested on that calendar date.
     occurredAt: row.documentDate?.toISOString() ?? null,
     recordedAt: row.createdAt.toISOString(),
     eventType: "DOCUMENT",
@@ -68,6 +71,7 @@ export function buildDocumentEvent(row: {
     documentId: row.id,
     sourceType: "DOCUMENT",
     sourceId: row.id,
+    sourceHref: `/documents/${row.id}/review`,
     dedupeKey: `document:${row.id}`,
   };
 }

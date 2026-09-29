@@ -7,13 +7,14 @@ import { factsFromLatestRun } from "@/lib/messages/latestRun";
 import { deriveMessageLifecycle } from "@/lib/messages/state";
 import { eventFactsByEventId, linkedLegacyEventIds, loadDealMessageSources, messageActivities, structuredFactsForEvent } from "@/lib/messages/load";
 import { canonicalEntityHref } from "@/lib/intelligence/routes";
+import type { FormalReviewSnapshot } from "@/lib/negotiation/formalReview";
 import { buildDocumentEvent, sentence, type ActivityEvidenceObservation } from "./documents";
 import {
   buildCanonicalRelationshipEvent,
   buildEntityObservationEvents,
   buildPendingRelationshipEvents,
 } from "./graph";
-import { buildNegotiationEvents, type ActivityNegotiationRound } from "./negotiation";
+import { buildNegotiationEvents, projectActivityNegotiationRounds, type ActivityNegotiationRound } from "./negotiation";
 import { decodeActivityCursor, encodeActivityCursor } from "./query";
 import type {
   ActivityEntityRef,
@@ -409,6 +410,33 @@ function sourceMessageEvent(
   };
 }
 
+function formalReviewSnapshot(review: {
+  state: FormalReviewSnapshot["state"];
+  normalizedValue: string | null;
+  normalizedNumeric: number | null;
+  normalizedUnit: string | null;
+  rawValue: string | null;
+  structuredPayload: unknown;
+  note: string | null;
+  reviewedAt: Date;
+  actor: FormalReviewSnapshot["actor"];
+  reviewerUserId: string | null;
+} | null): FormalReviewSnapshot | null {
+  if (!review) return null;
+  return {
+    state: review.state,
+    normalizedValue: review.normalizedValue,
+    normalizedNumeric: review.normalizedNumeric,
+    normalizedUnit: review.normalizedUnit,
+    rawValue: review.rawValue,
+    structuredPayload: review.structuredPayload,
+    note: review.note,
+    reviewedAt: review.reviewedAt,
+    actor: review.actor,
+    reviewerUserId: review.reviewerUserId,
+  };
+}
+
 function compareEvent(a: Pick<ActivityEvent, "occurredAt" | "recordedAt" | "id">, b: Pick<ActivityEvent, "occurredAt" | "recordedAt" | "id">): number {
   if (a.occurredAt && !b.occurredAt) return -1;
   if (!a.occurredAt && b.occurredAt) return 1;
@@ -442,7 +470,13 @@ export async function getActivityPage(db: GraphDb, input: ActivityQuery): Promis
       include: {
         deal: { select: { id: true, name: true } },
         document: { select: { id: true, originalFilename: true, documentType: true, documentDate: true } },
-        terms: { include: { documentPage: { select: { id: true, pageNumber: true } } }, orderBy: [{ canonicalType: "asc" }, { id: "asc" }] },
+        terms: {
+          include: {
+            documentPage: { select: { id: true, pageNumber: true } },
+            formalTermReview: true,
+          },
+          orderBy: [{ canonicalType: "asc" }, { id: "asc" }],
+        },
       },
       orderBy: [{ documentDate: "desc" }, { createdAt: "desc" }],
     }) : Promise.resolve([]),
@@ -495,21 +529,27 @@ export async function getActivityPage(db: GraphDb, input: ActivityQuery): Promis
       })),
     })),
   });
+  const formalReviews = new Map<string, FormalReviewSnapshot>();
   const mappedRounds: ActivityNegotiationRound[] = negotiationRows.map((round) => ({
     ...round,
-    terms: round.terms.map((term) => ({
-      ...term,
-      documentId: round.documentId,
-      documentPageId: term.documentPageId,
-      messageId: null,
-      sourceKind: round.sourceType,
-      document: round.document ? { id: round.document.id, originalFilename: round.document.originalFilename, documentDate: round.document.documentDate } : null,
-      message: null,
-    })),
+    terms: round.terms.map((term) => {
+      const review = formalReviewSnapshot(term.formalTermReview);
+      if (review) formalReviews.set(term.id, review);
+      return {
+        ...term,
+        documentId: round.documentId,
+        documentPageId: term.documentPageId,
+        messageId: null,
+        sourceKind: round.sourceType,
+        document: round.document ? { id: round.document.id, originalFilename: round.document.originalFilename, documentDate: round.document.documentDate } : null,
+        message: null,
+      };
+    }),
   }));
+  const chronologyRounds = projectActivityNegotiationRounds(mappedRounds, formalReviews);
   const events: ActivityEvent[] = [
     ...documents.map((document) => buildDocumentEvent(document, refsForDeal(scope, document.dealId))),
-    ...milestones.map((milestone): ActivityEvent => ({
+    ...milestones.filter((milestone) => milestone.kind !== "ANALYZED").map((milestone): ActivityEvent => ({
       id: `milestone:${milestone.id}`,
       occurredAt: milestone.occurredAt.toISOString(),
       recordedAt: milestone.occurredAt.toISOString(),
@@ -521,9 +561,10 @@ export async function getActivityPage(db: GraphDb, input: ActivityQuery): Promis
       documentId: milestone.document.id,
       sourceType: "DOCUMENT",
       sourceId: milestone.id,
+      sourceHref: `/documents/${milestone.document.id}/review`,
       dedupeKey: milestone.dedupeKey,
     })),
-    ...buildNegotiationEvents(mappedRounds, (dealId) => refsForDeal(scope, dealId)),
+    ...buildNegotiationEvents(chronologyRounds, (dealId) => refsForDeal(scope, dealId)),
     ...visibleEvents.map((event): ActivityEvent => ({
       id: `deal-event:${event.id}`,
       occurredAt: event.occurredAt.toISOString(),
@@ -536,6 +577,7 @@ export async function getActivityPage(db: GraphDb, input: ActivityQuery): Promis
       evidence: { title: event.description, supportCount: 1, supports: [{ observationId: event.id, quote: event.evidenceQuote, provenanceStatus: null, pageNumber: null, documentId: null, documentName: null, messageId: event.messageId, messageSubject: null, messageSender: null, sourceKind: event.messageId ? "MESSAGE" : "MANUAL", sourceLocation: null, sourceDate: event.message?.sentAt.toISOString() ?? null, href: null, reviewHref: null, evidenceStartOffset: null, evidenceEndOffset: null, reviewState: null }] },
       sourceType: "DEAL_EVENT",
       sourceId: event.id,
+      sourceHref: null,
       dedupeKey: `deal-event:${event.id}`,
       reconciliation: reconciliation.get(`deal-event:${event.id}`),
     })),

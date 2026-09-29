@@ -483,7 +483,8 @@ describe("Phase 8F document review closure", { concurrency: 1 }, () => {
     assert.equal(map?.edges.some((edge) => edge.label.toLowerCase().includes("own")), false);
     assert.ok((map?.edges.length ?? 0) > 0);
     const activity = await getActivityPage(prisma, { rootType: "DEAL", rootId: deal.id, filter: "ALL" });
-    assert.equal(activity?.events.some((event) => event.title === "Document analyzed"), true);
+    assert.equal(await prisma.documentMilestone.count({ where: { documentId: received.document.id, kind: "ANALYZED" } }), 1);
+    assert.equal(activity?.events.some((event) => event.title === "Document analyzed"), false);
     assert.equal(activity?.events.some((event) => event.title === "Document review complete"), true);
 
     const needsReview = await getInbox(prisma, { workspaceId, dealId: deal.id, filter: "NEEDS_REVIEW" });

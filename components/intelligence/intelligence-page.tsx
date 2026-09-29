@@ -128,9 +128,20 @@ export function PersonIntelligencePage({ data, activity }: { data: PersonIntelli
           <Section title="Relationships" rows={data.relationships} empty="No confirmed canonical relationships yet." />
           <ActivityTimeline initialPage={activity} rootType="PERSON" />
         </div>
-        <aside className="space-y-6"><Pending count={data.pending.count} hrefs={data.pending.reviewHrefs} /><EvidenceSection rows={data.relationships} /></aside>
+        <aside className="space-y-6"><Pending count={data.pending.count} hrefs={data.pending.reviewHrefs} /><OriginEvidence evidence={data.origin} /><EvidenceSection rows={data.relationships} /></aside>
       </main>
     </>
+  );
+}
+
+function OriginEvidence({ evidence }: { evidence: PersonIntelligence["origin"] }) {
+  return (
+    <section>
+      <h2 className="mb-2 text-xs font-semibold uppercase tracking-wider text-zinc-500">Record provenance</h2>
+      <div className="rounded-sm border border-zinc-200 bg-white p-3">
+        <EvidencePanel evidence={evidence} embedded />
+      </div>
+    </section>
   );
 }
 
@@ -148,7 +159,7 @@ export function CompanyIntelligencePage({ data, activity }: { data: CompanyIntel
           <Section title="Relationships" rows={data.relationships} empty="No confirmed canonical relationships yet." />
           <ActivityTimeline initialPage={activity} rootType="COMPANY" />
         </div>
-        <aside className="space-y-6"><Pending count={data.pending.count} hrefs={data.pending.reviewHrefs} /><EvidenceSection rows={data.relationships} /></aside>
+        <aside className="space-y-6"><Pending count={data.pending.count} hrefs={data.pending.reviewHrefs} /><OriginEvidence evidence={data.origin} /><EvidenceSection rows={data.relationships} /></aside>
       </main>
     </>
   );
@@ -167,7 +178,7 @@ export function PropertyIntelligencePage({ data, activity }: { data: PropertyInt
           <Section title="Relationships" rows={data.relationships} empty="No confirmed canonical relationships yet." />
           <ActivityTimeline initialPage={activity} rootType="PROPERTY" />
         </div>
-        <aside className="space-y-6"><Pending count={data.pending.count} hrefs={data.pending.reviewHrefs} /><EvidenceSection rows={data.relationships} /></aside>
+        <aside className="space-y-6"><Pending count={data.pending.count} hrefs={data.pending.reviewHrefs} /><OriginEvidence evidence={data.origin} /><EvidenceSection rows={data.relationships} /></aside>
       </main>
     </>
   );

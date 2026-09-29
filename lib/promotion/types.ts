@@ -98,10 +98,16 @@ export interface EvidenceSupport {
   documentId: string | null;
   documentName: string | null;
   messageId: string | null;
+  messageSubject: string | null;
+  messageSender: string | null;
   sourceKind: string;
   sourceLocation: string | null;
   sourceDate: string | null;
   href: string | null;
+  reviewHref: string | null;
+  evidenceStartOffset: number | null;
+  evidenceEndOffset: number | null;
+  reviewState: string | null;
 }
 
 export interface EvidenceView {
@@ -121,6 +127,7 @@ export interface DealKnowledgePerson {
     affiliationKind: string;
     titleAtTime: string | null;
   }>;
+  origin: EvidenceView;
 }
 
 export interface DealKnowledge {
@@ -134,6 +141,7 @@ export interface DealKnowledge {
       name: string;
       address: string;
       evidence: EvidenceView;
+      origin: EvidenceView;
     } | null;
     stakes: Array<{
       id: string;
@@ -171,6 +179,18 @@ export interface DealKnowledge {
       observedType: string;
       surfaceForm: string;
       evidenceQuote: string;
+      sourceKind: string;
+      sourceLabel: string;
+      documentId: string | null;
+      documentName: string | null;
+      messageId: string | null;
+      messageSubject: string | null;
+      messageSender: string | null;
+      reviewHref: string | null;
+      provenanceStatus: EvidenceSupport["provenanceStatus"];
+      pageNumber: number | null;
+      evidenceStartOffset: number | null;
+      evidenceEndOffset: number | null;
     }>;
     relationships: Array<{
       id: string;
@@ -178,6 +198,18 @@ export interface DealKnowledge {
       status: RelationshipReviewStatus;
       evidenceQuote: string;
       headline: string;
+      sourceKind: string;
+      sourceLabel: string;
+      documentId: string | null;
+      documentName: string | null;
+      messageId: string | null;
+      messageSubject: string | null;
+      messageSender: string | null;
+      reviewHref: string | null;
+      provenanceStatus: EvidenceSupport["provenanceStatus"];
+      pageNumber: number | null;
+      evidenceStartOffset: number | null;
+      evidenceEndOffset: number | null;
     }>;
   };
 }

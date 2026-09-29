@@ -13,7 +13,16 @@ function provenanceLabel(support: EvidenceSupport): string {
   if (support.provenanceStatus === "UNLOCATED") {
     return "Unlocated";
   }
-  if (support.sourceKind === "MESSAGE") return "Message";
+  if (support.sourceKind === "MESSAGE") {
+    return support.messageSender ? `Message · ${support.messageSender}` : "Message";
+  }
+  return "Manual source";
+}
+
+function sourceTitle(support: EvidenceSupport): string {
+  if (support.documentName) return support.documentName;
+  if (support.messageSubject) return support.messageSubject;
+  if (support.messageId) return "Message";
   return "Manual source";
 }
 
@@ -28,19 +37,32 @@ function EvidenceList({ evidence }: { evidence: EvidenceView }) {
         {evidence.supports.map((support) => (
           <li key={support.observationId} className="text-[11px] text-zinc-700">
             <p className="font-medium text-zinc-800">
-              {support.documentName ?? (support.messageId ? "Message" : "Manual source")}
+              {sourceTitle(support)}
               <span className="ml-2 font-normal text-zinc-500">{provenanceLabel(support)}</span>
+              {support.reviewState && (
+                <span className="ml-2 font-normal uppercase tracking-wider text-zinc-400">{support.reviewState.replaceAll("_", " ")}</span>
+              )}
               {support.sourceDate && (
                 <span className="ml-2 font-normal text-zinc-400">
                   {new Intl.DateTimeFormat("en-US", { dateStyle: "medium" }).format(new Date(support.sourceDate))}
                 </span>
               )}
             </p>
-            {support.provenanceStatus === "EXACT" && support.href && support.pageNumber && (
-              <a className="text-zinc-700 underline" href={support.href}>
-                Open page {support.pageNumber}
-              </a>
+            {support.evidenceStartOffset != null && support.evidenceEndOffset != null && (
+              <p className="text-zinc-500">Span {support.evidenceStartOffset}–{support.evidenceEndOffset}</p>
             )}
+            <p className="mt-1 flex flex-wrap gap-3">
+              {support.reviewHref && (
+                <a className="font-medium text-zinc-900 underline" href={support.reviewHref}>
+                  Review source
+                </a>
+              )}
+              {support.provenanceStatus === "EXACT" && support.href && support.pageNumber && (
+                <a className="text-zinc-700 underline" href={support.href}>
+                  Open page {support.pageNumber}
+                </a>
+              )}
+            </p>
             {support.provenanceStatus === "AMBIGUOUS" && (
               <p className="text-zinc-500">The quote appears on more than one page, so no single page is linked.</p>
             )}

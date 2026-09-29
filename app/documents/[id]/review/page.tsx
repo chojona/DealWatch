@@ -17,10 +17,15 @@ export const dynamic = "force-dynamic";
 
 export default async function DocumentReviewPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ section?: string; focus?: string }>;
 }) {
   const { id } = await params;
+  const query = await searchParams;
+  const initialSection = query.section === "entities" || query.section === "relationships" ? query.section : "overview";
+  const focusId = query.focus?.trim() || null;
   const workspace = await ensureDefaultWorkspace(prisma);
   const [review, history, closures] = await Promise.all([
     getDocumentReview(prisma, workspace.id, id),
@@ -66,6 +71,8 @@ export default async function DocumentReviewPage({
           history={history}
           allowSourceReplacement={process.env.NODE_ENV !== "production"}
           allowDemoReset={process.env.NODE_ENV !== "production"}
+          initialSection={initialSection}
+          focusId={focusId}
         />
       </main>
     </div>

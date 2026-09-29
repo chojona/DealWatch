@@ -1,5 +1,12 @@
 import type { GraphDb } from "@/lib/entities/workspace";
-import type { EvidenceSupport, EvidenceView } from "@/lib/promotion/types";
+import {
+  entityOriginView,
+  graphEvidenceInclude,
+  relationshipEvidenceInclude,
+  relationshipEvidenceView,
+  type ProvenanceObservation,
+} from "@/lib/graph/provenance";
+import type { EvidenceView } from "@/lib/promotion/types";
 import type {
   CompanyIntelligence,
   IntelligenceAssertion,
@@ -10,47 +17,42 @@ import type {
 } from "./types";
 import { canonicalEntityHref } from "./routes";
 
-const evidenceInclude = {
-  document: { select: { id: true, originalFilename: true, documentDate: true } },
-  documentPage: { select: { pageNumber: true } },
-  message: { select: { sentAt: true } },
-} as const;
+const evidenceInclude = relationshipEvidenceInclude;
 
-type SupportObservation = {
-  id: string;
-  evidenceQuote: string;
-  provenanceStatus: "EXACT" | "AMBIGUOUS" | "UNLOCATED" | null;
-  sourceKind: string;
-  sourceLocation: string | null;
-  messageId: string | null;
-  document: { id: string; originalFilename: string; documentDate: Date | null } | null;
-  documentPage: { pageNumber: number } | null;
-  message: { sentAt: Date } | null;
-};
+type SupportObservation = ProvenanceObservation;
 
 function ref(type: IntelligenceEntityRef["type"], row: { id: string; canonicalName?: string; name?: string }, subtitle?: string | null): IntelligenceEntityRef {
   return { id: row.id, type, name: row.canonicalName ?? row.name ?? "Unknown", href: canonicalEntityHref(type, row.id), subtitle };
 }
 
-function evidenceSupport(row: SupportObservation): EvidenceSupport {
-  const pageNumber = row.provenanceStatus === "EXACT" ? row.documentPage?.pageNumber ?? null : null;
-  return {
-    observationId: row.id,
-    quote: row.evidenceQuote,
-    provenanceStatus: row.provenanceStatus,
-    pageNumber,
-    documentId: row.document?.id ?? null,
-    documentName: row.document?.originalFilename ?? null,
-    messageId: row.messageId,
-    sourceKind: row.sourceKind,
-    sourceLocation: row.sourceLocation,
-    sourceDate: (row.document?.documentDate ?? row.message?.sentAt)?.toISOString() ?? null,
-    href: row.document ? `/api/documents/${row.document.id}/file${pageNumber ? `#page=${pageNumber}` : ""}` : null,
-  };
+function evidence(title: string, supports: Array<{ relationshipObservation: SupportObservation }>): EvidenceView {
+  return relationshipEvidenceView(title, supports);
 }
 
-function evidence(title: string, supports: Array<{ relationshipObservation: SupportObservation }>): EvidenceView {
-  return { title, supportCount: supports.length, supports: supports.map((row) => evidenceSupport(row.relationshipObservation)) };
+async function originFor(
+  db: GraphDb,
+  workspaceId: string,
+  field: "personId" | "companyId" | "propertyId",
+  entityId: string,
+  title: string
+): Promise<EvidenceView> {
+  const links = await db.entityResolutionLink.findMany({
+    where: {
+      workspaceId,
+      status: "ACCEPTED",
+      supersededAt: null,
+      [field]: entityId,
+      observation: { workspaceId },
+    },
+    include: { observation: { include: graphEvidenceInclude } },
+    orderBy: { createdAt: "asc" },
+  });
+  return entityOriginView(
+    title,
+    links
+      .map((link) => link.observation)
+      .filter((observation) => observation.workspaceId === workspaceId)
+  );
 }
 
 function validity(row: {
@@ -162,9 +164,11 @@ export async function getPersonIntelligence(db: GraphDb, id: string): Promise<Pe
       evidence: evidence(`${person.canonicalName} · ${roleLabel(row.role, row.roleLabel)} on ${row.deal.name}`, row.supports),
     }));
   const pending = await pendingForDeals(db, workspaceId, participationRows.map((row) => row.dealId));
+  const origin = await originFor(db, workspaceId, "personId", id, `Observations that established ${person.canonicalName}`);
   return {
     type: "PERSON",
     workspaceId,
+    origin,
     person: { ...personRef, primaryTitle: person.primaryTitle, identifiers: person.identifiers, externalIdentifiers: person.externalIdentifiers },
     employments,
     deals,
@@ -231,8 +235,9 @@ export async function getCompanyIntelligence(db: GraphDb, id: string): Promise<C
     }];
   });
   const pending = await pendingForDeals(db, workspaceId, participationRows.map((row) => row.dealId));
+  const origin = await originFor(db, workspaceId, "companyId", id, `Observations that established ${company.canonicalName}`);
   return {
-    type: "COMPANY", workspaceId,
+    type: "COMPANY", workspaceId, origin,
     company: { ...companyRef, legalName: company.legalName, website: company.website, primaryDomain: company.primaryDomain, identifiers: company.identifiers, externalIdentifiers: company.externalIdentifiers },
     people, deals, properties, representation,
     relationships: [...people, ...properties, ...deals, ...representation], pending,
@@ -296,8 +301,9 @@ export async function getPropertyIntelligence(db: GraphDb, id: string): Promise<
     }];
   });
   const pending = await pendingForDeals(db, workspaceId, dealIds);
+  const origin = await originFor(db, workspaceId, "propertyId", id, `Observations that established ${property.canonicalName}`);
   return {
-    type: "PROPERTY", workspaceId,
+    type: "PROPERTY", workspaceId, origin,
     property: { ...propertyRef, address: [property.addressLine1, property.addressLine2, property.city, property.region, property.postalCode, property.country].filter(Boolean).join(", "), assetType: property.assetType, externalIdentifiers: property.externalIdentifiers },
     stakes, deals, participants, relationships: [...stakes, ...deals], pending,
     connectionsHref: `/properties/${id}/connections`,

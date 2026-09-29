@@ -26,6 +26,7 @@ export function DealKnowledgeView({ knowledge }: { knowledge: DealKnowledge }) {
             {property ? <Link className="underline decoration-zinc-300 underline-offset-2" href={`/properties/${property.id}`}>{property.name}</Link> : knowledge.propertyLabel}
           </h3>
           {property?.address && <p className="text-xs text-zinc-500">{property.address}</p>}
+          {property && <EvidencePanel evidence={property.origin} />}
           {property && <EvidencePanel evidence={property.evidence} />}
           <dl className="mt-4 space-y-3">
             {knowledge.canonical.stakes.map((stake) => (
@@ -57,6 +58,7 @@ export function DealKnowledgeView({ knowledge }: { knowledge: DealKnowledge }) {
                     {person.roles.length > 0 && person.employers.length > 0 ? " · " : ""}
                     {person.employers.map((employer, index) => <span key={employer.employmentId}>{index > 0 ? " · " : ""}<Link className="underline decoration-zinc-300" href={`/companies/${employer.companyId}`}>{employer.companyName}</Link></span>)}
                   </p>
+                  <EvidencePanel evidence={person.origin} />
                 </li>
               ))}
             </ul>
@@ -111,8 +113,16 @@ export function DealKnowledgeView({ knowledge }: { knowledge: DealKnowledge }) {
           <ul className="rounded-sm border border-dashed border-zinc-300 bg-white px-4 py-3">
             {knowledge.pending.entities.map((entity) => (
               <li key={entity.id} className="border-b border-zinc-100 py-2 last:border-0">
-                <p className="text-sm text-zinc-900">{entity.surfaceForm}</p>
-                <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-400">{entity.observedType}</p>
+                <div className="flex items-baseline justify-between gap-3">
+                  <p className="text-sm text-zinc-900">{entity.surfaceForm}</p>
+                  {entity.reviewHref ? (
+                    <Link className="shrink-0 text-[11px] font-medium text-zinc-900 underline" href={entity.reviewHref}>Review</Link>
+                  ) : (
+                    <span className="shrink-0 text-[11px] text-zinc-400">No document review</span>
+                  )}
+                </div>
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-400">{entity.observedType} · pending</p>
+                <p className="mt-1 text-[11px] text-zinc-500">{entity.sourceLabel}</p>
                 <p className="mt-1 text-[11px] text-zinc-500">{entity.evidenceQuote}</p>
               </li>
             ))}
@@ -123,10 +133,18 @@ export function DealKnowledgeView({ knowledge }: { knowledge: DealKnowledge }) {
           <ul className="rounded-sm border border-dashed border-zinc-300 bg-white px-4 py-3">
             {knowledge.pending.relationships.map((relationship) => (
               <li key={relationship.id} className="border-b border-zinc-100 py-2 last:border-0">
-                <p className="text-sm text-zinc-900">{relationship.headline}</p>
+                <div className="flex items-baseline justify-between gap-3">
+                  <p className="text-sm text-zinc-900">{relationship.headline}</p>
+                  {relationship.reviewHref ? (
+                    <Link className="shrink-0 text-[11px] font-medium text-zinc-900 underline" href={relationship.reviewHref}>Review</Link>
+                  ) : (
+                    <span className="shrink-0 text-[11px] text-zinc-400">No document review</span>
+                  )}
+                </div>
                 <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-400">
-                  {relationship.status.replaceAll("_", " ")}
+                  {relationship.status.replaceAll("_", " ")} · pending
                 </p>
+                <p className="mt-1 text-[11px] text-zinc-500">{relationship.sourceLabel}</p>
                 <p className="mt-1 text-[11px] text-zinc-500">{relationship.evidenceQuote}</p>
               </li>
             ))}

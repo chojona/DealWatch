@@ -38,6 +38,7 @@ export interface IntelligenceBase {
     count: number;
     reviewHrefs: string[];
   };
+  origin: EvidenceView;
   relationships: IntelligenceAssertion[];
 }
 

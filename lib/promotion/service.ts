@@ -21,6 +21,15 @@ import {
 import type { GraphDb } from "@/lib/entities/workspace";
 import { leftUnresolvedObservationIds, releaseEntityClosureOnResolve } from "@/lib/review/closure";
 import { syncReviewedMilestone } from "@/lib/review/reviewedMilestone";
+import {
+  entityOriginView,
+  evidenceSupportFromObservation,
+  graphEvidenceInclude,
+  graphReviewHref,
+  graphSourceLabel,
+  relationshipEvidenceInclude,
+  type ProvenanceObservation,
+} from "@/lib/graph/provenance";
 import { MANUAL_REVIEW_NOTE, planIdentifiers } from "./identifiers";
 import type {
   CanonicalEntityPreview,
@@ -1212,44 +1221,41 @@ export async function acknowledgeBlockedRelationship(
   return result;
 }
 
-function supportView(input: {
-  id: string;
-  evidenceQuote: string;
-  provenanceStatus: EvidenceSupport["provenanceStatus"];
-  sourceKind: string;
-  sourceLocation: string | null;
-  messageId: string | null;
-  document: { id: string; originalFilename: string; documentDate: Date | null } | null;
-  documentPage: { pageNumber: number } | null;
-  message: { sentAt: Date } | null;
-}): EvidenceSupport {
-  const pageNumber = input.provenanceStatus === "EXACT" ? input.documentPage?.pageNumber ?? null : null;
-  const href =
-    input.document && pageNumber
-      ? `/api/documents/${input.document.id}/file#page=${pageNumber}`
-      : input.document
-        ? `/api/documents/${input.document.id}/file`
-        : null;
-  return {
-    observationId: input.id,
-    quote: input.evidenceQuote,
-    provenanceStatus: input.provenanceStatus,
-    pageNumber,
-    documentId: input.document?.id ?? null,
-    documentName: input.document?.originalFilename ?? null,
-    messageId: input.messageId,
-    sourceKind: input.sourceKind,
-    sourceLocation: input.sourceLocation,
-    sourceDate: (input.document?.documentDate ?? input.message?.sentAt)?.toISOString() ?? null,
-    href,
-  };
+function supportView(input: ProvenanceObservation): EvidenceSupport {
+  return evidenceSupportFromObservation(input, "relationship");
 }
 
-const evidenceInclude = {
-  document: { select: { id: true, originalFilename: true, documentDate: true } },
-  documentPage: { select: { pageNumber: true } },
-  message: { select: { sentAt: true } },
-} as const;
+const evidenceInclude = relationshipEvidenceInclude;
+
+function pendingSource(
+  row: ProvenanceObservation,
+  kind: "entity" | "relationship"
+) {
+  const support = evidenceSupportFromObservation(row, kind, null);
+  return {
+    sourceKind: support.sourceKind,
+    sourceLabel: graphSourceLabel({
+      sourceKind: support.sourceKind,
+      documentName: support.documentName,
+      messageSubject: support.messageSubject,
+      messageSender: support.messageSender,
+    }),
+    documentId: support.documentId,
+    documentName: support.documentName,
+    messageId: support.messageId,
+    messageSubject: support.messageSubject,
+    messageSender: support.messageSender,
+    reviewHref: graphReviewHref({
+      documentId: support.documentId,
+      observationId: row.id,
+      kind,
+    }),
+    provenanceStatus: support.provenanceStatus,
+    pageNumber: support.pageNumber,
+    evidenceStartOffset: support.evidenceStartOffset,
+    evidenceEndOffset: support.evidenceEndOffset,
+  };
+}
 
 export async function getRelationshipEvidence(
   prisma: GraphDb,
@@ -1337,7 +1343,7 @@ export async function getRelationshipEvidence(
 
 function evidenceView(
   title: string,
-  supports: Array<{ relationshipObservation: Parameters<typeof supportView>[0] }>
+  supports: Array<{ relationshipObservation: ProvenanceObservation }>
 ): EvidenceView {
   return {
     title,
@@ -1452,6 +1458,41 @@ async function stakeEvidenceById(
   );
 }
 
+async function entityOrigins(
+  prisma: PrismaClient,
+  workspaceId: string,
+  field: "personId" | "companyId" | "propertyId",
+  ids: string[]
+) {
+  const unique = [...new Set(ids)];
+  if (unique.length === 0) return new Map<string, ReturnType<typeof entityOriginView>>();
+  const links = await prisma.entityResolutionLink.findMany({
+    where: {
+      workspaceId,
+      status: "ACCEPTED",
+      supersededAt: null,
+      [field]: { in: unique },
+      observation: { workspaceId },
+    },
+    include: { observation: { include: graphEvidenceInclude } },
+    orderBy: { createdAt: "asc" },
+  });
+  const grouped = new Map<string, ProvenanceObservation[]>();
+  for (const link of links) {
+    const entityId = link[field];
+    if (!entityId || link.observation.workspaceId !== workspaceId) continue;
+    const rows = grouped.get(entityId) ?? [];
+    rows.push(link.observation);
+    grouped.set(entityId, rows);
+  }
+  return new Map(
+    [...grouped.entries()].map(([entityId, observations]) => [
+      entityId,
+      entityOriginView("Observations that established this record", observations),
+    ])
+  );
+}
+
 function addressOf(property: {
   addressLine1: string | null;
   city: string | null;
@@ -1502,7 +1543,12 @@ export async function getDealKnowledge(prisma: PrismaClient, dealId: string): Pr
     : [];
 
   const entityRows = await prisma.entityObservation.findMany({
-    where: { workspaceId: deal.workspaceId, dealId: deal.id },
+    where: {
+      workspaceId: deal.workspaceId,
+      dealId: deal.id,
+      dispositions: { none: { disposition: "REJECTED" } },
+    },
+    include: graphEvidenceInclude,
     orderBy: { createdAt: "asc" },
   });
   const pendingEntities = [];
@@ -1514,25 +1560,29 @@ export async function getDealKnowledge(prisma: PrismaClient, dealId: string): Pr
       observedType: observation.observedType,
       surfaceForm: observation.surfaceForm,
       evidenceQuote: observation.evidenceQuote,
+      ...pendingSource(observation, "entity"),
     });
   }
   const relationshipRows = await prisma.relationshipObservation.findMany({
     where: {
       workspaceId: deal.workspaceId,
       OR: [{ dealId: deal.id }, { contextDealId: deal.id }],
+      dispositions: { none: { disposition: "REJECTED" } },
     },
+    include: graphEvidenceInclude,
     orderBy: { createdAt: "asc" },
   });
   const pendingRelationships = [];
   for (const relationship of relationshipRows) {
     const preview = await previewRelationshipPromotion(prisma, relationship.id);
-    if (!preview || preview.status === "APPROVED") continue;
+    if (!preview || preview.status === "APPROVED" || preview.status === "REJECTED" || preview.status === "ACKNOWLEDGED_BLOCKED") continue;
     pendingRelationships.push({
       id: relationship.id,
       predicate: relationship.predicate,
       status: preview.status,
       evidenceQuote: relationship.evidenceQuote,
       headline: preview.headline,
+      ...pendingSource(relationship, "relationship"),
     });
   }
 
@@ -1545,7 +1595,7 @@ export async function getDealKnowledge(prisma: PrismaClient, dealId: string): Pr
       : Promise.resolve(null),
   ]);
 
-  const people = new Map<string, DealKnowledge["canonical"]["people"][number]>();
+  const people = new Map<string, Omit<DealKnowledge["canonical"]["people"][number], "origin">>();
   for (const participation of participations) {
     if (!participation.person) continue;
     const current = people.get(participation.person.id) ?? {
@@ -1573,6 +1623,10 @@ export async function getDealKnowledge(prisma: PrismaClient, dealId: string): Pr
     });
     people.set(employment.personId, current);
   }
+  const personOrigins = await entityOrigins(prisma, deal.workspaceId, "personId", [...people.keys()]);
+  const propertyOrigin = deal.canonicalProperty
+    ? await entityOrigins(prisma, deal.workspaceId, "propertyId", [deal.canonicalProperty.id])
+    : new Map<string, ReturnType<typeof entityOriginView>>();
 
   return {
     dealId: deal.id,
@@ -1586,6 +1640,9 @@ export async function getDealKnowledge(prisma: PrismaClient, dealId: string): Pr
             name: deal.canonicalProperty.canonicalName,
             address: addressOf(deal.canonicalProperty),
             evidence: propertyEvidence!,
+            origin:
+              propertyOrigin.get(deal.canonicalProperty.id) ??
+              entityOriginView(`${deal.canonicalProperty.canonicalName} observations`, []),
           }
         : null,
       stakes: stakes.map((stake) => ({
@@ -1616,7 +1673,12 @@ export async function getDealKnowledge(prisma: PrismaClient, dealId: string): Pr
         titleAtTime: employment.titleAtTime,
         evidence: employmentEvidence.get(employment.id)!,
       })),
-      people: [...people.values()],
+      people: [...people.values()].map((person) => ({
+        ...person,
+        origin:
+          personOrigins.get(person.personId) ??
+          entityOriginView(`${person.name} observations`, []),
+      })),
     },
     pending: {
       entities: pendingEntities,

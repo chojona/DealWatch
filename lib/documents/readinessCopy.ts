@@ -15,6 +15,7 @@ export function needsStoredPageExtraction(
   readiness: {
     fileReady: boolean;
     metadataReady: boolean;
+    analysisEligible?: boolean;
     analysisReady: boolean;
     missing: Array<{ code: string }>;
   },
@@ -24,10 +25,23 @@ export function needsStoredPageExtraction(
     ingestionStatus === "UPLOADED" &&
     readiness.fileReady &&
     readiness.metadataReady &&
+    (readiness.analysisEligible ?? true) &&
     !readiness.analysisReady &&
     readiness.missing.length === 1 &&
     readiness.missing[0]?.code === "EXTRACTED_PAGES"
   );
+}
+
+/**
+ * Gaps the user must resolve. A stored promoted PDF does not ask the user to
+ * extract pages; the existing Analyze path performs that step automatically.
+ */
+export function actionableReadinessGaps<T extends { code: string }>(
+  gaps: T[],
+  input: { ingestionStatus: string; fileReady: boolean }
+): T[] {
+  if (input.ingestionStatus !== "UPLOADED" || !input.fileReady) return gaps;
+  return gaps.filter((gap) => gap.code !== "EXTRACTED_PAGES");
 }
 
 export function readinessGuidance(

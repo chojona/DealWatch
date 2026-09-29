@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { DOCUMENT_TYPE_LABELS } from "@/lib/documents/labels";
 import { formatCalendarDate, formatDate } from "@/lib/formatters";
-import { processingLabel } from "@/lib/inbox/status";
 import type { InboxFilter, InboxItem, InboxMessageItem, InboxPageModel } from "@/lib/inbox/types";
 
 const FILTERS: Array<{ id: InboxFilter; label: string }> = [
@@ -178,8 +177,10 @@ function InboxCard({ item }: { item: InboxItem }) {
         </div>
         <div className="text-right">
           <p className="text-[11px] font-semibold uppercase tracking-wider text-zinc-700">
-            {processingLabel(item.processingStatus)}
+            {item.lifecycle.primaryLabel}
           </p>
+          <p className="mt-0.5 text-[10px] text-zinc-500">Analysis · {item.lifecycle.analysis.label}</p>
+          <p className="text-[10px] text-zinc-500">Review · {item.lifecycle.review.label}</p>
           {item.requiresReview && item.processingStatus === "FAILED" && (
             <p className="mt-0.5 text-[10px] font-semibold uppercase tracking-wider text-amber-700">Review required</p>
           )}

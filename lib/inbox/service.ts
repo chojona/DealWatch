@@ -1,8 +1,8 @@
 import type { Prisma, PrismaClient } from "@prisma/client";
 import { parseStructuredPayload } from "@/lib/ai/negotiation/payloads";
 import type { CanonicalTermType, NegotiationTermStatus } from "@/lib/ai/negotiation/schemas";
-import { documentGraphReferenceCount } from "@/lib/entities/service";
 import { deriveReadiness } from "@/lib/documents/readiness";
+import { presentDocumentLifecycle } from "@/lib/documents/lifecycle";
 import { getDocumentStorage } from "@/lib/documents/storage";
 import { inspectSourceFile, type SourceFileState } from "@/lib/documents/sourceFile";
 import { emptyReviewWork, type ReviewWork } from "@/lib/review/completion";
@@ -623,13 +623,21 @@ function buildItem(input: {
     failureCode: document.failureCode,
     fileReady: readiness.fileReady,
     metadataReady: readiness.metadataReady,
-    analysisReady: readiness.analysisReady,
+    analysisReady: readiness.analysisEligible,
     work,
     reviewReasons: reasons,
   });
   const reviewHref = `/documents/${document.id}/review`;
   const canRetry = canRetryDocument(document);
   const fileAvailable = input.sourceFileState === "AVAILABLE";
+  const lifecycle = presentDocumentLifecycle({
+    overallStatus: derived.processingStatus,
+    ingestionStatus: document.ingestionStatus,
+    graphExtractionStatus: document.graphExtractionStatus,
+    failureCode: document.failureCode,
+    requiresReview: derived.requiresReview,
+    canRetry,
+  });
   return {
     findings: negotiation.findings,
     conflicts: negotiation.conflicts,
@@ -665,6 +673,7 @@ function buildItem(input: {
         estimatedValue: document.deal.estimatedValue,
       },
       processingStatus: derived.processingStatus,
+      lifecycle,
       negotiationSummary: negotiation.summary,
       entityReviewSummary,
       relationshipReviewSummary,
@@ -1027,7 +1036,7 @@ export async function getDocumentReview(prisma: PrismaClient, workspaceId: strin
     include: documentInclude,
   });
   if (!document || document.deal.workspaceId !== workspaceId) return null;
-  const [rounds, observations, decisions, corrections, pages, deletionBlocked, sourceFileState, siblings, promotions] = await Promise.all([
+  const [rounds, observations, decisions, corrections, pages, sourceFileState, siblings, promotions] = await Promise.all([
     prisma.negotiationRound.findMany({
       where: { dealId: document.dealId },
       select: roundSelect,
@@ -1041,7 +1050,6 @@ export async function getDocumentReview(prisma: PrismaClient, workspaceId: strin
       orderBy: { pageNumber: "asc" },
       select: { id: true, pageNumber: true, text: true },
     }),
-    documentGraphReferenceCount(prisma, document.id).then((count) => count > 0),
     inspectSourceFile(getDocumentStorage(), document.storageKey),
     prisma.document.findMany({
       where: {
@@ -1100,12 +1108,12 @@ export async function getDocumentReview(prisma: PrismaClient, workspaceId: strin
     readiness: {
       fileReady: built.readiness.fileReady,
       metadataReady: built.readiness.metadataReady,
+      analysisEligible: built.readiness.analysisEligible,
       analysisReady: built.readiness.analysisReady,
       reviewReady: built.readiness.reviewReady,
       missing: built.readiness.missing,
     },
     fileAvailable: sourceFileState === "AVAILABLE",
-    deletionBlocked,
     completion: completionSummary({
       findings: built.findings,
       entities: observations.entities,

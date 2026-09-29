@@ -6,6 +6,7 @@ export interface MessageStorage {
   put(input: { messageId: string; category: "source" | "attachment"; objectId?: string; filename: string; bytes: Buffer }): Promise<{ storageKey: string }>;
   get(storageKey: string): Promise<Buffer>;
   exists(storageKey: string): Promise<boolean>;
+  absolutePath(storageKey: string): string;
 }
 
 const SAFE_ID = /^[A-Za-z0-9_-]{1,128}$/;
@@ -44,6 +45,10 @@ export class LocalMessageStorage implements MessageStorage {
       if (error instanceof StoragePathError) throw error;
       return false;
     }
+  }
+
+  absolutePath(storageKey: string): string {
+    return resolveStoragePath(this.rootDir, storageKey);
   }
 }
 

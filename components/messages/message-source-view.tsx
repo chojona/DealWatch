@@ -69,6 +69,46 @@ function FactActions({ messageId, fact }: { messageId: string; fact: MessageFact
   </div>;
 }
 
+function AttachmentRow({ messageId, attachment }: { messageId: string; attachment: MessageSourceDto["attachments"][number] }) {
+  const router = useRouter();
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const promotable = !attachment.promotion && (attachment.contentType === "application/pdf" || attachment.filename.toLowerCase().endsWith(".pdf"));
+
+  async function promote() {
+    setBusy(true);
+    setError(null);
+    try {
+      const response = await fetch(`/api/messages/${messageId}/attachments/${attachment.id}/promote`, { method: "POST" });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(result.error || "Attachment could not be promoted");
+      router.refresh();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Attachment could not be promoted");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return <li className="flex items-center justify-between gap-3 px-4 py-3 text-xs">
+    <div>
+      <p className="font-medium text-zinc-900">{attachment.filename}</p>
+      <p className="text-zinc-500">{attachment.contentType} · {attachment.size.toLocaleString()} bytes</p>
+      {error && <p className="mt-1 text-red-600">{error}</p>}
+    </div>
+    <div className="flex flex-wrap items-center justify-end gap-2">
+      {attachment.promotion ? <>
+        <StatePill>Promoted to document</StatePill>
+        <span className="text-zinc-500">{attachment.promotion.ingestionStatus.replaceAll("_", " ")}</span>
+        <Link className="font-medium underline" href={attachment.promotion.href}>Open document</Link>
+      </> : <>
+        <StatePill>Not analyzed</StatePill>
+        {promotable && <button disabled={busy} onClick={() => void promote()} className="rounded-sm border border-zinc-300 px-2 py-1 text-[11px] font-medium hover:bg-zinc-50 disabled:opacity-50">Promote to document</button>}
+      </>}
+    </div>
+  </li>;
+}
+
 export function MessageSourceView({ message }: { message: MessageSourceDto }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
@@ -122,7 +162,7 @@ export function MessageSourceView({ message }: { message: MessageSourceDto }) {
       </article>)}
     </section>
 
-    <section className="rounded-sm border border-zinc-200 bg-white"><div className="border-b border-zinc-100 px-4 py-2.5"><h2 className="text-xs font-semibold uppercase tracking-wider text-zinc-400">Attachments</h2></div>{message.attachments.length === 0 ? <p className="px-4 py-4 text-sm text-zinc-500">No attachments.</p> : <ul className="divide-y divide-zinc-100">{message.attachments.map((attachment) => <li key={attachment.id} className="flex items-center justify-between px-4 py-3 text-xs"><div><p className="font-medium text-zinc-900">{attachment.filename}</p><p className="text-zinc-500">{attachment.contentType} · {attachment.size.toLocaleString()} bytes</p></div><StatePill>Not analyzed</StatePill></li>)}</ul>}</section>
+    <section className="rounded-sm border border-zinc-200 bg-white"><div className="border-b border-zinc-100 px-4 py-2.5"><h2 className="text-xs font-semibold uppercase tracking-wider text-zinc-400">Attachments</h2></div>{message.attachments.length === 0 ? <p className="px-4 py-4 text-sm text-zinc-500">No attachments.</p> : <ul className="divide-y divide-zinc-100">{message.attachments.map((attachment) => <AttachmentRow key={attachment.id} messageId={message.id} attachment={attachment} />)}</ul>}</section>
     <section className="rounded-sm border border-zinc-200 bg-white"><div className="border-b border-zinc-100 px-4 py-2.5"><h2 className="text-xs font-semibold uppercase tracking-wider text-zinc-400">Review history</h2></div>{message.reviewHistory.length === 0 ? <p className="px-4 py-4 text-sm text-zinc-500">No analysis or review actions yet.</p> : <ol className="divide-y divide-zinc-100">{message.reviewHistory.map((event) => <li key={event.id} className="flex items-center justify-between px-4 py-3 text-xs"><span className="font-medium text-zinc-800">{event.type.replaceAll("_", " ")}</span><span className="text-zinc-400">{event.actor.replaceAll("_", " ")} · {utcDate(event.createdAt)}</span></li>)}</ol>}</section>
   </div>;
 }

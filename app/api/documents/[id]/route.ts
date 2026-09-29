@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { toDocumentDto } from "@/lib/documents/dto";
-import { analyzeNegotiationDocument } from "@/lib/documents/ingestNegotiationPdf";
+import { analyzeNegotiationDocument, receiveNegotiationPdf } from "@/lib/documents/ingestNegotiationPdf";
 import { runDocumentGraphExtraction } from "@/lib/documents/runGraphExtraction";
 import { NegotiationExtractionConfigurationError } from "@/lib/ai/negotiation/extractTerms";
 import { GraphInvariantError } from "@/lib/entities/errors";
 import { deleteDocumentPreservingEvidence } from "@/lib/entities/service";
 import { getDocumentStorage } from "@/lib/documents/storage";
+import { needsStoredPageExtraction } from "@/lib/documents/readinessCopy";
 import { loadDocumentReadiness } from "@/lib/documents/readiness";
 
 export const runtime = "nodejs";
@@ -45,9 +46,52 @@ export async function POST(
     if (!existing) {
       return NextResponse.json({ error: "Document not found" }, { status: 404 });
     }
-    const readiness = await loadDocumentReadiness(prisma, id);
+    let readiness = await loadDocumentReadiness(prisma, id);
     if (!readiness) {
       return NextResponse.json({ error: "Document not found" }, { status: 404 });
+    }
+    if (needsStoredPageExtraction(readiness, existing.ingestionStatus)) {
+      const stored = await prisma.document.findUnique({
+        where: { id },
+        select: {
+          dealId: true,
+          originalFilename: true,
+          mimeType: true,
+          negotiationSide: true,
+          documentDate: true,
+          documentType: true,
+          storageKey: true,
+        },
+      });
+      if (
+        !stored?.documentDate ||
+        (stored.negotiationSide !== "TENANT" && stored.negotiationSide !== "LANDLORD")
+      ) {
+        return NextResponse.json(
+          { error: "Analysis unavailable", missing: readiness.missing },
+          { status: 409 }
+        );
+      }
+      const bytes = await getDocumentStorage().get(stored.storageKey);
+      const prepared = await receiveNegotiationPdf({
+        dealId: stored.dealId,
+        bytes,
+        filename: stored.originalFilename,
+        mimeType: stored.mimeType,
+        side: stored.negotiationSide,
+        documentDate: stored.documentDate,
+        documentType: stored.documentType,
+        storage: getDocumentStorage(),
+        prisma,
+        mode: "extract",
+      });
+      if (prepared.document.ingestionStatus !== "READY") {
+        return NextResponse.json(prepared, { status: 422 });
+      }
+      readiness = await loadDocumentReadiness(prisma, id);
+      if (!readiness) {
+        return NextResponse.json({ error: "Document not found" }, { status: 404 });
+      }
     }
     if (!readiness.analysisReady && existing.ingestionStatus !== "COMPLETE") {
       return NextResponse.json(

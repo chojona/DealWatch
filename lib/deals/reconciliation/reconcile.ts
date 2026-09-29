@@ -1,4 +1,3 @@
-import { parseStructuredPayload } from "@/lib/ai/negotiation/payloads";
 import type { CanonicalTermType, NegotiationSide } from "@/lib/ai/negotiation/schemas";
 import { resolveCurrentState } from "@/lib/negotiation/resolveCurrentState";
 import type { NegotiationRoundRecord, NegotiationTermRecord } from "@/lib/negotiation/types";
@@ -12,6 +11,7 @@ import type {
   ReconciliationSide,
   ReconciliationTerm,
 } from "./types";
+import { comparableNegotiationValue } from "./value";
 
 const NUMERIC_EPSILON = 1e-6;
 
@@ -33,31 +33,15 @@ function negotiationSide(value: string): NegotiationSide | null {
 }
 
 function observationValue(term: ReconciliationTerm): { numeric: number | null; unit: string | null; display: string } {
-  const payload = parseStructuredPayload(term.structuredPayload, term.canonicalType as CanonicalTermType);
-  if (payload?.termType === "BASE_RENT" && payload.rent.kind === "simple") {
-    return {
-      numeric: payload.rent.amountPerRSFYear,
-      unit: "USD_PER_RSF_YEAR",
-        display: `$${payload.rent.amountPerRSFYear.toFixed(2)} / RSF / year`,
-    };
-  }
-  if (payload?.termType === "TI_ALLOWANCE") {
-    return {
-      numeric: payload.amount.amount,
-      unit: payload.amount.unit,
-      display: term.normalizedValue?.trim() || String(payload.amount.amount),
-    };
-  }
-  if (payload?.termType === "FREE_RENT" && payload.abatement.kind === "contiguous") {
-    return {
-      numeric: payload.abatement.months,
-      unit: "MONTHS",
-      display: term.normalizedValue?.trim() || `${payload.abatement.months} months`,
-    };
-  }
-  return {
-    numeric: term.normalizedNumeric,
-    unit: term.normalizedUnit,
+  return comparableNegotiationValue({
+    canonicalType: term.canonicalType,
+    structuredPayload: term.structuredPayload,
+    normalizedNumeric: term.normalizedNumeric,
+    normalizedUnit: term.normalizedUnit,
+    display: term.normalizedValue?.trim() || term.rawValue,
+  }) ?? {
+    numeric: null,
+    unit: null,
     display: term.normalizedValue?.trim() || term.rawValue,
   };
 }

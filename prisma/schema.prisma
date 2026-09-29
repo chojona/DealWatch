@@ -32,6 +32,7 @@ model Deal {
   activityFacts                   ActivityFact[]
   negotiationRounds               NegotiationRound[]
   documents                       Document[]
+  attachmentPromotions            AttachmentDocumentPromotion[]
   participations                  DealParticipation[]
   entityObservations              EntityObservation[]
   relationshipObservations        RelationshipObservation[] @relation("RelationshipObservationDeal")
@@ -110,6 +111,7 @@ model Document {
   reviewDecisionEvents     ReviewDecisionEvent[]
   evidenceCorrections      EvidenceCorrection[]
   milestones               DocumentMilestone[]
+  attachmentPromotions     AttachmentDocumentPromotion[]
 
   @@unique([dealId, sha256])
   @@index([dealId, createdAt])
@@ -445,6 +447,7 @@ model Workspace {
   messageReviewEvents         MessageReviewEvent[]
   activityFactReviews         ActivityFactReview[]
   activityFactCorrections     ActivityFactCorrection[]
+  attachmentPromotions        AttachmentDocumentPromotion[]
 
   @@index([firmCompanyId])
 }
@@ -1306,6 +1309,7 @@ model SourceMessage {
   reviewEvents    MessageReviewEvent[]
   factReviews     ActivityFactReview[]
   factCorrections ActivityFactCorrection[]
+  attachmentPromotions AttachmentDocumentPromotion[]
 
   @@unique([workspaceId, sourceProvider, externalMessageId])
   @@unique([workspaceId, rfcMessageId])
@@ -1327,9 +1331,41 @@ model SourceMessageAttachment {
   createdAt       DateTime @default(now())
 
   sourceMessage SourceMessage @relation(fields: [sourceMessageId], references: [id], onDelete: Cascade)
+  promotion     AttachmentDocumentPromotion?
 
   @@index([sourceMessageId])
   @@index([sha256])
+}
+
+/// Immutable record that one attachment was explicitly promoted into one Document.
+/// The attachment row and its stored bytes stay in place. Promotion does not
+/// analyze the file and does not create negotiation or activity facts.
+model AttachmentDocumentPromotion {
+  id                        String   @id @default(cuid())
+  workspaceId               String
+  dealId                    String
+  sourceMessageId           String
+  sourceMessageAttachmentId String   @unique
+  documentId                String
+  originalFilename          String
+  contentType               String
+  sha256                    String
+  /// Message-storage key whose bytes the Document references.
+  sourceStorageKey          String
+  /// HARDLINK shares the inode. COPY is used only when a hard link cannot be created.
+  /// EXISTING_DOCUMENT means this deal already had that SHA, so no bytes were stored.
+  storageReuse              String
+  createdAt                 DateTime @default(now())
+
+  workspace     Workspace               @relation(fields: [workspaceId], references: [id])
+  deal          Deal                    @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  sourceMessage SourceMessage           @relation(fields: [sourceMessageId], references: [id], onDelete: Cascade)
+  attachment    SourceMessageAttachment @relation(fields: [sourceMessageAttachmentId], references: [id], onDelete: Cascade)
+  document      Document                @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@index([documentId])
+  @@index([sourceMessageId])
+  @@index([workspaceId, dealId])
 }
 
 model SourceMessageParticipant {

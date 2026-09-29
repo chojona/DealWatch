@@ -260,7 +260,21 @@ export interface MessageSourceView {
   activityHref: string;
   negotiationHref: string;
   participants: Array<{ role: string; displayName: string | null; address: string }>;
-  attachments: Array<{ id: string; filename: string; contentType: string; size: number; contentId: string | null; disposition: string | null; sha256: string | null; analysisState: "NOT_ANALYZED" }>;
+  attachments: Array<{
+    id: string;
+    filename: string;
+    contentType: string;
+    size: number;
+    contentId: string | null;
+    disposition: string | null;
+    sha256: string | null;
+    analysisState: "NOT_ANALYZED" | "PROMOTED";
+    promotion: {
+      documentId: string;
+      href: string;
+      ingestionStatus: string;
+    } | null;
+  }>;
   reviewHistory: Array<{ id: string; type: string; actor: string; createdAt: string; activityFactId: string | null; detail: unknown }>;
   facts: MessageFactView[];
 }
@@ -271,7 +285,14 @@ export async function getMessageSource(db: PrismaClient, sourceMessageId: string
     include: {
       deal: { select: { id: true, name: true, workspaceId: true } },
       participants: { orderBy: [{ role: "asc" }, { address: "asc" }] },
-      attachments: { orderBy: [{ createdAt: "asc" }, { id: "asc" }] },
+      attachments: {
+        orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+        include: {
+          promotion: {
+            select: { document: { select: { id: true, ingestionStatus: true } } },
+          },
+        },
+      },
       extractionRuns: { orderBy: [{ createdAt: "asc" }, { id: "asc" }] },
       reviewDecisions: { orderBy: [{ createdAt: "asc" }, { id: "asc" }] },
       reviewEvents: { orderBy: [{ createdAt: "asc" }, { id: "asc" }] },
@@ -323,7 +344,14 @@ export async function getMessageSource(db: PrismaClient, sourceMessageId: string
       contentId: item.contentId,
       disposition: item.disposition,
       sha256: item.sha256,
-      analysisState: "NOT_ANALYZED" as const,
+      analysisState: item.promotion ? "PROMOTED" as const : "NOT_ANALYZED" as const,
+      promotion: item.promotion
+        ? {
+            documentId: item.promotion.document.id,
+            href: `/documents/${item.promotion.document.id}/review`,
+            ingestionStatus: item.promotion.document.ingestionStatus,
+          }
+        : null,
     })),
     reviewHistory: message.reviewEvents.map((item) => ({
       id: item.id,

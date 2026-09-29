@@ -6,6 +6,30 @@ export interface ReadinessGuidance {
   action: string;
 }
 
+/**
+ * Upload extracts pages before analysis. A promoted attachment is stored
+ * first and extracted later. Analyze may run the existing PDF extractor
+ * when that is the only remaining gap.
+ */
+export function needsStoredPageExtraction(
+  readiness: {
+    fileReady: boolean;
+    metadataReady: boolean;
+    analysisReady: boolean;
+    missing: Array<{ code: string }>;
+  },
+  ingestionStatus: string
+): boolean {
+  return (
+    ingestionStatus === "UPLOADED" &&
+    readiness.fileReady &&
+    readiness.metadataReady &&
+    !readiness.analysisReady &&
+    readiness.missing.length === 1 &&
+    readiness.missing[0]?.code === "EXTRACTED_PAGES"
+  );
+}
+
 export function readinessGuidance(
   code: ReadinessGapCode,
   sourceFileState: SourceFileState = "MISSING"

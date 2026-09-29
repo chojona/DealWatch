@@ -15,7 +15,7 @@ import {
 } from "@/components/documents/review-actions";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DOCUMENT_TYPE_LABELS } from "@/lib/documents/labels";
-import { readinessGuidance } from "@/lib/documents/readinessCopy";
+import { needsStoredPageExtraction, readinessGuidance } from "@/lib/documents/readinessCopy";
 import type { ReadinessGapCode } from "@/lib/documents/readiness";
 import { formatDate, formatDateTime } from "@/lib/formatters";
 import { processingLabel } from "@/lib/inbox/status";
@@ -181,7 +181,10 @@ export function DocumentReviewWorkspace({
       {!review.readiness.analysisReady && !review.readiness.reviewReady && item.processingStatus !== "FAILED" && item.processingStatus !== "ANALYZING" && review.readiness.missing.length > 0 && (
         <section className="rounded-sm border border-zinc-200 bg-white px-4 py-3">
           <h2 className="text-xs font-semibold uppercase tracking-wider text-zinc-400">Analysis unavailable</h2>
-          <p className="mt-1 text-xs text-zinc-600">Analyze stays unavailable until every requirement below is stored.</p>
+          <p className="mt-1 text-xs text-zinc-600">{needsStoredPageExtraction(review.readiness, item.document.ingestionStatus) ? "Metadata is stored. Analyze document extracts the stored PDF, then runs the existing analysis pipeline." : "Analyze stays unavailable until every requirement below is stored."}</p>
+          {needsStoredPageExtraction(review.readiness, item.document.ingestionStatus) && (
+            <div className="mt-3"><AnalyzeDocumentButton documentId={item.document.id} ready /></div>
+          )}
           <ul className="mt-3 space-y-2">
             {review.readiness.missing.map((gap) => {
               const guidance = readinessGuidance(gap.code as ReadinessGapCode, item.sourceFileState);

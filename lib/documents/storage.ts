@@ -1,4 +1,4 @@
-import { mkdir, readFile, rm, writeFile, stat } from "node:fs/promises";
+import { mkdir, readFile, rm, stat, unlink, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 export interface StoredDocument {
@@ -14,6 +14,7 @@ export interface DocumentStorage {
   get(storageKey: string): Promise<Buffer>;
   delete(storageKey: string): Promise<void>;
   exists(storageKey: string): Promise<boolean>;
+  absolutePath(storageKey: string): string;
 }
 
 const DOCUMENT_ID_PATTERN = /^[A-Za-z0-9_-]{1,128}$/;
@@ -87,8 +88,13 @@ export class LocalDocumentStorage implements DocumentStorage {
     const storageKey = `${input.documentId}/${filename}`;
     const full = resolveStoragePath(this.rootDir, storageKey);
     await mkdir(path.dirname(full), { recursive: true });
+    await replaceSharedFile(full);
     await writeFile(full, input.bytes);
     return { storageKey };
+  }
+
+  absolutePath(storageKey: string): string {
+    return resolveStoragePath(this.rootDir, storageKey);
   }
 
   async get(storageKey: string): Promise<Buffer> {
@@ -114,6 +120,27 @@ export class LocalDocumentStorage implements DocumentStorage {
       if (error instanceof StoragePathError) throw error;
       return false;
     }
+  }
+}
+
+/**
+ * A promoted attachment is hard-linked into document storage. Replacing that
+ * document file must not truncate the shared inode, or the email attachment
+ * bytes would change with it.
+ */
+async function replaceSharedFile(full: string): Promise<void> {
+  try {
+    const info = await stat(full);
+    if (info.isFile() && info.nlink > 1) await unlink(full);
+  } catch (error) {
+    if (
+      error instanceof Error &&
+      "code" in error &&
+      (error as NodeJS.ErrnoException).code === "ENOENT"
+    ) {
+      return;
+    }
+    if (error instanceof StoragePathError) throw error;
   }
 }
 

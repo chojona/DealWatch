@@ -10,7 +10,15 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 # Session workflow
 
-Every coding session starts on a new branch and ends with a pull request. GitHub deletes the branch when the pull request is merged.
+This section is an explicit standing request. For every task that changes files, do these steps without asking for confirmation:
+
+1. If the current branch is `main`, fetch and fast-forward it from `origin/main`, then create a new branch before the first edit. Do not commit task work on `main`.
+2. Do the work on that branch.
+3. Commit the finished work. This section is the explicit request to commit. Do not commit secrets.
+4. Push the branch to `origin`. This section is the explicit request to push.
+5. Open a pull request. This section is the explicit request to open a pull request.
+
+One task is one branch and one pull request. Questions and reviews that do not change files skip this sequence. Do not force-push. Do not skip git hooks. GitHub deletes the branch when the pull request is merged.
 
 ## Cursor Cloud specific instructions
 

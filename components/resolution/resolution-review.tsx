@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { ObservationResolutionView } from "@/lib/resolution/types";
 import type { CanonicalEntityPreview, RelationshipPromotionPreview } from "@/lib/promotion/types";
@@ -14,6 +14,7 @@ export function ResolutionReview({
   counts,
   embedded = false,
   section = "all",
+  focusId = null,
 }: {
   documentName: string;
   documentId: string;
@@ -36,11 +37,20 @@ export function ResolutionReview({
   };
   embedded?: boolean;
   section?: "all" | "entities" | "relationships";
+  focusId?: string | null;
 }) {
   const router = useRouter();
   const [pendingId, setPendingId] = useState<string | null>(null);
   const [confirmingId, setConfirmingId] = useState<string | null>(null);
-  const [openRelationshipId, setOpenRelationshipId] = useState<string | null>(relationships[0]?.relationshipObservationId ?? null);
+  const [openRelationshipId, setOpenRelationshipId] = useState<string | null>(
+    focusId && relationships.some((relationship) => relationship.relationshipObservationId === focusId)
+      ? focusId
+      : relationships[0]?.relationshipObservationId ?? null
+  );
+  useEffect(() => {
+    if (!focusId) return;
+    document.getElementById(`graph-observation-${focusId}`)?.scrollIntoView({ block: "center" });
+  }, [focusId]);
   const [error, setError] = useState<string | null>(null);
 
   async function post(url: string, body: unknown = {}) {
@@ -149,7 +159,7 @@ export function ResolutionReview({
             const preview = observation.preview;
             const confirming = confirmingId === observation.observationId;
             return (
-              <article key={observation.observationId} className="rounded-sm border border-zinc-200 bg-white">
+              <article id={`graph-observation-${observation.observationId}`} key={observation.observationId} className={`rounded-sm border bg-white ${focusId === observation.observationId ? "border-zinc-900 ring-2 ring-zinc-900" : "border-zinc-200"}`}>
                 <div className="border-b border-zinc-100 px-4 py-3">
                   <div className="flex items-baseline justify-between gap-3">
                     <h3 className="text-sm font-semibold text-zinc-900">{observation.surfaceForm}</h3>
@@ -303,7 +313,7 @@ export function ResolutionReview({
           relationships.map((relationship) => {
             const open = openRelationshipId === relationship.relationshipObservationId;
             return (
-              <article key={relationship.relationshipObservationId} className="rounded-sm border border-zinc-200 bg-white">
+              <article id={`graph-observation-${relationship.relationshipObservationId}`} key={relationship.relationshipObservationId} className={`rounded-sm border bg-white ${focusId === relationship.relationshipObservationId ? "border-zinc-900 ring-2 ring-zinc-900" : "border-zinc-200"}`}>
                 <button
                   type="button"
                   className="flex w-full items-baseline justify-between gap-3 px-4 py-3 text-left"

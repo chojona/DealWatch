@@ -25,10 +25,16 @@ export function activityEvidenceSupport(row: ActivityEvidenceObservation): Evide
     documentId: row.document?.id ?? row.documentId,
     documentName: row.document?.originalFilename ?? null,
     messageId: row.messageId,
+    messageSubject: null,
+    messageSender: null,
     sourceKind: row.sourceKind,
     sourceLocation: row.sourceLocation,
     sourceDate: (row.document?.documentDate ?? row.message?.sentAt)?.toISOString() ?? null,
     href: row.document ? `/api/documents/${row.document.id}/file${pageNumber ? `#page=${pageNumber}` : ""}` : null,
+    reviewHref: null,
+    evidenceStartOffset: null,
+    evidenceEndOffset: null,
+    reviewState: null,
   };
 }
 

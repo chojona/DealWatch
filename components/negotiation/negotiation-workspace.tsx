@@ -2,10 +2,9 @@
 
 import Link from "next/link";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
-import { FileText } from "lucide-react";
+import { ChevronRight, FileText } from "lucide-react";
 import { FilterChip } from "@/components/ui/filter-chip";
 import { SourceLink } from "@/components/ui/source-link";
-import { termCountsAsOpen } from "@/lib/deals/brief/formalStatus";
 import type { ReconciliationLink } from "@/lib/deals/reconciliation/types";
 import type {
   NegotiationRoundView,
@@ -16,6 +15,7 @@ import type {
 import {
   agreedSummary,
   decisionCopy,
+  filterNegotiationTerms,
   openTermTreatment,
   proseStatement,
   roundChangeLine,
@@ -41,12 +41,12 @@ function date(value: string): string {
   }).format(new Date(value));
 }
 
-function filterTerms(terms: NegotiationTermView[], filter: NegotiationWorkspaceFilter) {
-  if (filter === "ALL" || filter === "OPEN") return terms.filter((term) => term.status !== "AGREED");
-  if (filter === "AGREED") return terms.filter((term) => term.status === "AGREED");
-  if (filter === "CONFLICTS") return terms.filter((term) => term.conflict);
-  if (filter === "CHANGED") return terms.filter((term) => term.changedInLatestRound);
-  return terms.filter((term) => termCountsAsOpen(term));
+function listLabel(filter: NegotiationWorkspaceFilter): string {
+  if (filter === "ALL") return "All current terms";
+  if (filter === "OPEN") return "Open terms";
+  if (filter === "AGREED") return "Agreed terms";
+  if (filter === "CHANGED") return "Changed terms";
+  return "Conflicting terms";
 }
 
 function GapMark() {
@@ -112,11 +112,11 @@ export function NegotiationWorkspaceView({
   const [selectedType, setSelectedType] = useState<string | null>(null);
   const returnFocus = useRef<HTMLElement | null>(null);
   const panelId = useId();
-  const visibleTerms = useMemo(() => filterTerms(workspace.terms, filter), [workspace.terms, filter]);
+  const visibleTerms = useMemo(() => filterNegotiationTerms(workspace.terms, filter), [workspace.terms, filter]);
   const agreed = useMemo(() => agreedSummary(workspace.terms), [workspace.terms]);
   const decision = useMemo(() => decisionCopy(workspace.terms), [workspace.terms]);
   const selected = workspace.terms.find((term) => term.canonicalType === selectedType) ?? null;
-  const showAgreedSummary = filter === "OPEN" || filter === "ALL" || filter === "CHANGED";
+  const showAgreedSummary = (filter === "OPEN" || filter === "CHANGED") && agreed.length > 0;
 
   useEffect(() => {
     if (!selected) return;
@@ -175,7 +175,7 @@ export function NegotiationWorkspaceView({
           {visibleTerms.length === 0 ? (
             <p className="mt-6 text-[14px] leading-5 text-ink-secondary">No terms match this filter.</p>
           ) : (
-            <ul className="mt-4 divide-y divide-[#e7e1d6]" aria-label="Open terms">
+            <ul className="mt-4 divide-y divide-[#e7e1d6]" aria-label={listLabel(filter)}>
               {visibleTerms.map((term) => (
                 <OpenTermRow
                   key={term.canonicalType}
@@ -192,7 +192,7 @@ export function NegotiationWorkspaceView({
           )}
         </section>
 
-        {showAgreedSummary && agreed.length > 0 ? (
+        {showAgreedSummary ? (
           <section className="mt-10 max-w-3xl" aria-label="Agreed terms">
             <h3 className="text-[13px] font-medium text-ink-muted">Already agreed</h3>
             <p className="mt-2 text-[15px] leading-7 text-ink-secondary">
@@ -253,19 +253,31 @@ function RoundRecord({
 }: {
   rounds: NegotiationRoundView[];
 }) {
+  const [open, setOpen] = useState(false);
+  const recordId = useId();
   const lines = rounds.flatMap((round) => round.changes
     .filter((change) => change.kind !== "UNCHANGED")
     .map((change) => ({ id: `${round.id}:${change.canonicalType}`, line: roundChangeLine(change) })));
   if (lines.length === 0) return null;
   return (
-    <details open className="mt-12 max-w-3xl">
-      <summary className="cursor-pointer text-[13px] font-medium text-ink-muted">Round record</summary>
-      <ul className="mt-2 space-y-1">
+    <section className="mt-12 max-w-3xl" aria-label="Round record">
+      <button
+        type="button"
+        aria-expanded={open}
+        aria-controls={recordId}
+        onClick={() => setOpen((current) => !current)}
+        className="inline-flex items-center gap-1.5 rounded-md py-1 text-[13px] font-medium text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#214e46]"
+      >
+        <ChevronRight className={`h-3.5 w-3.5 text-ink-muted motion-safe:transition-transform motion-safe:duration-150 motion-safe:ease-out ${open ? "rotate-90" : ""}`} aria-hidden="true" />
+        {open ? "Hide round record" : "Show round record"}
+        <span className="font-normal text-ink-muted">{lines.length} {lines.length === 1 ? "change" : "changes"}</span>
+      </button>
+      <ul id={recordId} hidden={!open} className="mt-2 space-y-1">
         {lines.map((item) => (
           <li key={item.id} className="text-[13px] leading-5 text-ink-muted tabular-nums">{item.line}</li>
         ))}
       </ul>
-    </details>
+    </section>
   );
 }
 

@@ -69,7 +69,7 @@ export function TermDetailPanel({
     >
       <header className="flex items-start justify-between gap-3 px-5 pt-5 pb-2">
         <div>
-          <h2 className="negotiation-detail-title font-negotiation-serif text-[28px] leading-none tracking-[-0.03em] text-ink" tabIndex={-1}>
+          <h2 className="negotiation-detail-title text-[28px] leading-none tracking-[-0.02em] text-ink [font-family:var(--font-geist),var(--font-sans)]" tabIndex={-1}>
             {term.label}
           </h2>
           <p className="mt-2 max-w-sm text-[13px] leading-5 text-ink-secondary">

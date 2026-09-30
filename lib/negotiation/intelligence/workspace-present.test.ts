@@ -7,6 +7,7 @@ import {
   openTermTreatment,
   roundChangeLine,
   sideStep,
+  filterNegotiationTerms,
   storedRelation,
 } from "./workspace-present";
 
@@ -136,6 +137,20 @@ describe("negotiation workspace presentation", () => {
     assert.equal(sideStep(rent, "TENANT")?.delta, null);
     assert.equal(sideStep(rent, "LANDLORD")?.delta, "−$5.00 / RSF / yr");
     assert.deepEqual(gapClosure(rent), { display: "$8.00 / RSF / yr", widened: false });
+  });
+
+  test("Open keeps terms that require negotiation and All includes agreed terms", () => {
+    const terms = [
+      term({ canonicalType: "BASE_RENT", label: "Base rent", status: "PROPOSED" }),
+      term({ canonicalType: "LEASE_TERM", label: "Lease term", status: "AGREED" }),
+      term({ canonicalType: "TERMINATION_RIGHTS", label: "Termination rights", status: "REJECTED" }),
+      term({ canonicalType: "COMMENCEMENT_DATE", label: "Commencement date", status: "UNRESOLVED" }),
+    ];
+    const open = filterNegotiationTerms(terms, "OPEN").map((item) => item.canonicalType);
+    const all = filterNegotiationTerms(terms, "ALL").map((item) => item.canonicalType);
+    assert.deepEqual(open, ["BASE_RENT", "COMMENCEMENT_DATE"]);
+    assert.deepEqual(all, ["BASE_RENT", "LEASE_TERM", "TERMINATION_RIGHTS", "COMMENCEMENT_DATE"]);
+    assert.notDeepEqual(open, all);
   });
 
   test("round lines keep the formal change readable", () => {

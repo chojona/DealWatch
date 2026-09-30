@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { StatusBadge } from "@/components/status-badge";
 import { ConfidenceDot } from "@/components/confidence-badge";
 import type { AnalyzeThreadOutput } from "@/types";
-import { Loader2, AlertCircle, CheckCircle2 } from "lucide-react";
+import { Loader2, AlertCircle } from "lucide-react";
 
 const DEMO_THREAD = `From: Sarah Chen <s.chen@jllboston.com>
 Date: September 22, 2026
@@ -53,15 +53,11 @@ export function ThreadAnalyzer() {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<AnalyzeThreadOutput | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [saving, setSaving] = useState(false);
-  const [saved, setSaved] = useState(false);
-
   async function handleAnalyze() {
     if (!text.trim()) return;
     setLoading(true);
     setError(null);
     setResult(null);
-    setSaved(false);
 
     try {
       const res = await fetch("/api/analyze", {
@@ -79,24 +75,6 @@ export function ThreadAnalyzer() {
       setError(e instanceof Error ? e.message : "Unknown error");
     } finally {
       setLoading(false);
-    }
-  }
-
-  async function handleSave() {
-    if (!result) return;
-    setSaving(true);
-    try {
-      const res = await fetch("/api/analyze", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ threadText: text, result }),
-      });
-      if (!res.ok) throw new Error("Save failed");
-      setSaved(true);
-    } catch {
-      setError("Failed to save to database.");
-    } finally {
-      setSaving(false);
     }
   }
 
@@ -147,31 +125,13 @@ export function ThreadAnalyzer() {
       {/* Results */}
       {result && (
         <div className="flex flex-col gap-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-sm font-semibold text-zinc-900">
-              Analysis Results
-            </h2>
-            <div className="flex items-center gap-2">
-              {saved && (
-                <span className="flex items-center gap-1 text-xs text-green-600">
-                  <CheckCircle2 className="h-3.5 w-3.5" /> Saved
-                </span>
-              )}
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleSave}
-                disabled={saving || saved}
-              >
-                {saving ? "Saving..." : saved ? "Saved" : "Save to Database"}
-              </Button>
-            </div>
-          </div>
+          <h2 className="text-sm font-semibold text-zinc-900">
+            Analysis Results
+          </h2>
 
           <div className="rounded-sm border border-amber-200 bg-amber-50 px-3 py-2.5 text-xs text-amber-700">
-            <strong>Review before saving.</strong> These results were generated
-            by an automated analysis engine. Verify each extracted obligation
-            against the source thread before committing to your records.
+            These results stay on this page. They are not saved as deal history.
+            Import the thread as a message when it should enter review.
           </div>
 
           {/* Deal info */}

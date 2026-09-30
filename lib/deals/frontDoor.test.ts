@@ -188,8 +188,13 @@ describe("front door", () => {
     assert.match(nav, /href: "\/deals"/);
     assert.match(nav, /href="\/deals\/new"/);
     assert.equal(nav.includes('href: "/analyze"'), false);
+    const analyzer = readRepo("components/analyze/thread-analyzer.tsx");
+    const analyzeRoute = readRepo("app/api/analyze/route.ts");
     assert.match(analyze, /Legacy workflow/);
-    assert.match(analyze, /obligation/);
+    assert.match(analyze, /does not save it as deal history/);
+    assert.equal(analyzer.includes("Save to Database"), false);
+    assert.equal(analyzer.includes('method: "PUT"'), false);
+    assert.equal(analyzeRoute.includes("prisma."), false);
     assert.equal(dashboard.includes("obligation"), false);
     assert.equal(dashboard.includes("dealEvent"), false);
     assert.match(dashboard, /getModernDashboard/);

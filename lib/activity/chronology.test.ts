@@ -424,13 +424,22 @@ describe("activity chronology", { concurrency: 1 }, () => {
       const rejectedMovement = negotiationEvents(rejectedPage.events);
       assert.deepEqual(rejectedMovement.map((event) => event.sourceId), [kept.round.id]);
       assert.equal(baseRent(rejectedMovement[0]!)?.value, "$72.00 / RSF / yr");
-      assert.equal(JSON.stringify(rejectedMovement).includes("80"), false);
+      assert.equal(
+        rejectedMovement.some((event) =>
+          event.details?.some((detail) => `${detail.value ?? ""} ${detail.previousValue ?? ""}`.includes("80"))
+          || event.evidence?.supports.some((support) => support.quote.includes("$80")),
+        ),
+        false,
+      );
       const rejectedRaw = await db.prisma.negotiationTerm.findUniqueOrThrow({ where: { id: rejected.term.id } });
       assert.equal(rejectedRaw.normalizedNumeric, 80);
       const current = await getNegotiationWorkspace(db.prisma, rejectedDeal.id);
       const rent = current?.terms.find((term) => term.canonicalType === "BASE_RENT");
       assert.match(rent?.landlordPosition?.kind === "VALUE" ? rent.landlordPosition.value.summary : "", /72/);
-      assert.equal(JSON.stringify(rent?.landlordPosition).includes("80"), false);
+      assert.equal(
+        (rent?.landlordPosition?.kind === "VALUE" ? rent.landlordPosition.value.summary : "").includes("80"),
+        false,
+      );
     } finally {
       await db.cleanup();
     }

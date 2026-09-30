@@ -318,7 +318,9 @@ export function deriveDealActionState(input: DealActionDerivationInput): DealAct
 
   const outstandingActions = actions.filter((action) => action.status === "OPEN");
   const staleItems = outstandingActions.filter((action) => action.stale);
-  const needsYou = outstandingActions.slice(0, 8);
+  const needsYou = outstandingActions.filter(
+    (action) => action.responsibleSide === "OUR_SIDE" || action.responsibleSide === "BOTH",
+  );
   const discrepancies = [...input.discrepancies].sort((left, right) => left.id.localeCompare(right.id));
   const openTerms = [...input.openTerms].sort((left, right) => left.label.localeCompare(right.label));
 

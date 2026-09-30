@@ -39,18 +39,12 @@ export default async function NegotiationPage({
         createdAt={new Date(workspace.deal.createdAt)}
       />
 
-      <main className="mx-auto max-w-[1500px] px-6 py-6">
-        <div className="mb-4 flex flex-wrap items-start justify-between gap-4">
-          <div>
-            <h2 className="text-xs font-semibold uppercase tracking-wider text-zinc-500">Negotiation intelligence</h2>
-            <p className="mt-1 max-w-2xl text-xs text-zinc-500">
-              Current positions, agreements, conflicts, and movement resolved from stored source-grounded term observations.
-            </p>
-          </div>
+      <main className="page-gutter py-5">
+        <div className="mb-3 flex flex-wrap items-start justify-end gap-3">
           <AddRoundForm dealId={workspace.deal.id} />
         </div>
 
-        <div className="mb-6">
+        <div className="mb-3">
           <UploadNegotiationDocument dealId={workspace.deal.id} />
         </div>
 

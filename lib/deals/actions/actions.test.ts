@@ -310,7 +310,10 @@ describe("Phase 11 deterministic action intelligence", { concurrency: 1 }, () =>
         action: directive({ kind: "DOCUMENT_REQUESTED", responsibleSide: "COUNTERPARTY", counterpartyLabel: "Landlord" }),
       }),
     });
-    assert.equal((await getDealActionState(db, counterparty.id, { now: fixedNow }))?.court.value, "COUNTERPARTY");
+    const counterpartyState = await getDealActionState(db, counterparty.id, { now: fixedNow });
+    assert.equal(counterpartyState?.court.value, "COUNTERPARTY");
+    assert.equal(counterpartyState?.needsYou.length, 0);
+    assert.equal(counterpartyState?.outstandingActions.length, 1);
 
     const both = await createTestDeal(db);
     await record(both, {
@@ -334,6 +337,14 @@ describe("Phase 11 deterministic action intelligence", { concurrency: 1 }, () =>
     const bothState = await getDealActionState(db, both.id, { now: fixedNow });
     assert.equal(bothState?.court.value, "BOTH");
     assert.equal(bothState?.court.evidence.length, 2);
+    assert.deepEqual(bothState?.needsYou.map((action) => action.responsibleSide), ["OUR_SIDE"]);
+    assert.equal(bothState?.outstandingActions.length, 2);
+    assert.deepEqual(
+      bothState?.outstandingActions
+        .filter((action) => !bothState.needsYou.some((item) => item.id === action.id))
+        .map((action) => action.responsibleSide),
+      ["COUNTERPARTY"],
+    );
 
     const unknown = await createTestDeal(db);
     await record(unknown, {
@@ -345,7 +356,24 @@ describe("Phase 11 deterministic action intelligence", { concurrency: 1 }, () =>
       review: true,
       payload: payload({ action: directive({ kind: "FOLLOW_UP_REQUESTED", responsibleSide: "UNKNOWN" }) }),
     });
-    assert.equal((await getDealActionState(db, unknown.id, { now: fixedNow }))?.court.value, "UNKNOWN");
+    const unknownState = await getDealActionState(db, unknown.id, { now: fixedNow });
+    assert.equal(unknownState?.court.value, "UNKNOWN");
+    assert.equal(unknownState?.needsYou.length, 0);
+    assert.equal(unknownState?.outstandingActions.length, 1);
+
+    const shared = await createTestDeal(db);
+    await record(shared, {
+      subject: "Shared follow-up",
+      body: "Both sides will exchange comments.",
+      sentAt: "2026-09-28T15:00:00Z",
+      factType: "OTHER",
+      quote: "Both sides will exchange comments.",
+      review: true,
+      payload: payload({ action: directive({ kind: "FOLLOW_UP_REQUESTED", responsibleSide: "BOTH" }) }),
+    });
+    const sharedState = await getDealActionState(db, shared.id, { now: fixedNow });
+    assert.equal(sharedState?.needsYou.length, 1);
+    assert.equal(sharedState?.needsYou[0]?.responsibleSide, "BOTH");
 
     const sender = await createTestDeal(db);
     await record(sender, {

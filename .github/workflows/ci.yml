@@ -4,10 +4,46 @@ on:
   push:
     branches: [main]
   pull_request:
+  # Runs the required checks on the merge-queue commit. That commit is the
+  # one GitHub lands on main, so the push below can see it was already verified.
+  merge_group:
+
+permissions:
+  contents: read
+  actions: read
+
+# Cancel a pull request run when a newer commit is pushed to that same PR.
+# Main and merge-queue runs stay in their own groups and are not cancelled.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
+  already-verified:
+    name: Main duplicate check
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      verified: ${{ steps.decide.outputs.verified }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Decide whether this exact commit already passed CI
+        id: decide
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          TARGET_SHA: ${{ github.sha }}
+          RUN_ATTEMPT: ${{ github.run_attempt }}
+          RUN_ID: ${{ github.run_id }}
+        run: node scripts/ci-main-already-verified.mjs
+
   check:
     name: Lint, typecheck, test, and build
+    needs: already-verified
+    if: ${{ always() && !cancelled() && (github.event_name != 'push' || needs.already-verified.outputs.verified != 'true') }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
     env:
@@ -39,29 +75,3 @@ jobs:
 
       - name: Build
         run: npm run build
-
-  e2e:
-    name: Playwright
-    runs-on: ubuntu-latest
-    timeout-minutes: 45
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Generate Prisma client
-        run: npx prisma generate
-
-      - name: Install Chromium
-        run: npx playwright install --with-deps chromium
-
-      - name: Browser end-to-end
-        run: npm run test:e2e

@@ -25,7 +25,7 @@ export default async function NegotiationPage({
   const focusedRound = typeof query.round === "string" ? query.round : null;
 
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen bg-[#f3f0ea]">
       <DealHeader
         dealId={workspace.deal.id}
         activeSection="negotiation"
@@ -39,16 +39,14 @@ export default async function NegotiationPage({
         createdAt={new Date(workspace.deal.createdAt)}
       />
 
-      <main className="page-gutter py-5">
-        <div className="mb-3 flex flex-wrap items-start justify-end gap-3">
+      <main className="negotiation-workspace page-gutter py-8">
+        <NegotiationWorkspaceView workspace={workspace} initialRoundId={focusedRound} reconciliation={reconciliation?.links ?? []} />
+        <div className="mt-12 flex flex-wrap items-start justify-end gap-3">
           <AddRoundForm dealId={workspace.deal.id} />
         </div>
-
-        <div className="mb-3">
+        <div className="mt-3">
           <UploadNegotiationDocument dealId={workspace.deal.id} />
         </div>
-
-        <NegotiationWorkspaceView workspace={workspace} initialRoundId={focusedRound} reconciliation={reconciliation?.links ?? []} />
       </main>
     </div>
   );

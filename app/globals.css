@@ -260,6 +260,49 @@ input[type="radio"] {
   border-radius: 4px;
 }
 
+.negotiation-workspace {
+  background: #f3f0ea;
+  font-family: var(--font-geist), var(--font-sans);
+}
+
+.font-negotiation-serif {
+  font-family: var(--font-instrument-serif), Georgia, "Times New Roman", serif;
+}
+
+@keyframes negotiation-panel-in {
+  from {
+    opacity: 0;
+    transform: translate3d(16px, 0, 0);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes negotiation-panel-in-sheet {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 16px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .negotiation-panel {
+    animation: negotiation-panel-in-sheet 180ms ease-out;
+  }
+
+  @media (min-width: 1280px) {
+    .negotiation-panel {
+      animation-name: negotiation-panel-in;
+    }
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

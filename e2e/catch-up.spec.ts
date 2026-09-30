@@ -17,7 +17,7 @@ test("since catch-up keeps current paper and filters communication around the bo
   await page.goto(`${dealPath}?since=2026-09-29T10:00:00Z`);
   await expect(page.getByText(/Showing changes after/)).toBeVisible();
   await expect(page.getByText(/Current open deal state remains visible/)).toBeVisible();
-  await expect(page.getByText(/\$67/)).toBeVisible();
+  await expect(page.getByText(/\$67/).first()).toBeVisible();
   await expect(page.getByText("Before boundary note")).toHaveCount(0);
   await expect(page.getByText("Exact boundary note")).toHaveCount(0);
   await expect(page.getByRole("heading", { name: "After boundary note" })).toBeVisible();
@@ -26,7 +26,7 @@ test("since catch-up keeps current paper and filters communication around the bo
   await expect(page.getByText(/No meaningful changes since/)).toBeVisible();
   await expect(page.getByText("No communications arrived in this catch-up window.")).toBeVisible();
   await expect(page.getByText("No timeline events occurred in this catch-up window.")).toBeVisible();
-  await expect(page.getByText(/\$67/)).toBeVisible();
+  await expect(page.getByText(/\$67/).first()).toBeVisible();
   await expect(page.getByText("After boundary note")).toHaveCount(0);
 
   await page.goto(`${dealPath}?since=banana`);

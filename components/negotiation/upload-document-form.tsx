@@ -103,13 +103,13 @@ export function UploadNegotiationDocument({
   }
 
   return (
-    <div className="rounded-sm border border-zinc-200 bg-white p-4">
+    <div className={documentsSurface ? "rounded-sm border border-zinc-200 bg-white p-4" : "rounded-md border border-line bg-surface px-4 py-3"}>
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h2 className="text-xs font-semibold uppercase tracking-wider text-zinc-400">
-            {documentsSurface ? "Upload PDF" : "Documents"}
+          <h2 className={documentsSurface ? "text-xs font-semibold uppercase tracking-wider text-zinc-400" : "text-[13px] font-semibold leading-[18px] text-ink"}>
+            {documentsSurface ? "Upload PDF" : "Upload a negotiation PDF"}
           </h2>
-          <p className="mt-1 text-xs text-zinc-500">
+          <p className={documentsSurface ? "mt-1 text-xs text-zinc-500" : "mt-0.5 text-xs leading-4 text-ink-secondary"}>
             {documentsSurface
               ? "Add a source PDF to this deal. Upload, extraction, and analysis use the existing document pipeline."
               : "Upload one text-based negotiation PDF. The deal is the one open on this page."}
@@ -202,7 +202,7 @@ export function UploadNegotiationDocument({
               {summary.termCount} extracted terms
               {" · "}
               <a href={documentsSurface ? `/documents/${summary.id}/review` : "#term-history"} className="underline">
-                {documentsSurface ? "Review document" : "Negotiation intelligence"}
+                {documentsSurface ? "Review document" : "Current positions"}
               </a>
             </p>
           )}

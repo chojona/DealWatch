@@ -49,11 +49,11 @@ export function AddRoundForm({ dealId }: { dealId: string }) {
   }
 
   return (
-    <div className="rounded-sm border border-zinc-300 bg-white p-4 shadow-sm">
-      <div className="mb-4 flex items-start justify-between">
+    <div className="w-full basis-full rounded-md border border-line bg-surface px-4 py-3">
+      <div className="mb-3 flex items-start justify-between gap-3">
         <div>
-          <h2 className="text-sm font-semibold text-zinc-900">Add document round</h2>
-          <p className="mt-0.5 text-[11px] text-zinc-500">
+          <h2 className="text-[13px] font-semibold leading-[18px] text-ink">Add document round</h2>
+          <p className="mt-0.5 text-xs leading-4 text-ink-secondary">
             Paste one complete LOI or counter. Round number is assigned per side.
           </p>
         </div>
@@ -61,58 +61,46 @@ export function AddRoundForm({ dealId }: { dealId: string }) {
           type="button"
           aria-label="Close add round form"
           onClick={() => setOpen(false)}
-          className="rounded-sm p-1 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700"
+          className="rounded-md p-1 text-ink-muted hover:bg-surface-subtle hover:text-ink"
         >
           <X className="h-4 w-4" />
         </button>
       </div>
       <form onSubmit={submit} className="space-y-3">
         <div className="grid gap-3 sm:grid-cols-3">
-          <label className="text-[11px] font-medium text-zinc-600">
+          <label className="field-label">
             Side
-            <select
-              name="side"
-              className="mt-1 h-8 w-full rounded-sm border border-zinc-200 bg-white px-2 text-xs"
-            >
+            <select name="side" className="field mt-1">
               <option value="TENANT">Tenant</option>
               <option value="LANDLORD">Landlord</option>
             </select>
           </label>
-          <label className="text-[11px] font-medium text-zinc-600">
+          <label className="field-label">
             Document name
             <input
               required
               name="documentName"
               placeholder="Tenant counter"
-              className="mt-1 h-8 w-full rounded-sm border border-zinc-200 px-2 text-xs outline-none focus:ring-1 focus:ring-zinc-900"
+              className="field mt-1"
             />
           </label>
-          <label className="text-[11px] font-medium text-zinc-600">
+          <label className="field-label">
             Document date
-            <input
-              required
-              name="documentDate"
-              type="date"
-              className="mt-1 h-8 w-full rounded-sm border border-zinc-200 px-2 text-xs outline-none focus:ring-1 focus:ring-zinc-900"
-            />
+            <input required name="documentDate" type="date" className="field mt-1" />
           </label>
         </div>
-        <label className="block text-[11px] font-medium text-zinc-600">
+        <label className="field-label">
           Document text
           <Textarea
             required
             name="documentText"
             placeholder="Paste the full document text here…"
-            className="mt-1 min-h-48 font-mono text-xs"
+            className="mt-1 min-h-48"
           />
         </label>
-        {error && (
-          <p className="rounded-sm border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
-            {error}
-          </p>
-        )}
-        <div className="flex items-center justify-between">
-          <p className="text-[10px] text-zinc-400">
+        {error && <p className="field-error">{error}</p>}
+        <div className="flex items-center justify-between gap-3">
+          <p className="text-xs leading-4 text-ink-muted">
             Evidence is checked against the pasted source before saving.
           </p>
           <Button disabled={loading} type="submit">

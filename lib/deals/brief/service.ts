@@ -13,7 +13,7 @@ import {
   formalPositionFullyRejected,
   projectFormalBriefStatus,
 } from "./formalStatus";
-import { displayedComparisons } from "./presentation";
+import { communicationFactDetail, communicationFactLabel, displayedComparisons } from "./presentation";
 import type {
   DealBrief,
   DealBriefAttentionItem,
@@ -176,11 +176,17 @@ function presentCommunication(message: BriefMessageRow): DealBriefCommunication 
       const correctionRow = effective.correction
         ? fact.reviews.find((review) => review.correction?.id === effective.correction?.id)?.correction ?? null
         : null;
+      const label = communicationFactLabel({
+        factType: fact.factType,
+        canonicalType: fact.canonicalType,
+        evidenceQuote: fact.evidenceQuote,
+        payload: effective.presentationPayload,
+      });
       return {
         id: fact.id,
         factType: fact.factType,
         canonicalType: fact.canonicalType,
-        label: canonicalLabel(fact.canonicalType ?? fact.factType),
+        label,
         side: fact.side,
         assertionStatus: fact.assertionStatus,
         evidenceQuote: fact.evidenceQuote,
@@ -191,7 +197,11 @@ function presentCommunication(message: BriefMessageRow): DealBriefCommunication 
           createdAt: iso(correctionRow.createdAt),
         } : null,
         presentation: {
-          value: effective.presentationValue.display ?? fact.evidenceQuote,
+          value: communicationFactDetail({
+            label,
+            display: effective.presentationValue.display,
+            evidenceQuote: fact.evidenceQuote,
+          }),
           payload: effective.presentationPayload,
           corrected: Boolean(effective.correction),
         },
@@ -523,9 +533,9 @@ export async function getDealBrief(
     + Math.max(0, nonAnalyzedMilestoneTotal - loadedNonAnalyzedMilestones);
   const recentChanges = orderedChanges.slice(0, changeLimit);
 
-  // Commercial attention is deal work: open or unresolved terms, conflicts,
-  // rejected and withdrawn positions, deadlines, follow-ups, new commercial
-  // evidence, and paper/communication differences.
+  // Commercial attention is deal work: conflicts, deadlines, follow-ups,
+  // new commercial evidence, and paper/communication differences.
+  // Open, unresolved, rejected, and withdrawn statuses stay on Current terms.
   // Operational attention is DealWatch remediation: analysis or extraction
   // failure, plus review-queue debt. Failures stay visible under system
   // attention and are not presented as negotiation issues.
@@ -743,6 +753,13 @@ export async function getDealBrief(
   for (const projected of projectedTerms) {
     const attentionCopy = projected.projection.attention;
     if (!attentionCopy) continue;
+    if (
+      attentionCopy.type === "NEGOTIATION_UNRESOLVED"
+      || attentionCopy.type === "NEGOTIATION_REJECTED"
+      || attentionCopy.type === "NEGOTIATION_WITHDRAWN"
+    ) {
+      continue;
+    }
     const term = projected.term;
     if (attentionCopy.type === "NEGOTIATION_UNRESOLVED"
       && (comparisonTermKeys.has(`${term.canonicalType}:TENANT`)

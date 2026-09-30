@@ -2,6 +2,7 @@ import {
   StructuredActionDirectiveSchema,
   type StructuredActionDirective,
 } from "@/lib/ai/activity/schema";
+import { ACTION_KIND_LABELS } from "./evidenceReviewView";
 import { ACTION_DAY_MS, ACTION_INTELLIGENCE_THRESHOLDS } from "./thresholds";
 import type {
   ActionEvidence,
@@ -91,6 +92,13 @@ function readDirective(payload: unknown): StructuredActionDirective | null {
   if (action == null) return null;
   const parsed = StructuredActionDirectiveSchema.safeParse(action);
   return parsed.success ? parsed.data : null;
+}
+
+function requestDeadlineLabel(fact: ActionFactInput, directive: StructuredActionDirective | null): string {
+  const quote = fact.evidenceQuote.trim();
+  const display = fact.display?.trim() ?? "";
+  if (directive && quote && (!display || display === ACTION_KIND_LABELS[directive.kind])) return quote;
+  return display || quote;
 }
 
 function evidence(fact: ActionFactInput): ActionEvidence {
@@ -262,20 +270,27 @@ export function deriveDealActionState(input: DealActionDerivationInput): DealAct
     });
   }
   actions.sort(compareActions);
+  const actionByFactId = new Map(actions.map((action) => [action.source.factId, action]));
 
   const deadlines: DealDeadline[] = [];
   for (const fact of reviewed) {
     const directive = directives.get(fact.id) ?? null;
     const dueAt = instant(directive?.dueAt);
     const isDeadlineFact = fact.factType === "DEADLINE";
-    const isActionDue = Boolean(directive && ACTION_KINDS.has(directive.kind as DealActionKind) && (dueAt || directive.dueText));
+    const linkedAction = actionByFactId.get(fact.id) ?? null;
+    const isActionDue = Boolean(
+      directive
+      && ACTION_KINDS.has(directive.kind as DealActionKind)
+      && dueAt
+      && linkedAction?.status === "OPEN",
+    );
     if (!isDeadlineFact && !isActionDue) continue;
     if (meetingKind(fact.factType, directive)) continue;
     const timing = deadlineTiming(dueAt, now);
     deadlines.push({
       id: `deadline:${fact.id}`,
       kind: isDeadlineFact ? "HARD_DEADLINE" : "RESPONSE_DUE",
-      label: fact.display || fact.evidenceQuote,
+      label: isDeadlineFact ? (fact.display || fact.evidenceQuote) : requestDeadlineLabel(fact, directive),
       dueAt,
       dueText: directive?.dueText ?? (dueAt ? null : fact.display),
       passed: timing.passed,

@@ -48,7 +48,6 @@ import type {
   FormalObservationReview,
   NegotiationTermView,
   NegotiationWorkspace,
-  NegotiationWorkspaceFilter,
 } from "./types";
 
 const workspaceSelect = {
@@ -763,16 +762,7 @@ export function buildNegotiationWorkspace(
   };
 }
 
-export function filterNegotiationTerms(
-  terms: NegotiationTermView[],
-  filter: NegotiationWorkspaceFilter
-): NegotiationTermView[] {
-  if (filter === "ALL") return terms;
-  if (filter === "AGREED") return terms.filter((term) => term.status === "AGREED");
-  if (filter === "CONFLICTS") return terms.filter((term) => term.conflict);
-  if (filter === "CHANGED") return terms.filter((term) => term.changedInLatestRound);
-  return terms.filter((term) => termCountsAsOpen(term));
-}
+export { filterNegotiationTerms } from "./workspace-present";
 
 export async function getNegotiationWorkspace(
   db: PrismaClient,

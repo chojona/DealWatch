@@ -23,7 +23,8 @@ export function PositionRail({ term }: { term: NegotiationTermView }) {
         </p>
       </div>
       <div className="relative mt-4 h-3" aria-hidden="true">
-        <div className="absolute inset-x-0 top-1/2 h-px bg-[#d9d3c8]" />
+        <div className="absolute top-1/2 h-px w-8 -translate-x-1/2 bg-[#214e46]/35" style={{ left: "18%" }} />
+        <div className="absolute top-1/2 h-px w-8 -translate-x-1/2 bg-[#8c5a3c]/35" style={{ left: "82%" }} />
         <div className="absolute top-1/2 h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#214e46]" style={{ left: "18%" }} />
         <div className="absolute top-1/2 h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#8c5a3c]" style={{ left: "82%" }} />
       </div>

@@ -8,6 +8,7 @@ import type {
   NegotiationPositionView,
   NegotiationRoundChangeView,
   NegotiationTermView,
+  NegotiationWorkspaceFilter,
 } from "./types";
 
 const significance = new Map(TERM_CATALOG.map((item) => [item.type, item.significance]));
@@ -160,6 +161,18 @@ export function storedRelation(term: NegotiationTermView): string | null {
     default:
       return null;
   }
+}
+
+/** Open uses the shared formal open predicate. All is every current term, including agreed terms. */
+export function filterNegotiationTerms(
+  terms: NegotiationTermView[],
+  filter: NegotiationWorkspaceFilter,
+): NegotiationTermView[] {
+  if (filter === "ALL") return terms;
+  if (filter === "AGREED") return terms.filter((term) => term.status === "AGREED");
+  if (filter === "CONFLICTS") return terms.filter((term) => term.conflict);
+  if (filter === "CHANGED") return terms.filter((term) => term.changedInLatestRound);
+  return terms.filter((term) => termCountsAsOpen(term));
 }
 
 export function agreedSummary(terms: NegotiationTermView[]): Array<{ type: CanonicalTermType; label: string; summary: string }> {

@@ -61,23 +61,23 @@ Name: DealWatch.
 
 Voice: precise, institutional, and operational. Say what the paper says, what the email says, and what the operator needs to do. Do not decorate status or soften a difference into a marketing claim.
 
-Character: institutional, information-dense, fast to scan, restrained, trustworthy, precise, sophisticated, and operational rather than decorative.
+Character: institutional, calm, precise, trustworthy, and sophisticated. The product is simple by default and powerful on demand. It is operational rather than decorative.
+
+The core product principle is: **simple by default, powerful on demand.**
+
+Maximum information density, permanent on-screen evidence, tiny typography, and comparison matrices are not the default visual standard. Complexity is revealed when someone asks for it. Simplicity hides complexity. It does not hide information. Domain semantics and evidence rules outrank visual elegance.
 
 ### Approved visual foundation
 
-These decisions are binding. They are the product direction for later refinement. They are not a new visual world.
+These decisions are the product direction. Negotiation is the first screen built to them. Other existing screens stay as they are until a later, separate change.
 
-Typography is Inter.
+Typography:
 
-- Meta: 12 / 400
-- Label: 13 / 500
-- Body and table: 14 / 400
-- Values: 14 / 500
-- Section: 14 / 600
-- Page title: 20 / 600
-- Commercial values: up to 16 / 600, with tabular numerals
+- Application UI uses Geist.
+- Instrument Serif may be used for major commercial figures, the decision sentence, and evidence quotations.
+- Do not spread the serif into navigation, buttons, labels, status, metadata, forms, or general body UI. It is controlled product character.
 
-Spacing uses the existing 4px scale (`--space-1` = 4px and its multiples). Product layouts stay dense. Do not add whitespace for its own sake.
+Spacing uses the existing 4px scale (`--space-1` = 4px and its multiples). Whitespace is functional when it improves comprehension.
 
 Radius:
 
@@ -86,19 +86,33 @@ Radius:
 
 Surfaces:
 
-- Light application canvas
-- White and subtle product surfaces
-- The sidebar is the primary dark surface
-- Hairline borders where structure is necessary
-- No decorative shadows
+- A warm, light application canvas
+- White for a selected row and for paper
+- Subtle elevation and soft shadows where hierarchy needs them
+- The sidebar remains the primary dark surface
+- Hairline structure only where alignment is not enough
 
 Color:
 
-- Brand green is for the primary action, current navigation, and formal-paper identity. Shipped brand is `#214e46` (`--color-brand`), with hover `#193f39`.
+- Brand green is for the primary action, current navigation, and the tenant side of a position. Shipped brand is `#214e46` (`--color-brand`), with hover `#193f39`.
+- The landlord side of a position uses oxidized copper, distinct from tenant green.
 - Semantic colors are only for meaningful state. Warning, success, danger, info, and neutral keep the meanings in Capabilities and Constraints.
 - Do not infer domain meaning from a status word alone. Status context matters.
 
-Shipped tokens that are larger than this foundation are leftovers, not the approved direction. Do not copy them forward. As of this record they include `.page-title` at 30px, `.section-title` at 20px, `CommercialValue` and differing `ComparisonValue` figures at 20px, `--radius-button` at 8px, and `--radius-surface` at 12px. Future refinement moves toward the scale and radius above.
+Motion, when it explains state or change, is 150–200ms and ease-out. Respect `prefers-reduced-motion`.
+
+### Negotiation workspace
+
+The default Negotiation workspace answers: what is the next decision?
+
+- Open terms are the primary surface.
+- Agreed terms collapse into a quieter summary. Their underlying detail stays reachable.
+- Numeric terms with directly comparable values in the same unit use the Position Rail: tenant position, landlord position, gap, and one step of movement.
+- Qualitative terms use the Qualitative Pair: tenant position, landlord position, and a relation that already exists in DealWatch state.
+- Conditional or shared-date terms, including commencement conditions, stay prose when a scale would misrepresent the negotiation.
+- The default surface shows the current tenant position, the current landlord position, the gap or relation, one step of movement, a decision sentence derived from stored positions, and the agreed summary.
+- Selecting a term keeps the open list in view and reveals chronology, formal sentences, source documents and dates, conflict state, companion facts DealWatch already knows are agreed, and deeper evidence.
+- The two-position mark is a recurring DealWatch motif. It is not applied to every control.
 
 ### Approved primitives
 
@@ -110,24 +124,24 @@ Prefer the shared implementations. Do not create a local replacement without a r
 - Commercial value: `components/ui/commercial-value.tsx`. Values wrap (`break-words`) and use tabular numerals.
 - Comparison: `components/ui/comparison-value.tsx`. Paper and email stay in separate columns.
 - Source: `components/ui/source-link.tsx`.
-- Evidence quote: the quote already rendered with the comparison, plus `EvidencePanel` in `components/knowledge/evidence-panel.tsx`. There is no `EvidenceQuote` component. Do not add a decorative quote treatment.
+- Evidence quote: `EvidenceQuote` in `components/ui/evidence-quote.tsx`, plus `EvidencePanel` in `components/knowledge/evidence-panel.tsx`. On Negotiation, quotations may use Instrument Serif. The quote remains the stored source text.
 - Fields: `.field` and `.field-label` in `app/globals.css`.
 
 `FilterChip` exists only as a local control in `components/connections/connection-map.tsx`, and it still uses an older zinc treatment. Do not copy that chip onto other screens. A shared filter chip, if one is needed, follows this foundation.
 
-### Deal Overview reference
+### Deal Overview
 
-Treat `components/deals/deal-brief.tsx` with `components/deals/deal-header.tsx` as the canonical reference for density, hierarchy, terms, commercial values, status, evidence, paper versus communication, responsive stacking, and panel treatment.
+`components/deals/deal-brief.tsx` with `components/deals/deal-header.tsx` remains the Deal Overview. It is not the visual standard for Negotiation. Overview behavior to preserve: paper and email stay distinct, commercial values wrap, and status follows the fact in context.
 
-Hierarchy comes from alignment, weight, grouping, and order. Sections stack with a hairline top rule, not a pile of cards. Terms flow into a wrapping grid (one column, then two, three, and four). Paper and email comparisons stack on narrow widths and sit side by side from the small breakpoint up. Future screens should feel like this screen.
+Hierarchy should come from composition, alignment, weight, and order before boxes, borders, and labels.
 
 ### Avoid
 
-Generic AI SaaS styling, giant cards, excessive cards, excessive radius, gradients, glassmorphism, grain or noise, decorative shadows, parallax, giant display typography, excessive whitespace, random dark panels, unnecessary animation, marketing-site layouts, decorative status colors, unnecessary icon-library changes, rebuilding navigation for novelty, and local component styling when an approved primitive exists.
+Generic SaaS card grids, excessive borders, gradients for decoration, glassmorphism, giant marketing typography, decorative animation, visual clutter, grain or noise, parallax, random dark panels, decorative status colors, unnecessary icon-library changes, rebuilding navigation for novelty, and local component styling when an approved primitive exists.
 
 ### Preserve
 
-Existing product terminology, routes, workflows, sidebar structure, deal navigation, evidence semantics, negotiation and domain behavior, accessibility, Inter, Lucide, the green brand, reduced-motion behavior, and focus-visible behavior.
+Existing product terminology, routes, workflows, sidebar structure, deal navigation, evidence semantics, negotiation resolver behavior, formal truth, accessibility, Lucide, the green brand, reduced-motion behavior, and focus-visible behavior. Formal paper and communication stay semantically distinct.
 
 ## Evidence on Hand
 
@@ -141,18 +155,24 @@ Do not fabricate customers, testimonials, benchmarks, pricing, or licensing.
 
 ## Product Principles
 
-1. The position, side, status, source, and next action are the interface.
-2. One consistent status language across the product.
-3. Formal paper and communication must remain visibly and semantically distinct.
-4. Communication evidence never visually implies that it replaced formal paper.
-5. Density is intentional.
-6. Hierarchy should come from alignment, weight, grouping, and ordering, not giant typography or excessive whitespace.
-7. Commercial values are primary information.
-8. Important commercial values should wrap rather than truncate.
-9. Evidence should be available at the point of decision.
-10. Color communicates facts and state, not decoration.
-11. Existing terminology and workflows should remain stable unless there is a demonstrated usability problem.
-12. Refinement should preserve product identity and behavior.
+Simple by default. Powerful on demand.
+
+1. Every screen has one obvious purpose.
+2. Show the next decision before showing supporting detail.
+3. Complexity is revealed progressively.
+4. Open work receives visual priority. Settled work recedes.
+5. Commercial values should be immediately understandable and visually memorable. Important values wrap. They do not truncate.
+6. Whitespace is functional when it improves comprehension.
+7. Prefer hierarchy and composition over boxes, borders, and labels.
+8. Evidence appears at the moment a user needs to verify a decision.
+9. Movement should be visualized when possible rather than described only in prose.
+10. Formal paper and communication remain semantically distinct. Communication never visually implies that it replaced formal paper.
+11. Motion is allowed when it explains state or change.
+12. DealWatch should have recognizable product-native visual components.
+13. Simplicity must not remove truth. Progressive disclosure hides complexity, not information.
+14. Domain semantics and evidence rules always outrank visual elegance.
+
+One consistent status language remains in force. Existing terminology and workflows stay stable unless a demonstrated usability problem requires a change. Color communicates facts and state.
 
 ## Accessibility & Inclusion
 

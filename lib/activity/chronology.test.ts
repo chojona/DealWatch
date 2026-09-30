@@ -435,4 +435,57 @@ describe("activity chronology", { concurrency: 1 }, () => {
       await db.cleanup();
     }
   });
+
+  test("saved thread-analyzer events are not current commercial history", async () => {
+    const db = await createTestDatabase();
+    try {
+      const deal = await createTestDeal(db.prisma);
+      const thread = await db.prisma.thread.create({
+        data: {
+          dealId: deal.id,
+          subject: "500 Atlantic",
+          participants: JSON.stringify(["Analyzed via Thread Analyzer"]),
+        },
+      });
+      const analyzed = await db.prisma.message.create({
+        data: {
+          threadId: thread.id,
+          sender: "Thread Analyzer",
+          recipients: JSON.stringify(["dealwatch@internal"]),
+          sentAt: new Date("2026-09-23T00:00:00.000Z"),
+          body: "Unreviewed model output",
+        },
+      });
+      await db.prisma.dealEvent.create({
+        data: {
+          dealId: deal.id,
+          messageId: analyzed.id,
+          type: "PROPOSAL_SENT",
+          description: "Model said the tenant proposed $58/RSF",
+          occurredAt: new Date("2026-09-22T00:00:00.000Z"),
+          confidence: 0.9,
+          evidenceQuote: "Base rent: $58.00/RSF NNN",
+        },
+      });
+      await db.prisma.dealEvent.create({
+        data: {
+          dealId: deal.id,
+          type: "EMAIL",
+          description: "Landlord issued legacy counter at $72.50/RSF/year.",
+          occurredAt: new Date("2026-09-29T09:00:00.000Z"),
+          confidence: 1,
+          evidenceQuote: "Base rent: $72.50/RSF/year",
+        },
+      });
+
+      const page = await activity(db.prisma, deal.id);
+      const legacy = page.events.filter((event) => event.sourceType === "DEAL_EVENT");
+      assert.equal(legacy.length, 1);
+      assert.match(legacy[0]?.description ?? "", /\$72\.50/);
+      assert.equal(JSON.stringify(page).includes("$58"), false);
+      assert.equal(JSON.stringify(page).includes("Thread Analyzer"), false);
+    } finally {
+      await db.cleanup();
+    }
+  });
 });

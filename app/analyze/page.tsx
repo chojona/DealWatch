@@ -13,7 +13,7 @@ export default function AnalyzePage() {
             Analyze Thread
           </h1>
           <p className="mt-1 text-xs text-zinc-400 max-w-xl">
-            This older path creates legacy obligation and deal-event records from a pasted thread.
+            This older path previews a pasted thread and does not save it as deal history.
             New work starts from Create Deal. The modern workspace uses documents, messages, the brief, actions, and negotiation.
           </p>
         </div>

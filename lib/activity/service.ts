@@ -437,6 +437,12 @@ function formalReviewSnapshot(review: {
   };
 }
 
+const LEGACY_THREAD_ANALYZER_SENDER = "Thread Analyzer";
+
+function isUnreviewedThreadAnalysis(event: { message: { sender: string } | null }): boolean {
+  return event.message?.sender === LEGACY_THREAD_ANALYZER_SENDER;
+}
+
 function compareEvent(a: Pick<ActivityEvent, "occurredAt" | "recordedAt" | "id">, b: Pick<ActivityEvent, "occurredAt" | "recordedAt" | "id">): number {
   if (a.occurredAt && !b.occurredAt) return -1;
   if (!a.occurredAt && b.occurredAt) return 1;
@@ -487,7 +493,9 @@ export async function getActivityPage(db: GraphDb, input: ActivityQuery): Promis
   ]);
   const coveredEvents = linkedLegacyEventIds(sources.messages);
   const factsForEvent = eventFactsByEventId(sources.eventFacts);
-  const visibleEvents = dealEvents.filter((event) => !coveredEvents.has(event.id));
+  const visibleEvents = dealEvents.filter(
+    (event) => !coveredEvents.has(event.id) && !isUnreviewedThreadAnalysis(event)
+  );
 
   const reconciliation = linksByActivityEventId({
     events: [

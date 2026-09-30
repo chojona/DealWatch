@@ -3,6 +3,7 @@ import { canonicalEntityHref } from "@/lib/intelligence/routes";
 import type { InboxItem } from "@/lib/inbox/types";
 import { processingLabel } from "@/lib/inbox/status";
 import { DOCUMENT_TYPE_LABELS } from "@/lib/documents/labels";
+import { termCountsAsOpen } from "@/lib/deals/brief/formalStatus";
 import { formatNumericValue } from "@/lib/negotiation/intelligence/formatting";
 import type {
   NegotiationEvidenceView,
@@ -135,7 +136,7 @@ function openRank(term: NegotiationTermView): number {
 
 function openItems(terms: NegotiationTermView[]): DealOpenItem[] {
   return terms
-    .filter((term) => term.status !== "AGREED")
+    .filter((term) => termCountsAsOpen(term))
     .map((term) => {
       const latest = latestObservation(term);
       const evidence = latest ? [latest.evidence] : [];
@@ -521,7 +522,7 @@ function healthFrom(input: {
     failedDocumentCount: count("FAILED"),
     processingDocumentCount: count("ANALYZING"),
     negotiationTermCount: input.workspace.terms.length,
-    openTermCount: input.workspace.terms.filter((term) => term.status !== "AGREED").length,
+    openTermCount: input.workspace.summary.openCount,
     agreedTermCount: input.workspace.terms.filter((term) => term.status === "AGREED").length,
     conflictCount: input.workspace.terms.filter((term) => term.conflict).length,
     unresolvedEntityCount: input.documents.reduce((sum, item) => sum + item.entityReviewSummary.unresolved, 0),

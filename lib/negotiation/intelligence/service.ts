@@ -32,6 +32,7 @@ import { TERM_CATALOG } from "@/lib/negotiation/termCatalog";
 import { negotiationReviewSummaries } from "@/lib/review/decisions";
 import { getDocumentStorage } from "@/lib/documents/storage";
 import { inspectSourceFile } from "@/lib/documents/sourceFile";
+import { termCountsAsOpen } from "@/lib/deals/brief/formalStatus";
 import { formatLegacyTerm, formatNumericValue, formatStructuredPayload } from "./formatting";
 import { calculateWorkspaceMovement, observationFingerprint } from "./movement";
 import type {
@@ -733,7 +734,7 @@ export function buildNegotiationWorkspace(
   ).filter((term): term is NegotiationTermView => term !== null);
   const agreedCount = terms.filter((term) => term.status === "AGREED").length;
   const conflictCount = terms.filter((term) => term.conflict).length;
-  const unresolvedCount = terms.filter((term) => term.status !== "AGREED").length;
+  const openCount = terms.filter((term) => termCountsAsOpen(term)).length;
   return {
     deal: {
       id: source.id,
@@ -747,7 +748,7 @@ export function buildNegotiationWorkspace(
       createdAt: source.createdAt.toISOString(),
     },
     summary: {
-      openCount: unresolvedCount,
+      openCount,
       agreedCount,
       conflictCount,
       changedThisRoundCount: latestRound?.changedCount ?? 0,
@@ -756,7 +757,7 @@ export function buildNegotiationWorkspace(
     rounds: roundViews,
     documents: documents(source, roundViews),
     latestRound,
-    unresolvedCount,
+    unresolvedCount: openCount,
     agreedCount,
     conflictCount,
   };
@@ -770,7 +771,7 @@ export function filterNegotiationTerms(
   if (filter === "AGREED") return terms.filter((term) => term.status === "AGREED");
   if (filter === "CONFLICTS") return terms.filter((term) => term.conflict);
   if (filter === "CHANGED") return terms.filter((term) => term.changedInLatestRound);
-  return terms.filter((term) => term.status !== "AGREED");
+  return terms.filter((term) => termCountsAsOpen(term));
 }
 
 export async function getNegotiationWorkspace(

@@ -257,6 +257,8 @@ describe("Phase 11 deterministic action intelligence", { concurrency: 1 }, () =>
     const undated = state.outstandingActions.find((action) => action.description === "Please confirm receipt.");
     assert.equal(undated?.dueAt, null);
     assert.equal(state.deadlines.some((deadline) => deadline.dueAt === "2026-10-02T15:00:00-04:00" && deadline.dueText === "Friday"), true);
+    assert.equal(state.deadlines.some((deadline) => deadline.dueText === "soon"), false);
+    assert.equal(state.upcoming.some((item) => item.href === undated?.source.href && item.timingLabel === "Date not specified"), false);
     assert.equal(state.actions.every((action) => action.source.factId && action.source.timestamp && action.source.href), true);
   });
 
@@ -406,7 +408,14 @@ describe("Phase 11 deterministic action intelligence", { concurrency: 1 }, () =>
       factType: "OTHER",
       quote: "Please send the revised proposal.",
       review: true,
-      payload: payload({ action: directive({ kind: "DOCUMENT_REQUESTED", responsibleSide: "COUNTERPARTY" }) }),
+      payload: payload({
+        display: "Document requested",
+        action: directive({
+          kind: "DOCUMENT_REQUESTED",
+          responsibleSide: "COUNTERPARTY",
+          dueText: "by Friday",
+        }),
+      }),
     });
     await record(closed, {
       subject: "Proposal attached",
@@ -427,6 +436,8 @@ describe("Phase 11 deterministic action intelligence", { concurrency: 1 }, () =>
     assert.equal(closedState?.court.value, "NONE");
     assert.equal(closedState?.actions[0]?.source.evidenceQuote, "Please send the revised proposal.");
     assert.equal(closedState?.actions[0]?.fulfillment?.evidenceQuote, "Attached is the revised proposal.");
+    assert.equal(closedState?.upcoming.some((item) => item.label === "Document requested"), false);
+    assert.equal(closedState?.deadlines.some((deadline) => deadline.dueText === "by Friday"), false);
     assert.ok(closedState?.court.evidence.length);
 
     const ambiguous = await createTestDeal(db);

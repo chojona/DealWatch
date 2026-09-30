@@ -53,7 +53,7 @@ export default async function DealPage({
         estimatedValue={brief.deal.estimatedValue}
         createdAt={new Date(brief.deal.createdAt)}
       />
-      <main className="page-frame">
+      <main className="page-gutter py-5">
         <DealBriefView brief={brief} actionEvidence={actionEvidence?.items ?? []} />
       </main>
     </div>

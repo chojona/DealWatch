@@ -1,3 +1,6 @@
+import { ActivityStructuredPayloadSchema } from "@/lib/ai/activity/schema";
+import { ACTION_KIND_LABELS } from "@/lib/deals/actions/evidenceReviewView";
+import { canonicalLabel } from "@/lib/messages/facts";
 import type { DealEvidenceComparison, DealEvidenceComparisonOutcome } from "./types";
 
 /**
@@ -12,6 +15,38 @@ export const BRIEF_SECTION_CAPS = {
   timeline: 10,
   comparisons: 6,
 } as const;
+
+/**
+ * Label a communication fact with the commercial thing it records.
+ * Action directives are stored as OTHER, so the raw type would read "Other".
+ */
+export function communicationFactLabel(input: {
+  factType: string;
+  canonicalType: string | null;
+  evidenceQuote: string;
+  payload: unknown;
+}): string {
+  if (input.canonicalType) return canonicalLabel(input.canonicalType);
+  const parsed = ActivityStructuredPayloadSchema.safeParse(input.payload);
+  const kind = parsed.success ? parsed.data.action?.kind ?? null : null;
+  if (kind) return ACTION_KIND_LABELS[kind];
+  if (input.factType !== "OTHER") return canonicalLabel(input.factType);
+  const quote = input.evidenceQuote.trim();
+  if (!quote) return "Communication note";
+  return quote.length > 90 ? `${quote.slice(0, 87)}…` : quote;
+}
+
+/** Value beside that label. A kind name repeated as the display is not the request. */
+export function communicationFactDetail(input: {
+  label: string;
+  display: string | null;
+  evidenceQuote: string;
+}): string {
+  const display = input.display?.trim() ?? "";
+  const quote = input.evidenceQuote.trim();
+  if (!display || display === input.label) return quote || display || input.label;
+  return display;
+}
 
 export function hiddenCount(total: number, cap: number): number {
   return Math.max(0, total - cap);

@@ -223,18 +223,17 @@ describe("Deal Brief status, counts, and truncation", { concurrency: 1 }, () => 
       assert.equal(brief.negotiation.summary.rejectedCount, 1);
       assert.equal(brief.negotiation.summary.withdrawnCount, 1);
 
-      const rejected = brief.productAttention.find((item) => item.type === "NEGOTIATION_REJECTED");
-      const withdrawn = brief.productAttention.find((item) => item.type === "NEGOTIATION_WITHDRAWN");
-      assert.equal(rejected?.label, "Free rent / abatement was rejected");
-      assert.equal(withdrawn?.label, "Security deposit was withdrawn");
-      assert.equal(brief.productAttention.some((item) => item.label === "Base rent remains open"), true);
-      assert.equal(brief.productAttention.some((item) => item.label === "TI allowance is unresolved"), true);
-      assert.equal(brief.productAttention.some((item) => /free rent/i.test(item.label) && /unresolved/i.test(item.label)), false);
+      assert.equal(brief.productAttention.some((item) => item.type === "NEGOTIATION_REJECTED"), false);
+      assert.equal(brief.productAttention.some((item) => item.type === "NEGOTIATION_WITHDRAWN"), false);
+      assert.equal(brief.productAttention.some((item) => item.type === "NEGOTIATION_UNRESOLVED"), false);
+      assert.equal(brief.productAttention.some((item) => item.label === "Base rent remains open"), false);
+      assert.equal(brief.productAttention.some((item) => item.label === "TI allowance is unresolved"), false);
+      assert.equal(brief.productAttention.some((item) => item.label === "Free rent / abatement was rejected"), false);
+      assert.equal(brief.productAttention.some((item) => item.label === "Security deposit was withdrawn"), false);
 
       const attentionHidden = hiddenCount(brief.preview.attention.total, BRIEF_SECTION_CAPS.attention);
       assert.equal(brief.preview.attention.total, brief.productAttention.length);
-      assert.ok(attentionHidden > 0);
-      assert.equal(attentionHidden, brief.productAttention.length - BRIEF_SECTION_CAPS.attention);
+      assert.equal(attentionHidden, Math.max(0, brief.productAttention.length - BRIEF_SECTION_CAPS.attention));
       assert.deepEqual(
         brief.productAttention.map((item) => item.id),
         [...brief.productAttention].sort((left, right) => left.priority - right.priority

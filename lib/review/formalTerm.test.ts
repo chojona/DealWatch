@@ -249,7 +249,7 @@ describe("formal negotiation truth", () => {
     assert.equal(briefRent?.briefStatus, "REJECTED");
     assert.equal(briefRent?.statusLabel, "Rejected");
     assert.equal(brief?.negotiation.summary.openCount, 0);
-    assert.equal(brief?.productAttention.some((item) => item.label === "Base rent was rejected"), true);
+    assert.equal(brief?.productAttention.some((item) => item.label === "Base rent was rejected"), false);
   });
 
   test("an activity-fact correction cannot change the formal term", async () => {

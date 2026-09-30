@@ -55,12 +55,26 @@ test("a withdrawn extraction renders Withdrawn", async ({ page }) => {
 });
 
 test("attention shows the first six items and reveals the remainder", async ({ page }) => {
+  test.setTimeout(180_000);
   await createDeal(page, "Attention remainder");
-  const file = writeTextPdf("attention.pdf", ATTENTION_BOARD);
-  await uploadPdf(page, file, { date: "2026-09-15" });
-  await expect(page.getByText("Analysis complete", { exact: true }).first()).toBeVisible();
+  const uploads = [
+    { name: "attention.pdf", text: ATTENTION_BOARD, date: "2026-09-15" },
+    ...Array.from({ length: 7 }, (_, index) => ({
+      name: `attention-extra-${index}.pdf`,
+      text: `Base Rent: $${80 + index}.00 per rentable square foot per year`,
+      date: `2026-09-${String(16 + index).padStart(2, "0")}`,
+    })),
+  ];
+  for (const upload of uploads) {
+    const file = writeTextPdf(upload.name, upload.text);
+    await uploadPdf(page, file, { date: upload.date });
+    await expect(page.getByText(upload.name).first()).toBeVisible();
+    await expect(page.getByText("Analysis complete", { exact: true }).first()).toBeVisible();
+    await page.getByRole("button", { name: "Close" }).click();
+  }
   await page.getByRole("link", { name: "Overview" }).click();
   const attention = page.getByRole("heading", { name: "Needs you" }).locator("xpath=ancestor::section[1]");
+  await expect(attention.getByText(/remains open|is unresolved|was rejected|was withdrawn/)).toHaveCount(0);
   await expect(attention.getByRole("listitem")).toHaveCount(6);
   const more = attention.getByText(/\+ \d+ more items need attention/);
   await expect(more).toBeVisible();

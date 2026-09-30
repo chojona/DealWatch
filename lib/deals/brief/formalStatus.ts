@@ -202,3 +202,18 @@ export function countOpenFormalTerms(
 ): number {
   return terms.filter((term) => term.countsAsOpen).length;
 }
+
+/** Shared open-term predicate for Brief, Negotiation, meeting prep, and deal overview. */
+export function termCountsAsOpen(term: {
+  label: string;
+  status: string;
+  conflict: boolean;
+  history: ReadonlyArray<{ formalReview: { state: string } | null }>;
+}): boolean {
+  return projectFormalBriefStatus({
+    label: term.label,
+    status: term.status,
+    conflict: term.conflict,
+    reviewRejected: formalPositionFullyRejected(term.history),
+  }).countsAsOpen;
+}

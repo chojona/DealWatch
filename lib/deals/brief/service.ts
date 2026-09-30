@@ -761,11 +761,6 @@ export async function getDealBrief(
       continue;
     }
     const term = projected.term;
-    if (attentionCopy.type === "NEGOTIATION_UNRESOLVED"
-      && (comparisonTermKeys.has(`${term.canonicalType}:TENANT`)
-        || comparisonTermKeys.has(`${term.canonicalType}:LANDLORD`))) {
-      continue;
-    }
     productAttention.push({
       id: `negotiation-${attentionCopy.type.toLowerCase()}:${term.canonicalType}`,
       type: attentionCopy.type,

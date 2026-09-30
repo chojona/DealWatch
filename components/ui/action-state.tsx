@@ -28,7 +28,7 @@ export function ActionState({
   return (
     <div>
       <Status tone={state.tone}>{state.label}</Status>
-      <p className="mt-2 text-[15px] font-semibold leading-snug text-ink">{summary}</p>
+      <p className="mt-2 text-sm font-semibold leading-snug text-ink">{summary}</p>
       {meta ? <p className="mt-1 text-[13px] text-ink-secondary">{meta}</p> : null}
       {source ? <div className="mt-2">{source}</div> : null}
     </div>

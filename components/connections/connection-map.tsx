@@ -3,6 +3,7 @@
 import dynamic from "next/dynamic";
 import { useEffect, useMemo, useState } from "react";
 import { EvidencePanel } from "@/components/knowledge/evidence-panel";
+import { FilterChip } from "@/components/ui/filter-chip";
 
 const GraphCanvas = dynamic(
   () => import("@/components/connections/graph-canvas").then((mod) => mod.GraphCanvas),
@@ -211,8 +212,8 @@ export function ConnectionMap({
     <div className="flex h-[calc(100dvh-18rem)] min-h-[520px] flex-col lg:h-[calc(100dvh-14rem)]">
       <div className="flex flex-wrap items-center gap-2 border-b border-zinc-200 bg-[#f7f6f3] px-4 py-2">
         <div className="flex items-center gap-1">
-          <FilterChip pressed={mode === "explore"} label="Explore" onClick={() => setMode("explore")} />
-          <FilterChip pressed={mode === "connect"} label="Find connection" onClick={() => setMode("connect")} />
+          <FilterChip pressed={mode === "explore"} onClick={() => setMode("explore")}>Explore</FilterChip>
+          <FilterChip pressed={mode === "connect"} onClick={() => setMode("connect")}>Find connection</FilterChip>
         </div>
         <div className="relative">
           <label className="sr-only" htmlFor="graph-search">
@@ -286,14 +287,15 @@ export function ConnectionMap({
             <FilterChip
               key={filter.id}
               pressed={filters.nodeTypes[filter.id]}
-              label={filter.label}
               onClick={() =>
                 setFilters((current) => ({
                   ...current,
                   nodeTypes: { ...current.nodeTypes, [filter.id]: !current.nodeTypes[filter.id] },
                 }))
               }
-            />
+            >
+              {filter.label}
+            </FilterChip>
           ))}
         </div>
         <div className="hidden h-4 w-px bg-zinc-300 sm:block" />
@@ -302,14 +304,15 @@ export function ConnectionMap({
             <FilterChip
               key={filter.id}
               pressed={filters.groups[filter.id]}
-              label={filter.label}
               onClick={() =>
                 setFilters((current) => ({
                   ...current,
                   groups: { ...current.groups, [filter.id]: !current.groups[filter.id] },
                 }))
               }
-            />
+            >
+              {filter.label}
+            </FilterChip>
           ))}
         </div>
       </div>
@@ -547,29 +550,6 @@ function StrengthBlock({ edge }: { edge: GraphEdge }) {
         ))}
       </ul>
     </div>
-  );
-}
-
-function FilterChip({
-  pressed,
-  label,
-  onClick,
-}: {
-  pressed: boolean;
-  label: string;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      aria-pressed={pressed}
-      onClick={onClick}
-      className={`rounded-sm border px-2 py-1 text-[11px] ${
-        pressed ? "border-zinc-900 bg-zinc-900 text-white" : "border-zinc-300 bg-white text-zinc-500"
-      }`}
-    >
-      {label}
-    </button>
   );
 }
 

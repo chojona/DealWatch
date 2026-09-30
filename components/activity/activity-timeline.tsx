@@ -3,6 +3,9 @@
 import Link from "next/link";
 import { useState } from "react";
 import { ReconciliationBadge, ReconciliationDetail } from "@/components/deals/reconciliation-context";
+import { EvidenceQuote } from "@/components/ui/evidence-quote";
+import { filterChipClass } from "@/components/ui/filter-chip";
+import { StatusChip } from "@/components/ui/status-chip";
 import { EvidencePanel } from "@/components/knowledge/evidence-panel";
 import type { ActivityEvent, ActivityFilter, ActivityPage, ActivityRootType } from "@/lib/activity/types";
 
@@ -54,13 +57,6 @@ function groupEvents(events: ActivityEvent[]) {
   return [...groups.entries()];
 }
 
-function statusClass(status: string): string {
-  if (status === "AGREED" || status === "ACCEPTED") return "bg-green-50 text-green-700";
-  if (status === "REJECTED") return "bg-red-50 text-red-700";
-  if (status === "WITHDRAWN" || status === "HISTORICAL") return "bg-zinc-100 text-zinc-600";
-  return "bg-blue-50 text-blue-700";
-}
-
 function EventCard({ event }: { event: ActivityEvent }) {
   const source = sourceAction(event);
   return (
@@ -71,7 +67,7 @@ function EventCard({ event }: { event: ActivityEvent }) {
           <div className="flex flex-wrap items-center gap-2">
             <span className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500">{eventLabels[event.eventType]}</span>
             <ReconciliationBadge links={event.reconciliation} />
-            {event.resolutionState === "PENDING" && <span className="rounded-sm bg-amber-50 px-1.5 py-0.5 text-[9px] font-semibold uppercase text-amber-700">Pending / unresolved</span>}
+            {event.resolutionState === "PENDING" && <StatusChip status="PENDING">Pending / unresolved</StatusChip>}
           </div>
           <h4 className="mt-0.5 text-sm font-semibold text-zinc-900">{event.title}</h4>
           {event.description && <p className="mt-0.5 text-xs leading-5 text-zinc-600">{event.description}</p>}
@@ -106,11 +102,11 @@ function EventCard({ event }: { event: ActivityEvent }) {
                 <span className="font-medium text-zinc-700">{detail.label}{detail.side ? <span className="ml-2 font-normal text-zinc-500">{detail.side}</span> : null}</span>
                 <div className="text-right">
                   <span className="text-zinc-900">{detail.previousValue ? <><span className="text-zinc-400 line-through">{detail.previousValue}</span><span className="mx-1.5 text-zinc-400">→</span></> : null}{detail.value}</span>
-                  <span className={`ml-2 rounded-sm px-1.5 py-0.5 text-[9px] font-semibold ${statusClass(detail.status)}`}>{detail.status}</span>
+                  <span className="ml-2"><StatusChip status={detail.status}>{detail.status}</StatusChip></span>
                 </div>
               </div>
               {detail.reconciliation && <div className="mt-1"><ReconciliationBadge links={[detail.reconciliation]} /></div>}
-              {detail.evidenceQuote && <p className="mt-1 text-[11px] text-zinc-500">“{detail.evidenceQuote}”</p>}
+              {detail.evidenceQuote && <EvidenceQuote className="mt-1">“{detail.evidenceQuote}”</EvidenceQuote>}
               {detail.structured && (
                 <dl className="mt-2 grid gap-1 border-l-2 border-zinc-200 pl-2 sm:grid-cols-2">
                   {detail.structured.rows.map((row, rowIndex) => (
@@ -187,7 +183,7 @@ export function ActivityTimeline({
         </div>
         <div className="flex rounded-sm border border-zinc-200 bg-white p-0.5" aria-label="Activity filters">
           {filters.map((item) => (
-            <button key={item.value} type="button" onClick={() => selectFilter(item.value)} className={`rounded-sm px-2.5 py-1 text-[11px] font-medium ${filter === item.value ? "bg-zinc-900 text-white" : "text-zinc-500 hover:text-zinc-900"}`}>{item.label}</button>
+            <button key={item.value} type="button" aria-pressed={filter === item.value} onClick={() => selectFilter(item.value)} className={filterChipClass(filter === item.value)}>{item.label}</button>
           ))}
         </div>
       </div>

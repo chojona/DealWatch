@@ -2,10 +2,7 @@ import { execFileSync } from "node:child_process";
 import { appendFileSync } from "node:fs";
 import { pathToFileURL } from "node:url";
 
-export const REQUIRED_JOB_NAMES = [
-  "Lint, typecheck, test, and build",
-  "Playwright",
-];
+export const REQUIRED_JOB_NAMES = ["Lint, typecheck, test, and build"];
 
 // A push to main can be skipped only when this exact commit was already
 // tested by pull_request (fast-forward of that SHA) or merge_group (the
@@ -95,11 +92,11 @@ function main() {
 
   if (verified) {
     console.log(
-      `Commit ${sha} already passed lint, typecheck, unit tests, production build, and Playwright. Skipping the duplicate main run.`,
+      `Commit ${sha} already passed lint, typecheck, unit tests, and the production build. Skipping the duplicate main run.`,
     );
   } else {
     console.log(
-      `Commit ${sha} has no successful pull_request or merge_group run of both CI jobs. Running the full suite.`,
+      `Commit ${sha} has no successful pull_request or merge_group run of the CI job. Running the full suite.`,
     );
   }
 

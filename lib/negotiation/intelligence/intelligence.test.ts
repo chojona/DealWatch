@@ -294,7 +294,7 @@ describe("Phase 8C negotiation intelligence workspace", { concurrency: 1 }, () =
     const parking = find(result.terms, "PARKING");
     assert.equal(parking.movement.kind, "CHANGED", "parking direction is intentionally unsafe");
 
-    assert.ok(filterNegotiationTerms(result.terms, "OPEN").every((row) => row.status !== "AGREED"));
+    assert.ok(filterNegotiationTerms(result.terms, "OPEN").every((row) => row.status === "PROPOSED" || row.status === "UNRESOLVED"));
     assert.deepEqual(filterNegotiationTerms(result.terms, "AGREED").map((row) => row.canonicalType), ["RENEWAL_OPTIONS"]);
     assert.ok(filterNegotiationTerms(result.terms, "CHANGED").some((row) => row.canonicalType === "BASE_RENT"));
     assert.equal(filterNegotiationTerms(result.terms, "CONFLICTS").length, 0);

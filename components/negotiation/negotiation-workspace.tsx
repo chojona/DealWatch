@@ -13,6 +13,7 @@ import type {
   NegotiationWorkspaceFilter,
 } from "@/lib/negotiation/intelligence/types";
 import { buildSourceChronology, chronologyRelationshipLabel, eventTypeLabel } from "@/lib/deals/reconciliation/present";
+import { termCountsAsOpen } from "@/lib/deals/brief/formalStatus";
 import type { ReconciliationLink } from "@/lib/deals/reconciliation/types";
 
 const FILTERS: Array<{ value: NegotiationWorkspaceFilter; label: string }> = [
@@ -307,7 +308,7 @@ function filterTerms(terms: NegotiationTermView[], filter: NegotiationWorkspaceF
   if (filter === "AGREED") return terms.filter((term) => term.status === "AGREED");
   if (filter === "CONFLICTS") return terms.filter((term) => term.conflict);
   if (filter === "CHANGED") return terms.filter((term) => term.changedInLatestRound);
-  return terms.filter((term) => term.status !== "AGREED");
+  return terms.filter((term) => termCountsAsOpen(term));
 }
 
 export function NegotiationWorkspaceView({

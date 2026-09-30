@@ -12,6 +12,7 @@ import { actionEvidenceReviewState } from "@/lib/messages/state";
 import {
   formalPositionFullyRejected,
   projectFormalBriefStatus,
+  termCountsAsOpen,
 } from "@/lib/deals/brief/formalStatus";
 import { currentFormalObservation, getNegotiationWorkspace } from "@/lib/negotiation/intelligence/service";
 import type { NegotiationPositionView, NegotiationRoundView } from "@/lib/negotiation/intelligence/types";
@@ -229,8 +230,11 @@ export async function getDealActionState(
   });
   const communications = messages.map(presentCommunication);
   const comparisons = buildDealEvidenceComparisons({ terms, communications });
+  const openCanonicalTypes = new Set(
+    negotiation.terms.filter((term) => termCountsAsOpen(term)).map((term) => term.canonicalType)
+  );
   const openTerms: DealPreparationTerm[] = terms
-    .filter((term) => term.status !== "AGREED")
+    .filter((term) => openCanonicalTypes.has(term.canonicalType))
     .map((term) => ({
       canonicalType: term.canonicalType,
       label: term.label,

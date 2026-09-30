@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { EvidenceQuote } from "@/components/ui/evidence-quote";
 import type { EvidenceSupport, EvidenceView } from "@/lib/promotion/types";
 
 function provenanceLabel(support: EvidenceSupport): string {
@@ -69,9 +70,7 @@ function EvidenceList({ evidence }: { evidence: EvidenceView }) {
             {support.provenanceStatus === "UNLOCATED" && (
               <p className="text-zinc-500">The quote was not found on a stored page.</p>
             )}
-            <blockquote className="mt-1 border-l-2 border-zinc-200 pl-2 text-zinc-600">
-              {support.quote}
-            </blockquote>
+            <EvidenceQuote className="mt-1">{support.quote}</EvidenceQuote>
           </li>
         ))}
         {evidence.supports.length === 0 && (

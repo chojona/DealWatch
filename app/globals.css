@@ -10,7 +10,7 @@
   --color-surface-subtle: #f2f4f2;
   --color-ink: #17201e;
   --color-ink-secondary: #68726f;
-  --color-ink-muted: #66716e;
+  --color-ink-muted: #8a938f;
   --color-line: #e3e7e5;
   --color-line-strong: #d3d9d6;
   --color-brand: #214e46;
@@ -31,9 +31,10 @@
   --color-sidebar-text: #e7efec;
   --color-sidebar-muted: #c5d4cf;
 
+  --radius-chip: 4px;
   --radius-control: 6px;
-  --radius-button: 8px;
-  --radius-surface: 12px;
+  --radius-button: 6px;
+  --radius-surface: 6px;
 }
 
 :root {
@@ -136,15 +137,36 @@ body {
   max-width: var(--page-form);
 }
 
-.page-title {
-  font-size: 30px;
-  line-height: 1.2;
+.type-meta {
+  font-size: 12px;
+  line-height: 1.4;
+  font-weight: 400;
+  color: var(--color-ink-muted);
+}
+
+.type-label {
+  font-size: 13px;
+  line-height: 1.4;
+  font-weight: 500;
+}
+
+.type-body {
+  font-size: 14px;
+  line-height: 1.5;
+  font-weight: 400;
+}
+
+.type-section,
+.section-title {
+  font-size: 14px;
+  line-height: 1.4;
   font-weight: 600;
-  letter-spacing: -0.02em;
+  letter-spacing: -0.01em;
   color: var(--color-ink);
 }
 
-.section-title {
+.type-page,
+.page-title {
   font-size: 20px;
   line-height: 1.3;
   font-weight: 600;
@@ -152,11 +174,19 @@ body {
   color: var(--color-ink);
 }
 
+.type-money {
+  font-size: 16px;
+  line-height: 1.25;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-ink);
+}
+
 .field {
   display: block;
   width: 100%;
   height: var(--control-height);
-  border-radius: var(--radius-button);
+  border-radius: var(--radius-control);
   border: 1px solid var(--color-line-strong);
   background: var(--color-surface);
   color: var(--color-ink);
@@ -166,7 +196,7 @@ body {
 }
 
 .field::placeholder {
-  color: var(--color-ink-muted);
+  color: var(--color-ink-secondary);
 }
 
 textarea.field {

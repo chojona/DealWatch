@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { EvidencePanel } from "@/components/knowledge/evidence-panel";
+import { StatusChip } from "@/components/ui/status-chip";
 import { ReconciliationBadge } from "@/components/deals/reconciliation-context";
 import type { DealIntelligence, DealParty } from "@/lib/deals/intelligence/types";
 import { intelligenceStatusLabel } from "@/lib/deals/intelligence/project";
@@ -24,21 +25,8 @@ function sideLabel(side: string | null): string {
   return side ?? "—";
 }
 
-const statusClass: Record<string, string> = {
-  AGREED: "border-emerald-200 bg-emerald-50 text-emerald-800",
-  PROPOSED: "border-blue-200 bg-blue-50 text-blue-800",
-  UNRESOLVED: "border-amber-200 bg-amber-50 text-amber-900",
-  REJECTED: "border-red-200 bg-red-50 text-red-800",
-  WITHDRAWN: "border-zinc-200 bg-zinc-100 text-zinc-600",
-  CONFLICT: "border-red-200 bg-red-50 text-red-800",
-};
-
 function StatusPill({ status }: { status: string }) {
-  return (
-    <span className={`inline-flex rounded-sm border px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${statusClass[status] ?? statusClass.UNRESOLVED}`}>
-      {status}
-    </span>
-  );
+  return <StatusChip status={status}>{status}</StatusChip>;
 }
 
 function PositionText({ position }: { position: NegotiationPositionView | null }) {

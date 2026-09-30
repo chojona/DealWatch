@@ -13,7 +13,9 @@ import { validateGraphObservations } from "./validateObservations";
 import { createTestDatabase, createTestDeal } from "@/lib/documents/testDb";
 import { buildTextPdf } from "@/lib/documents/minimalPdf";
 import { LocalDocumentStorage } from "@/lib/documents/storage";
-import { ingestNegotiationPdf } from "@/lib/documents/ingestNegotiationPdf";
+import { analyzeNegotiationDocument, ingestNegotiationPdf } from "@/lib/documents/ingestNegotiationPdf";
+import { runDocumentGraphExtraction } from "@/lib/documents/runGraphExtraction";
+import { canRetryDocument } from "@/lib/inbox/status";
 import { createWorkspace } from "@/lib/entities/service";
 
 let prisma: PrismaClient;
@@ -388,6 +390,100 @@ test("a graph failure leaves negotiation analysis complete", async () => {
   });
   assert.equal(round.terms[0]?.canonicalType, "BASE_RENT");
   assert.equal(round.terms[0]?.normalizedNumeric, 65);
+});
+
+test("retrying a completed negotiation reruns a failed graph extraction", async () => {
+  const storage = new LocalDocumentStorage(mkdtempSync(path.join(tmpdir(), "dealwatch-graph-retry-")));
+  const pdf = buildTextPdf([`${signatureQuote}\nGraph retry marker.`]);
+  let calls = 0;
+  const failing: GraphModelExtractor = async () => {
+    calls += 1;
+    throw new GraphExtractionError("graph model failed");
+  };
+  failing.model = "mock-graph-retry";
+  const first = await ingestNegotiationPdf({
+    dealId,
+    bytes: pdf,
+    filename: "retry.pdf",
+    mimeType: "application/pdf",
+    side: "LANDLORD",
+    documentDate: new Date("2026-05-03"),
+    documentType: "COUNTERPROPOSAL",
+    storage,
+    prisma,
+    extractTerms: async () => ({
+      terms: [
+        {
+          canonicalType: "BASE_RENT",
+          normalizedValue: "$65.00/RSF/year",
+          normalizedNumeric: 65,
+          normalizedUnit: "USD_PER_RSF_YEAR",
+          rawValue: "Base Rent shall be $65.00 per rentable square foot.",
+          status: "PROPOSED",
+          confidence: 0.9,
+          evidenceQuote: "Base Rent shall be $65.00 per rentable square foot.",
+          sourceLocation: "Rent",
+          structuredPayload: {
+            termType: "BASE_RENT",
+            rent: { kind: "simple", amountPerRSFYear: 65 },
+          },
+        },
+      ],
+      metadata: {
+        model: "mock-negotiation",
+        extractedAt: new Date().toISOString(),
+        latencyMs: 1,
+        extractionConfidence: 0.9,
+        validationFailures: 0,
+      },
+    }),
+    extractGraph: failing,
+  });
+  assert.equal(first.document.ingestionStatus, "COMPLETE");
+  assert.equal(first.document.graphExtractionStatus, "FAILED");
+  assert.equal(calls, 1);
+  assert.equal(
+    canRetryDocument({
+      ingestionStatus: first.document.ingestionStatus,
+      failureCode: first.document.failureCode,
+      graphExtractionStatus: first.document.graphExtractionStatus,
+    }),
+    true
+  );
+  assert.equal(
+    await prisma.negotiationRound.count({ where: { documentId: first.document.id } }),
+    1
+  );
+
+  const again = await analyzeNegotiationDocument({
+    documentId: first.document.id,
+    prisma,
+    extractTerms: async () => {
+      throw new Error("negotiation analysis must not run again");
+    },
+  });
+  assert.equal(again.idempotent, true);
+  assert.equal(
+    await prisma.negotiationRound.count({ where: { documentId: first.document.id } }),
+    1
+  );
+
+  const succeeding: GraphModelExtractor = async (input) => {
+    calls += 1;
+    return extractor(graphFixtures[0]!.extraction, "mock-graph-retry")(input);
+  };
+  succeeding.model = "mock-graph-retry";
+  const graph = await runDocumentGraphExtraction({
+    prisma,
+    documentId: first.document.id,
+    extractor: succeeding,
+  });
+  assert.equal(graph?.status, "SUCCEEDED");
+  assert.equal(calls, 2);
+  const stored = await prisma.document.findUniqueOrThrow({ where: { id: first.document.id } });
+  assert.equal(stored.graphExtractionStatus, "SUCCEEDED");
+  assert.equal(stored.graphFailureCode, null);
+  assert.equal(stored.ingestionStatus, "COMPLETE");
 });
 
 test("successful graph extraction does not create canonical rows during ingestion", async () => {

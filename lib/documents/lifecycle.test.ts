@@ -199,3 +199,13 @@ test("obsolete document resolution and unsafe public deletion routes stay remove
   const documentRoute = readFileSync(path.join(root, "app/api/documents/[id]/route.ts"), "utf8");
   assert.doesNotMatch(documentRoute, /export\s+async\s+function\s+DELETE\b/);
 });
+
+test("document retry still runs graph extraction after negotiation analysis returns", () => {
+  const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
+  const documentRoute = readFileSync(path.join(root, "app/api/documents/[id]/route.ts"), "utf8");
+  const post = documentRoute.slice(documentRoute.indexOf("export async function POST"));
+  const analyzeAt = post.indexOf("analyzeNegotiationDocument(");
+  const graphAt = post.indexOf("runDocumentGraphExtraction(");
+  assert.ok(analyzeAt >= 0);
+  assert.ok(graphAt > analyzeAt);
+});

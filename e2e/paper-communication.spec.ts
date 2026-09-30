@@ -44,7 +44,7 @@ test("the brief shows paper and a corrected communication without moving formal 
 
   await openDeal(page);
   const position = page.getByRole("heading", { name: "Current terms" }).locator("xpath=ancestor::section[1]");
-  await expect(position.getByText(/\$67/)).toBeVisible();
+  await expect(position.getByText(/\$67/).first()).toBeVisible();
   await expect(position.getByText(/\$72/)).toHaveCount(0);
 
   const db = e2eDb();

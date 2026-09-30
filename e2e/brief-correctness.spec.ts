@@ -94,7 +94,7 @@ test("a later formal source moves the current position and keeps the earlier pap
 
   await openDeal(page);
   const position = page.getByRole("heading", { name: "Current terms" }).locator("xpath=ancestor::section[1]");
-  await expect(position.getByText(/\$67/)).toBeVisible();
+  await expect(position.getByText(/\$67/).first()).toBeVisible();
   await page.getByRole("link", { name: "Negotiation", exact: true }).click();
   await expect(page.getByText("Base rent: $72.00 / RSF / yr → $67.00 / RSF / yr").first()).toBeVisible();
   await expect(page.getByText("Base rent: $72.00 / RSF / yr", { exact: true })).toBeVisible();

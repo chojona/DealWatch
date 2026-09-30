@@ -6,6 +6,7 @@ const tones = {
   warning: "bg-warning-subtle text-warning",
   danger: "bg-danger-subtle text-danger",
   info: "bg-info-subtle text-info",
+  brand: "bg-brand-subtle text-brand",
 } as const;
 
 export type StatusTone = keyof typeof tones;
@@ -20,7 +21,7 @@ export function Status({
   className?: string;
 }) {
   return (
-    <span className={cn("inline-flex items-center rounded-md px-1.5 py-0.5 text-xs font-medium", tones[tone], className)}>
+    <span className={cn("inline-flex items-center rounded px-1.5 py-0.5 text-[11px] font-medium leading-[15px]", tones[tone], className)}>
       {children}
     </span>
   );

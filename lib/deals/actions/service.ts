@@ -230,7 +230,7 @@ export async function getDealActionState(
   });
   const communications = messages.map(presentCommunication);
   const comparisons = buildDealEvidenceComparisons({ terms, communications });
-  const openCanonicalTypes = new Set(
+  const openCanonicalTypes = new Set<string>(
     negotiation.terms.filter((term) => termCountsAsOpen(term)).map((term) => term.canonicalType)
   );
   const openTerms: DealPreparationTerm[] = terms

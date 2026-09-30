@@ -1,14 +1,7 @@
-import { cn } from "@/lib/utils";
+import { StatusChip } from "@/components/ui/status-chip";
+import type { StatusTone } from "@/lib/ui/status-tones";
 
-const tones = {
-  neutral: "bg-surface-subtle text-ink-secondary",
-  success: "bg-success-subtle text-success",
-  warning: "bg-warning-subtle text-warning",
-  danger: "bg-danger-subtle text-danger",
-  info: "bg-info-subtle text-info",
-} as const;
-
-export type StatusTone = keyof typeof tones;
+export type { StatusTone };
 
 export function Status({
   tone = "neutral",
@@ -20,8 +13,8 @@ export function Status({
   className?: string;
 }) {
   return (
-    <span className={cn("inline-flex items-center rounded-md px-1.5 py-0.5 text-xs font-medium", tones[tone], className)}>
+    <StatusChip tone={tone} className={className}>
       {children}
-    </span>
+    </StatusChip>
   );
 }

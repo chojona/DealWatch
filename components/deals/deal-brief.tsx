@@ -5,11 +5,12 @@ import { CommercialValue } from "@/components/ui/commercial-value";
 import { ComparisonValue } from "@/components/ui/comparison-value";
 import { EmptyState } from "@/components/ui/empty-state";
 import { SectionHeader } from "@/components/ui/section-header";
+import { EvidenceQuote } from "@/components/ui/evidence-quote";
 import { SourceLink } from "@/components/ui/source-link";
-import { Status, type StatusTone } from "@/components/ui/status";
+import { StatusChip } from "@/components/ui/status-chip";
+import { Status } from "@/components/ui/status";
 import type { ActionEvidenceReviewItem } from "@/lib/deals/actions/evidenceReviewView";
 import type { DealAction, DealActionState, DealCourt } from "@/lib/deals/actions/types";
-import type { DealBriefFormalStatus } from "@/lib/deals/brief/formalStatus";
 import {
   BRIEF_SECTION_CAPS,
   displayedComparisons,
@@ -80,26 +81,6 @@ const COMMERCIAL_CHANGES = new Set<DealBriefChange["type"]>([
 ]);
 
 const MAJOR_TERMS = new Set(["BASE_RENT", "TI_ALLOWANCE", "FREE_RENT", "LEASE_TERM"]);
-
-function formalTone(status: DealBriefFormalStatus): StatusTone {
-  switch (status) {
-    case "AGREED":
-      return "success";
-    case "CONFLICT":
-      return "warning";
-    case "REJECTED":
-      return "danger";
-    case "OPEN":
-    case "WITHDRAWN":
-    case "NOT_MENTIONED":
-    case "UNKNOWN":
-      return "neutral";
-    default: {
-      const exhaustive: never = status;
-      return exhaustive;
-    }
-  }
-}
 
 function OverviewSection({
   id,
@@ -198,7 +179,7 @@ function ComparisonRow({ comparison }: { comparison: DealEvidenceComparison }) {
           <>
             <p>{[comparison.formal.source?.label, comparison.formal.pageLabel].filter(Boolean).join(" · ") || "Paper source"}</p>
             <p className="mt-1">{paperReview(comparison.formal.reviewState)}</p>
-            {comparison.formal.evidenceQuote ? <p className="mt-1">“{comparison.formal.evidenceQuote}”</p> : null}
+            {comparison.formal.evidenceQuote ? <EvidenceQuote className="mt-2">“{comparison.formal.evidenceQuote}”</EvidenceQuote> : null}
           </>
         ),
         source: <SourceLink href={comparison.formal.source?.href ?? null} label="View document" />,
@@ -210,7 +191,7 @@ function ComparisonRow({ comparison }: { comparison: DealEvidenceComparison }) {
             <p>{comparison.communication.sender}</p>
             <p className="mt-1">{comparison.communication.subject} · {shortDate(comparison.timestamp)}</p>
             <p className="mt-1">{emailReview(comparison.communication.reviewState, comparison.communication.corrected, comparison.communication.rawValue)}</p>
-            <p className="mt-1">“{comparison.communication.evidenceQuote}”</p>
+            <EvidenceQuote className="mt-2">“{comparison.communication.evidenceQuote}”</EvidenceQuote>
           </>
         ),
         source: <SourceLink href={comparison.communication.source.href} label="View email" />,
@@ -497,21 +478,13 @@ export function DealBriefView({
           <div className="grid grid-cols-1 gap-x-8 gap-y-8 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {displayedTerms.map((term) => {
               const presented = termPresentation(term);
-              const quietStatus = term.briefStatus === "WITHDRAWN" || term.briefStatus === "NOT_MENTIONED";
               return (
                 <CommercialValue
                   key={term.canonicalType}
                   label={term.label}
                   value={presented.value}
                   detail={presented.detail}
-                  status={(
-                    <Status
-                      tone={formalTone(term.briefStatus)}
-                      className={quietStatus ? "bg-transparent text-ink-muted ring-1 ring-inset ring-line" : undefined}
-                    >
-                      {term.statusLabel}
-                    </Status>
-                  )}
+                  status={<StatusChip status={term.briefStatus}>{term.statusLabel}</StatusChip>}
                   source={(
                     <SourceLink
                       href={term.provenance.evidenceHref ?? term.source?.href ?? null}

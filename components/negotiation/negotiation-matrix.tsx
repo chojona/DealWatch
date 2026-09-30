@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import { X } from "lucide-react";
+import { EvidenceQuote } from "@/components/ui/evidence-quote";
+import { StatusChip } from "@/components/ui/status-chip";
 
 interface TermView {
   id: string;
@@ -54,14 +56,6 @@ function gapDisplay(value: number, unit: string) {
   return formatted;
 }
 
-const statusClass: Record<string, string> = {
-  AGREED: "border-green-200 bg-green-50 text-green-700",
-  PROPOSED: "border-blue-200 bg-blue-50 text-blue-700",
-  UNRESOLVED: "border-amber-200 bg-amber-50 text-amber-700",
-  REJECTED: "border-red-200 bg-red-50 text-red-700",
-  WITHDRAWN: "border-zinc-200 bg-zinc-100 text-zinc-600",
-};
-
 export function NegotiationMatrix({
   rounds,
   rows,
@@ -105,9 +99,9 @@ export function NegotiationMatrix({
                 <th className="sticky left-0 z-10 border-r border-zinc-200 bg-white px-3 py-3 align-top">
                   <span className="block text-xs font-medium text-zinc-800">{row.label}</span>
                   {row.status !== "NOT_MENTIONED" && (
-                    <span className={`mt-1 inline-flex rounded-sm border px-1.5 py-0.5 text-[9px] font-semibold ${statusClass[row.status] ?? statusClass.UNRESOLVED}`}>
+                    <StatusChip className="mt-1" tone={row.contradictory ? "danger" : undefined} status={row.status}>
                       {row.contradictory ? "CONTRADICTORY" : row.status.replace("_", " ")}
-                    </span>
+                    </StatusChip>
                   )}
                 </th>
                 {row.cells.map((cell) => {
@@ -169,9 +163,7 @@ export function NegotiationMatrix({
             {selection.terms.map((term) => (
               <div key={term.id} className="rounded-sm border border-zinc-200 p-3">
                 <div className="flex flex-wrap items-center gap-2">
-                  <span className={`inline-flex rounded-sm border px-1.5 py-0.5 text-[9px] font-semibold ${statusClass[term.status] ?? statusClass.UNRESOLVED}`}>
-                    {term.status}
-                  </span>
+                  <StatusChip status={term.status}>{term.status}</StatusChip>
                   <span className="text-[10px] text-zinc-400">
                     {(term.confidence * 100).toFixed(0)}% confidence
                   </span>
@@ -203,7 +195,7 @@ export function NegotiationMatrix({
                       )}
                     </dd>
                   </div>
-                  <div><dt className="text-[10px] uppercase tracking-wider text-zinc-400">Exact evidence</dt><dd className="mt-0.5 border-l-2 border-zinc-200 pl-2 italic text-zinc-600">&ldquo;{term.evidenceQuote}&rdquo;</dd></div>
+                  <div><dt className="text-[10px] uppercase tracking-wider text-zinc-400">Exact evidence</dt><dd className="mt-0.5"><EvidenceQuote>&ldquo;{term.evidenceQuote}&rdquo;</EvidenceQuote></dd></div>
                 </dl>
               </div>
             ))}

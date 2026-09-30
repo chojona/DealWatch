@@ -13,6 +13,8 @@ import type {
   NegotiationWorkspaceFilter,
 } from "@/lib/negotiation/intelligence/types";
 import { buildSourceChronology, chronologyRelationshipLabel, eventTypeLabel } from "@/lib/deals/reconciliation/present";
+import { filterChipClass } from "@/components/ui/filter-chip";
+import { StatusChip } from "@/components/ui/status-chip";
 import type { ReconciliationLink } from "@/lib/deals/reconciliation/types";
 
 const FILTERS: Array<{ value: NegotiationWorkspaceFilter; label: string }> = [
@@ -22,14 +24,6 @@ const FILTERS: Array<{ value: NegotiationWorkspaceFilter; label: string }> = [
   { value: "CHANGED", label: "Changed" },
   { value: "CONFLICTS", label: "Conflicts" },
 ];
-
-const statusClass: Record<string, string> = {
-  AGREED: "border-emerald-200 bg-emerald-50 text-emerald-700",
-  PROPOSED: "border-blue-200 bg-blue-50 text-blue-700",
-  UNRESOLVED: "border-amber-200 bg-amber-50 text-amber-800",
-  REJECTED: "border-red-200 bg-red-50 text-red-700",
-  WITHDRAWN: "border-zinc-200 bg-zinc-100 text-zinc-600",
-};
 
 function date(value: string): string {
   return new Intl.DateTimeFormat("en-US", {
@@ -195,7 +189,7 @@ function TermDrawer({
           <div>
             <h3 className="text-lg font-semibold text-zinc-950">{term.label}</h3>
             <div className="mt-2 flex flex-wrap items-center gap-2">
-              <span className={`rounded-sm border px-2 py-0.5 text-[11px] font-medium ${statusClass[term.status] ?? statusClass.UNRESOLVED}`}>{term.status.replaceAll("_", " ").toLowerCase()}</span>
+              <StatusChip status={term.status}>{term.status.replaceAll("_", " ").toLowerCase()}</StatusChip>
             </div>
           </div>
           <button type="button" aria-label="Close term detail" onClick={onClose} className="rounded-sm p-1.5 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-900"><X className="h-4 w-4" /></button>
@@ -242,7 +236,7 @@ function TermDrawer({
                       <p className="text-xs font-semibold text-zinc-900">{side(observation.side)} · {observation.roundName}</p>
                       <p className="mt-0.5 text-[10px] text-zinc-400">{date(observation.roundDate)}</p>
                     </div>
-                    <span className={`rounded-sm border px-1.5 py-0.5 text-[9px] font-semibold ${statusClass[observation.status] ?? statusClass.UNRESOLVED}`}>{observation.status}</span>
+                    <StatusChip status={observation.status}>{observation.status}</StatusChip>
                   </div>
                   <div className="mt-2 text-xs"><div>{formattedValue(observation.value, true)}</div></div>
                   {observation.formalReview?.state === "CORRECTED" && (
@@ -360,7 +354,7 @@ export function NegotiationWorkspaceView({
                 {workspace.latestRound.changes.filter((change) => change.kind !== "UNCHANGED").slice(0, 6).map((change) => (
                   <div key={change.canonicalType} className="flex items-start justify-between gap-4 py-2 text-xs">
                     <span className="font-medium text-zinc-800">{change.label}</span>
-                    <span className="text-right text-zinc-600">{change.previousValue && change.previousValue !== change.currentValue ? `${change.previousValue} → ` : ""}{change.currentValue}<span className={`ml-2 text-[9px] font-semibold ${change.kind === "AGREED" ? "text-emerald-700" : "text-blue-700"}`}>{change.kind}</span></span>
+                    <span className="text-right text-zinc-600">{change.previousValue && change.previousValue !== change.currentValue ? `${change.previousValue} → ` : ""}{change.currentValue}<span className="ml-2"><StatusChip status={change.kind}>{change.kind}</StatusChip></span></span>
                   </div>
                 ))}
                 {workspace.latestRound.changes.every((change) => change.kind === "UNCHANGED") && <p className="py-5 text-xs text-zinc-500">No deterministic value or status changes were found in this round.</p>}
@@ -388,7 +382,7 @@ export function NegotiationWorkspaceView({
         <div className="mb-3 flex flex-wrap items-end justify-between gap-3">
           <div><h2 className="text-xs font-semibold uppercase tracking-wider text-zinc-500">Negotiation matrix</h2><p className="mt-0.5 text-[11px] text-zinc-400">Current positions are resolved on the server from stored observations. A blank agreed column means no agreement is stored.</p></div>
           <div className="flex rounded-sm border border-zinc-200 bg-white p-0.5" aria-label="Negotiation filters">
-            {FILTERS.map((item) => <button key={item.value} type="button" onClick={() => setFilter(item.value)} className={`rounded-sm px-2.5 py-1 text-[11px] font-medium ${filter === item.value ? "bg-zinc-900 text-white" : "text-zinc-500 hover:text-zinc-900"}`}>{item.label}</button>)}
+            {FILTERS.map((item) => <button key={item.value} type="button" aria-pressed={filter === item.value} onClick={() => setFilter(item.value)} className={filterChipClass(filter === item.value)}>{item.label}</button>)}
           </div>
         </div>
         <div className="overflow-x-auto rounded-sm border border-zinc-200 bg-white">
@@ -401,7 +395,7 @@ export function NegotiationWorkspaceView({
                   <td className="border-l border-zinc-100 px-3 py-3 text-xs"><Position position={term.tenantPosition} compact /></td>
                   <td className="border-l border-zinc-100 px-3 py-3 text-xs"><Position position={term.landlordPosition} compact /></td>
                   <td className="border-l border-zinc-100 px-3 py-3 text-xs"><Position position={term.agreedPosition} compact /></td>
-                  <td className="border-l border-zinc-100 px-3 py-3"><span className={`inline-flex rounded-sm border px-1.5 py-0.5 text-[9px] font-semibold ${term.conflict ? "border-red-300 bg-red-50 text-red-700" : statusClass[term.status] ?? statusClass.UNRESOLVED}`}>{term.conflict ? "CONFLICT" : term.status}</span>{term.numericGap && term.status !== "AGREED" && <p className="mt-2 text-[10px] text-zinc-500">Gap: <span className="font-medium text-zinc-800">{term.numericGap.display}</span></p>}</td>
+                  <td className="border-l border-zinc-100 px-3 py-3"><StatusChip status={term.conflict ? "CONFLICT" : term.status}>{term.conflict ? "CONFLICT" : term.status}</StatusChip>{term.numericGap && term.status !== "AGREED" && <p className="mt-2 text-[10px] text-zinc-500">Gap: <span className="font-medium text-zinc-800">{term.numericGap.display}</span></p>}</td>
                   <td className="border-l border-zinc-100 px-3 py-3 text-xs text-zinc-600">{term.movement.kind === "NONE" ? <span className="text-zinc-300">—</span> : term.movement.label}{term.latestSideToChange && <p className="mt-1 text-[10px] text-zinc-400">Latest side: {side(term.latestSideToChange)}</p>}</td>
                 </tr>
               ))}

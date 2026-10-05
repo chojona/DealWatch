@@ -42,9 +42,9 @@
     "clsx": "^2.1.1",
     "d3-force": "^3.0.0",
     "date-fns": "^4.4.0",
-    "lucide-react": "^1.48.0",
-    "next": "^16.3.6",
-    "openai": "^7.23.0",
+    "lucide-react": "^1.49.0",
+    "next": "^16.3.8",
+    "openai": "^7.27.0",
     "prisma": "^6.19.3",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
@@ -59,9 +59,9 @@
     "@eslint/eslintrc": "^3.3.7",
     "@playwright/test": "^1.63.0",
     "@types/d3-force": "^3.0.10",
-    "@typescript-eslint/eslint-plugin": "^8.70.1",
-    "@typescript-eslint/parser": "^8.70.1",
+    "@typescript-eslint/eslint-plugin": "^8.71.0",
+    "@typescript-eslint/parser": "^8.71.0",
     "eslint": "^9.39.5",
-    "eslint-config-next": "^16.3.6"
+    "eslint-config-next": "^16.3.8"
   }
 }
